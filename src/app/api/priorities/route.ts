@@ -1,28 +1,37 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { listPriorities, updatePriority } from "@/lib/db";
 
 export async function GET() {
-  const priorities = await prisma.priority.findMany({
-    orderBy: { sortOrder: "asc" },
-  });
-  return NextResponse.json(priorities);
+  try {
+    const priorities = await listPriorities();
+    return NextResponse.json(priorities);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load priorities" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function PATCH(request: Request) {
-  const body = await request.json();
+  try {
+    const body = await request.json();
 
-  if (!body.id) {
-    return NextResponse.json({ error: "Priority id is required" }, { status: 400 });
-  }
+    if (!body.id) {
+      return NextResponse.json({ error: "Priority id is required" }, { status: 400 });
+    }
 
-  const priority = await prisma.priority.update({
-    where: { id: body.id },
-    data: {
+    const priority = await updatePriority(body.id, {
       ...(body.color !== undefined ? { color: body.color } : {}),
       ...(body.label !== undefined ? { label: body.label } : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
-    },
-  });
+    });
 
-  return NextResponse.json(priority);
+    return NextResponse.json(priority);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to update priority" },
+      { status: 500 },
+    );
+  }
 }

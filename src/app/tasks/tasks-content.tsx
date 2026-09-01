@@ -1,0 +1,438 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Settings, Plus, Search, ChevronRight } from "lucide-react";
+import { AppNav } from "@/components/app-nav";
+import { ProjectSwitcher } from "@/components/project-switcher";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
+import { TaskListView } from "@/components/task-list-view";
+import { TaskKanbanView } from "@/components/task-kanban-view";
+import { TaskCalendarView } from "@/components/task-calendar-view";
+import { TaskFormDialog } from "@/components/task-form-dialog";
+import { ProjectFormDialog } from "@/components/project-form-dialog";
+import { SettingsDialog } from "@/components/settings-dialog";
+import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
+import { fetchJsonArray } from "@/lib/fetch-json";
+import type {
+  Priority,
+  Project,
+  Status,
+  Task,
+  TaskFilters,
+  TeamMember,
+  ViewMode,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const views: { id: ViewMode; label: string }[] = [
+  { id: "list", label: "รายการ" },
+  { id: "kanban", label: "Kanban" },
+  { id: "calendar", label: "ปฏิทิน" },
+];
+
+export function TasksPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const projectFromUrl = searchParams.get("project");
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [view, setView] = useState<ViewMode>("list");
+  const [filters, setFilters] = useState<TaskFilters>({
+    search: "",
+    priorityId: "",
+    assigneeId: "",
+    taskType: "",
+  });
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [focusCreateTrigger, setFocusCreateTrigger] = useState(0);
+  const [creatingInStatusId, setCreatingInStatusId] = useState<string | null>(
+    null,
+  );
+  const [loading, setLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadTasks = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      setTasks([]);
+      return;
+    }
+
+    setTasksLoading(true);
+
+    try {
+      const response = await fetch(`/api/tasks?projectId=${projectId}`);
+      if (!response.ok) {
+        setTasks([]);
+        return;
+      }
+      const data = await response.json();
+      setTasks(Array.isArray(data) ? data : []);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    try {
+      setError(null);
+      const [projectsData, statusesData, prioritiesData, membersData] =
+        await Promise.all([
+          fetchJsonArray<Project>("/api/projects"),
+          fetchJsonArray<Status>("/api/statuses"),
+          fetchJsonArray<Priority>("/api/priorities"),
+          fetchJsonArray<TeamMember>("/api/team-members"),
+        ]);
+
+      setProjects(projectsData);
+      setStatuses(statusesData);
+      setPriorities(prioritiesData);
+      setTeamMembers(membersData);
+      return projectsData;
+    } catch (err) {
+      setProjects([]);
+      setStatuses([]);
+      setPriorities([]);
+      setTeamMembers([]);
+      setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
+      return [] as Project[];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData().then((projectsData) => {
+      if (projectsData.length === 0) return;
+
+      const urlProjectExists = projectsData.some(
+        (project) => project.id === projectFromUrl,
+      );
+
+      if (urlProjectExists && projectFromUrl) {
+        setSelectedProjectId(projectFromUrl);
+      } else {
+        setSelectedProjectId(projectsData[0].id);
+      }
+    });
+  }, [loadData, projectFromUrl]);
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      loadTasks(selectedProjectId);
+      router.replace(`/tasks?project=${selectedProjectId}`, { scroll: false });
+    }
+  }, [selectedProjectId, loadTasks, router]);
+
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedProjectId),
+    [projects, selectedProjectId],
+  );
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => {
+      if (
+        filters.search &&
+        !task.name.toLowerCase().includes(filters.search.toLowerCase())
+      ) {
+        return false;
+      }
+      if (filters.priorityId && task.priorityId !== filters.priorityId) {
+        return false;
+      }
+      if (filters.assigneeId && task.assigneeId !== filters.assigneeId) {
+        return false;
+      }
+      if (filters.taskType && task.taskType !== filters.taskType) {
+        return false;
+      }
+      return true;
+    });
+  }, [tasks, filters]);
+
+  async function handleStatusChange(taskId: string, statusId: string) {
+    setTasks((current) =>
+      current.map((task) => {
+        if (task.id !== taskId) return task;
+        const status = statuses.find((item) => item.id === statusId);
+        if (!status) return task;
+        return { ...task, statusId, status };
+      }),
+    );
+
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statusId }),
+    });
+  }
+
+  function openEditTask(task: Task) {
+    setEditingTask(task);
+    setTaskDialogOpen(true);
+  }
+
+  function focusCreateTask(statusId?: string) {
+    if (view === "kanban") {
+      setCreatingInStatusId(statusId ?? statuses[0]?.id ?? null);
+      return;
+    }
+    if (view !== "list") {
+      setView("list");
+    }
+    setFocusCreateTrigger((current) => current + 1);
+  }
+
+  async function handleProjectCreated(projectId: string) {
+    await loadData();
+    setSelectedProjectId(projectId);
+  }
+
+  async function handleSaved() {
+    await loadTasks(selectedProjectId);
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <AppNav />
+
+      <div className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-3 lg:px-8">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <nav className="mb-1 flex items-center gap-1 text-xs text-slate-500">
+                <Link href="/projects" className="hover:text-[#1E3A5F]">
+                  โปรเจกต์
+                </Link>
+                <ChevronRight className="h-3 w-3" />
+                <span className="truncate font-medium text-slate-700">
+                  {selectedProject?.name ?? "Task"}
+                </span>
+              </nav>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <ProjectSwitcher
+                  projects={projects}
+                  selectedProjectId={selectedProjectId}
+                  onSelect={setSelectedProjectId}
+                  onCreateNew={() => setProjectDialogOpen(true)}
+                />
+                {selectedProject?.description ? (
+                  <p className="hidden text-sm text-slate-500 lg:block">
+                    {selectedProject.description}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+                {views.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setView(item.id)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:py-2 sm:text-sm",
+                      view === item.id
+                        ? "bg-white text-[#1E3A5F] shadow-sm"
+                        : "text-slate-500 hover:text-slate-700",
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Settings</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => focusCreateTask()}
+                disabled={!selectedProjectId}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Task
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-52 lg:flex-1 lg:max-w-xs">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Input
+                className="h-9 py-0 pl-8 text-sm leading-9"
+                placeholder="ค้นหา task..."
+                value={filters.search}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    search: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
+              value={filters.priorityId}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  priorityId: event.target.value,
+                }))
+              }
+            >
+              <option value="">Priority</option>
+              {priorities.map((priority) => (
+                <option key={priority.id} value={priority.id}>
+                  {priority.label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
+              value={filters.assigneeId}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  assigneeId: event.target.value,
+                }))
+              }
+            >
+              <option value="">Assignee</option>
+              {teamMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.nickname}
+                </option>
+              ))}
+            </Select>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
+              value={filters.taskType}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  taskType: event.target.value,
+                }))
+              }
+            >
+              <option value="">Type</option>
+              <option value="Back End">Back End</option>
+              <option value="Front End">Front End</option>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <main className="relative mx-auto max-w-7xl px-4 py-6 lg:px-8">
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+            {error}
+          </div>
+        ) : loading ? (
+          <LoadingCard />
+        ) : projects.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+            <h3 className="text-base font-semibold text-slate-800">
+              ยังไม่มีโปรเจกต์
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              สร้างโปรเจกต์แรกเพื่อเริ่มจัดการ task
+            </p>
+            <div className="mt-4 flex justify-center gap-2">
+              <Button type="button" onClick={() => setProjectDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                สร้างโปรเจกต์ใหม่
+              </Button>
+              <Button type="button" variant="outline" asChild>
+                <Link href="/projects">ดูโปรเจกต์ทั้งหมด</Link>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="relative min-h-[280px]">
+            {tasksLoading ? (
+              <LoadingOverlay label="กำลังโหลด task..." />
+            ) : null}
+            {view === "list" ? (
+              <TaskListView
+                tasks={filteredTasks}
+                statuses={statuses}
+                priorities={priorities}
+                teamMembers={teamMembers}
+                projectId={selectedProjectId}
+                onEditTask={openEditTask}
+                onSaved={handleSaved}
+                focusCreateTrigger={focusCreateTrigger}
+              />
+            ) : view === "kanban" ? (
+              <TaskKanbanView
+                tasks={filteredTasks}
+                statuses={statuses}
+                priorities={priorities}
+                teamMembers={teamMembers}
+                projectId={selectedProjectId}
+                onStatusChange={handleStatusChange}
+                onEditTask={openEditTask}
+                onSaved={handleSaved}
+                creatingInStatusId={creatingInStatusId}
+                onStartCreate={focusCreateTask}
+                onCancelCreate={() => setCreatingInStatusId(null)}
+              />
+            ) : (
+              <TaskCalendarView
+                tasks={filteredTasks}
+                onEditTask={openEditTask}
+              />
+            )}
+          </div>
+        )}
+      </main>
+
+      <ProjectFormDialog
+        open={projectDialogOpen}
+        onOpenChange={setProjectDialogOpen}
+        onSaved={handleProjectCreated}
+      />
+
+      <TaskFormDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        task={editingTask}
+        statuses={statuses}
+        priorities={priorities}
+        teamMembers={teamMembers}
+        projectId={selectedProjectId}
+        onSaved={handleSaved}
+      />
+
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        statuses={statuses}
+        teamMembers={teamMembers}
+        priorities={priorities}
+        onChanged={loadData}
+      />
+    </div>
+  );
+}

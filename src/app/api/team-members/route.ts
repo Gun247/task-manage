@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createTeamMember, listTeamMembers } from "@/lib/db";
 
 export async function GET() {
-  const members = await prisma.teamMember.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: "asc" },
-  });
-  return NextResponse.json(members);
+  try {
+    const members = await listTeamMembers();
+    return NextResponse.json(members);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load team members" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const maxOrder = await prisma.teamMember.aggregate({
-    _max: { sortOrder: true },
-  });
-
-  const member = await prisma.teamMember.create({
-    data: {
+  try {
+    const body = await request.json();
+    const member = await createTeamMember({
       nickname: body.nickname,
-      color: body.color ?? "#3B82F6",
-      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
-    },
-  });
-
-  return NextResponse.json(member, { status: 201 });
+      color: body.color,
+    });
+    return NextResponse.json(member, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to create team member" },
+      { status: 500 },
+    );
+  }
 }

@@ -2,6 +2,17 @@ export type TaskType = "Back End" | "Front End";
 
 export type ViewMode = "list" | "kanban" | "calendar";
 
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: { tasks: number };
+}
+
 export interface Priority {
   id: string;
   label: string;
@@ -33,9 +44,11 @@ export interface Task {
   startDate: string | null;
   endDate: string | null;
   sortOrder: number;
+  projectId: string;
   priorityId: string;
   statusId: string;
   assigneeId: string | null;
+  project: Project;
   priority: Priority;
   status: Status;
   assignee: TeamMember | null;

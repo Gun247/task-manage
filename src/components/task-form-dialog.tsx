@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { LoadingButtonContent } from "@/components/ui/loading";
 import type { Priority, Status, Task, TaskType, TeamMember } from "@/lib/types";
 
 interface TaskFormDialogProps {
@@ -19,6 +20,7 @@ interface TaskFormDialogProps {
   statuses: Status[];
   priorities: Priority[];
   teamMembers: TeamMember[];
+  projectId?: string;
   defaultStatusId?: string;
   onSaved: () => void;
 }
@@ -42,6 +44,7 @@ export function TaskFormDialog({
   statuses,
   priorities,
   teamMembers,
+  projectId,
   defaultStatusId,
   onSaved,
 }: TaskFormDialogProps) {
@@ -79,6 +82,7 @@ export function TaskFormDialog({
 
     const payload = {
       ...form,
+      projectId: task?.projectId ?? projectId,
       assigneeId: form.assigneeId || null,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
@@ -263,7 +267,9 @@ export function TaskFormDialog({
               ยกเลิก
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "กำลังบันทึก..." : "บันทึก"}
+              <LoadingButtonContent loading={saving} loadingText="กำลังบันทึก...">
+                บันทึก
+              </LoadingButtonContent>
             </Button>
           </div>
         </form>

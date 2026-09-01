@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createStatus, listStatuses } from "@/lib/db";
 
 export async function GET() {
-  const statuses = await prisma.status.findMany({
-    orderBy: { sortOrder: "asc" },
-  });
-  return NextResponse.json(statuses);
+  try {
+    const statuses = await listStatuses();
+    return NextResponse.json(statuses);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load statuses" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const maxOrder = await prisma.status.aggregate({ _max: { sortOrder: true } });
-
-  const status = await prisma.status.create({
-    data: {
+  try {
+    const body = await request.json();
+    const status = await createStatus({
       name: body.name,
-      color: body.color ?? "#6B7280",
-      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
-    },
-  });
-
-  return NextResponse.json(status, { status: 201 });
+      color: body.color,
+    });
+    return NextResponse.json(status, { status: 201 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to create status" },
+      { status: 500 },
+    );
+  }
 }

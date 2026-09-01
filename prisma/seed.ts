@@ -12,6 +12,21 @@ const adapter = new PrismaBetterSqlite3({ url: resolvedPath });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  const defaultProject = await prisma.project.upsert({
+    where: { name: "FWF Task Manager" },
+    update: {
+      description: "Foreigner Worker Fund",
+      color: "#1E3A5F",
+      sortOrder: 0,
+    },
+    create: {
+      name: "FWF Task Manager",
+      description: "Foreigner Worker Fund",
+      color: "#1E3A5F",
+      sortOrder: 0,
+    },
+  });
+
   const priorities = [
     { label: "P0", color: "#EF4444", sortOrder: 0 },
     { label: "P1", color: "#F97316", sortOrder: 1 },

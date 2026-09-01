@@ -1,31 +1,38 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { deleteStatus, updateStatus } from "@/lib/db";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const { id } = await context.params;
-  const body = await request.json();
+  try {
+    const { id } = await context.params;
+    const body = await request.json();
 
-  const status = await prisma.status.update({
-    where: { id },
-    data: {
+    const status = await updateStatus(id, {
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.color !== undefined ? { color: body.color } : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
-    },
-  });
+    });
 
-  return NextResponse.json(status);
+    return NextResponse.json(status);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to update status" },
+      { status: 500 },
+    );
+  }
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
-  const { id } = await context.params;
-  const body = await request.json().catch(() => ({}));
+  try {
+    const { id } = await context.params;
+    const body = await request.json().catch(() => ({}));
 
-  const taskCount = await prisma.task.count({ where: { statusId: id } });
-  if (taskCount > 0) {
-    if (!body.moveToStatusId) {
+    await deleteStatus(id, body.moveToStatusId);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    const taskCount = (error as Error & { taskCount?: number }).taskCount;
+    if (taskCount) {
       return NextResponse.json(
         {
           error: "Status has tasks. Provide moveToStatusId to reassign them.",
@@ -35,12 +42,9 @@ export async function DELETE(request: Request, context: RouteContext) {
       );
     }
 
-    await prisma.task.updateMany({
-      where: { statusId: id },
-      data: { statusId: body.moveToStatusId },
-    });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to delete status" },
+      { status: 500 },
+    );
   }
-
-  await prisma.status.delete({ where: { id } });
-  return NextResponse.json({ success: true });
 }

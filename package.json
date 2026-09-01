@@ -8,6 +8,9 @@
     "start": "next start -p 43123",
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
+    "sheets:init": "tsx scripts/sheets-init.ts",
+    "sheets:check": "tsx scripts/sheets-check.ts",
+    "excel:init": "tsx scripts/excel-init.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -29,13 +32,15 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
+    "googleapis": "^178.0.0",
     "lucide-react": "^1.37.0",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-big-calendar": "^1.20.0",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.6.0",
-    "tsx": "^4.23.13"
+    "tsx": "^4.23.13",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

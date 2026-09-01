@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
+import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Priority, Status, TeamMember } from "@/lib/types";
 import { Trash2 } from "lucide-react";
@@ -46,15 +47,21 @@ export function SettingsDialog({
   const [newStatusColor, setNewStatusColor] = useState(COLOR_OPTIONS[3]);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberColor, setNewMemberColor] = useState(COLOR_OPTIONS[2]);
+  const [addingStatus, setAddingStatus] = useState(false);
+  const [addingMember, setAddingMember] = useState(false);
+  const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
+  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
 
   async function addStatus() {
     if (!newStatusName.trim()) return;
+    setAddingStatus(true);
     await fetch("/api/statuses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newStatusName.trim(), color: newStatusColor }),
     });
     setNewStatusName("");
+    setAddingStatus(false);
     onChanged();
   }
 
@@ -64,17 +71,20 @@ export function SettingsDialog({
     const fallback = statuses.find((item) => item.id !== status.id);
     if (!fallback) return;
 
+    setDeletingStatusId(status.id);
     const response = await fetch(`/api/statuses/${status.id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ moveToStatusId: fallback.id }),
     });
+    setDeletingStatusId(null);
 
     if (response.ok) onChanged();
   }
 
   async function addMember() {
     if (!newMemberName.trim()) return;
+    setAddingMember(true);
     await fetch("/api/team-members", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -84,11 +94,14 @@ export function SettingsDialog({
       }),
     });
     setNewMemberName("");
+    setAddingMember(false);
     onChanged();
   }
 
   async function deleteMember(member: TeamMember) {
+    setDeletingMemberId(member.id);
     await fetch(`/api/team-members/${member.id}`, { method: "DELETE" });
+    setDeletingMemberId(null);
     onChanged();
   }
 
@@ -129,9 +142,15 @@ export function SettingsDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    disabled={deletingStatusId === status.id}
                     onClick={() => deleteStatus(status)}
                   >
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <LoadingButtonContent
+                      loading={deletingStatusId === status.id}
+                      loadingText=""
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </LoadingButtonContent>
                   </Button>
                 </div>
               ))}
@@ -161,8 +180,14 @@ export function SettingsDialog({
                     />
                   ))}
                 </div>
-                <Button type="button" onClick={addStatus}>
-                  เพิ่ม
+                <Button
+                  type="button"
+                  onClick={addStatus}
+                  disabled={addingStatus || !newStatusName.trim()}
+                >
+                  <LoadingButtonContent loading={addingStatus} loadingText="กำลังเพิ่ม...">
+                    เพิ่ม
+                  </LoadingButtonContent>
                 </Button>
               </div>
             </div>
@@ -193,9 +218,15 @@ export function SettingsDialog({
                     type="button"
                     variant="ghost"
                     size="sm"
+                    disabled={deletingMemberId === member.id}
                     onClick={() => deleteMember(member)}
                   >
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <LoadingButtonContent
+                      loading={deletingMemberId === member.id}
+                      loadingText=""
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </LoadingButtonContent>
                   </Button>
                 </div>
               ))}
@@ -225,8 +256,14 @@ export function SettingsDialog({
                     />
                   ))}
                 </div>
-                <Button type="button" onClick={addMember}>
-                  เพิ่ม
+                <Button
+                  type="button"
+                  onClick={addMember}
+                  disabled={addingMember || !newMemberName.trim()}
+                >
+                  <LoadingButtonContent loading={addingMember} loadingText="กำลังเพิ่ม...">
+                    เพิ่ม
+                  </LoadingButtonContent>
                 </Button>
               </div>
             </div>
