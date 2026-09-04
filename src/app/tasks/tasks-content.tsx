@@ -17,6 +17,11 @@ import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import {
+  sortTasks,
+  TASK_SORT_OPTIONS,
+  type TaskSortMode,
+} from "@/lib/task-sort";
 import type {
   Priority,
   Project,
@@ -54,6 +59,7 @@ export function TasksPageContent() {
     assigneeId: "",
     taskType: "",
   });
+  const [sortMode, setSortMode] = useState<TaskSortMode>("default");
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -152,7 +158,7 @@ export function TasksPageContent() {
   );
 
   const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
+    const filtered = tasks.filter((task) => {
       if (
         filters.search &&
         !task.name.toLowerCase().includes(filters.search.toLowerCase())
@@ -182,7 +188,9 @@ export function TasksPageContent() {
       }
       return true;
     });
-  }, [tasks, filters]);
+
+    return sortTasks(filtered, sortMode, statuses);
+  }, [tasks, filters, sortMode, statuses]);
 
   async function handleStatusChange(taskId: string, statusId: string) {
     const changedAt = new Date().toISOString();
@@ -266,7 +274,7 @@ export function TasksPageContent() {
   return (
     <AppShell>
       <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-3 lg:px-8">
+        <div className="w-full px-4 py-3 lg:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <nav className="mb-1 flex items-center gap-1 text-xs text-slate-500">
@@ -400,11 +408,24 @@ export function TasksPageContent() {
                 </option>
               ))}
             </Select>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-auto sm:min-w-[11rem]"
+              value={sortMode}
+              onChange={(event) =>
+                setSortMode(event.target.value as TaskSortMode)
+              }
+            >
+              {TASK_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
           </div>
         </div>
       </div>
 
-      <main className="relative mx-auto max-w-7xl px-4 py-6 lg:px-8">
+      <main className="relative w-full px-4 py-6 lg:px-6">
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
             {error}

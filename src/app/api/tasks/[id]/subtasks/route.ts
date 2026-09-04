@@ -15,6 +15,7 @@ export async function POST(request: Request, context: RouteContext) {
     const subtask = await createSubtask({
       taskId,
       name: body.name.trim(),
+      assigneeIds: Array.isArray(body.assigneeIds) ? body.assigneeIds : undefined,
     });
 
     return NextResponse.json(subtask, { status: 201 });

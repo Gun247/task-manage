@@ -11,6 +11,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AssigneeMultiSelect } from "@/components/assignee-multi-select";
+import {
+  PendingSubtasksEditor,
+  type PendingSubtask,
+} from "@/components/pending-subtasks-editor";
+import { SubtaskAssigneePicker } from "@/components/subtask-assignee-picker";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
@@ -70,9 +75,17 @@ export function TaskFormDialog({
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
   const [newSubtaskName, setNewSubtaskName] = useState("");
+  const [newSubtaskAssigneeIds, setNewSubtaskAssigneeIds] = useState<string[]>(
+    [],
+  );
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [updatingSubtaskId, setUpdatingSubtaskId] = useState<string | null>(null);
+
+  const parentAssignees = teamMembers.filter((member) =>
+    form.assigneeIds.includes(member.id),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -100,8 +113,15 @@ export function TaskFormDialog({
               ? [task.assigneeId]
               : [],
       });
-      setSubtasks(task.subtasks ?? []);
+      setSubtasks(
+        (task.subtasks ?? []).map((item) => ({
+          ...item,
+          assignees: item.assignees ?? [],
+        })),
+      );
+      setPendingSubtasks([]);
       setNewSubtaskName("");
+      setNewSubtaskAssigneeIds([]);
       return;
     }
 
@@ -113,18 +133,53 @@ export function TaskFormDialog({
       statusId: defaultStatusId ?? statuses[0]?.id ?? "",
     });
     setSubtasks([]);
+    setPendingSubtasks([]);
     setNewSubtaskName("");
+    setNewSubtaskAssigneeIds([]);
   }, [open, task, priorities, statuses, taskTypes, defaultStatusId]);
+
+  // Keep pending/draft subtask assignees within current parent assignees
+  useEffect(() => {
+    const allowed = new Set(form.assigneeIds);
+    setPendingSubtasks((current) =>
+      current.map((item) => ({
+        ...item,
+        assigneeIds: item.assigneeIds.filter((id) => allowed.has(id)),
+      })),
+    );
+    setNewSubtaskAssigneeIds((current) =>
+      current.filter((id) => allowed.has(id)),
+    );
+    setSubtasks((current) =>
+      current.map((item) => ({
+        ...item,
+        assignees: (item.assignees ?? []).filter((member) =>
+          allowed.has(member.id),
+        ),
+      })),
+    );
+  }, [form.assigneeIds]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
+
+    const draftName = newSubtaskName.trim();
+    const createSubtasks = !task
+      ? draftName
+        ? [
+            ...pendingSubtasks,
+            { name: draftName, assigneeIds: newSubtaskAssigneeIds },
+          ]
+        : pendingSubtasks
+      : undefined;
 
     const payload = {
       ...form,
       projectId: task?.projectId ?? projectId,
       assigneeIds: form.assigneeIds,
       taskTypes: form.taskTypes,
+      ...(createSubtasks ? { subtasks: createSubtasks } : {}),
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       uatDate: form.uatDate || null,
@@ -151,7 +206,10 @@ export function TaskFormDialog({
     const response = await fetch(`/api/tasks/${task.id}/subtasks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newSubtaskName.trim() }),
+      body: JSON.stringify({
+        name: newSubtaskName.trim(),
+        assigneeIds: newSubtaskAssigneeIds,
+      }),
     });
     setAddingSubtask(false);
 
@@ -159,7 +217,19 @@ export function TaskFormDialog({
     const created = (await response.json()) as Subtask;
     setSubtasks((current) => [...current, created]);
     setNewSubtaskName("");
+    setNewSubtaskAssigneeIds([]);
     onSaved();
+  }
+
+  function addPendingSubtask() {
+    const name = newSubtaskName.trim();
+    if (!name) return;
+    setPendingSubtasks((current) => [
+      ...current,
+      { name, assigneeIds: newSubtaskAssigneeIds },
+    ]);
+    setNewSubtaskName("");
+    setNewSubtaskAssigneeIds([]);
   }
 
   async function toggleSubtask(subtask: Subtask) {
@@ -168,6 +238,23 @@ export function TaskFormDialog({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isDone: !subtask.isDone }),
+    });
+    setUpdatingSubtaskId(null);
+
+    if (!response.ok) return;
+    const updated = (await response.json()) as Subtask;
+    setSubtasks((current) =>
+      current.map((item) => (item.id === updated.id ? updated : item)),
+    );
+    onSaved();
+  }
+
+  async function updateSubtaskAssignees(subtask: Subtask, assigneeIds: string[]) {
+    setUpdatingSubtaskId(subtask.id);
+    const response = await fetch(`/api/subtasks/${subtask.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assigneeIds }),
     });
     setUpdatingSubtaskId(null);
 
@@ -374,68 +461,106 @@ export function TaskFormDialog({
                   subtasks.map((subtask) => (
                     <div
                       key={subtask.id}
-                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5"
+                      className="space-y-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5"
                     >
-                      <input
-                        type="checkbox"
-                        checked={subtask.isDone}
-                        disabled={updatingSubtaskId === subtask.id}
-                        onChange={() => toggleSubtask(subtask)}
-                        className="h-4 w-4 rounded border-slate-300 text-[#1E3A5F] focus:ring-[#1E3A5F]/30"
-                      />
-                      <span
-                        className={cn(
-                          "min-w-0 flex-1 text-sm",
-                          subtask.isDone
-                            ? "text-slate-400 line-through"
-                            : "text-slate-800",
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={subtask.isDone}
+                          disabled={updatingSubtaskId === subtask.id}
+                          onChange={() => toggleSubtask(subtask)}
+                          className="h-4 w-4 rounded border-slate-300 text-[#1E3A5F] focus:ring-[#1E3A5F]/30"
+                        />
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 text-sm",
+                            subtask.isDone
+                              ? "text-slate-400 line-through"
+                              : "text-slate-800",
+                          )}
+                        >
+                          {subtask.name}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          disabled={updatingSubtaskId === subtask.id}
+                          onClick={() => removeSubtask(subtask.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                        </Button>
+                      </div>
+                      <SubtaskAssigneePicker
+                        members={parentAssignees}
+                        value={(subtask.assignees ?? []).map(
+                          (member) => member.id,
                         )}
-                      >
-                        {subtask.name}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0"
                         disabled={updatingSubtaskId === subtask.id}
-                        onClick={() => removeSubtask(subtask.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                      </Button>
+                        onChange={(assigneeIds) =>
+                          updateSubtaskAssignees(subtask, assigneeIds)
+                        }
+                      />
                     </div>
                   ))
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <Input
-                  placeholder="เพิ่ม subtask..."
-                  value={newSubtaskName}
-                  onChange={(event) => setNewSubtaskName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addSubtask();
-                    }
-                  }}
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="เพิ่ม subtask..."
+                    value={newSubtaskName}
+                    onChange={(event) => setNewSubtaskName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addSubtask();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={addingSubtask || !newSubtaskName.trim()}
+                    onClick={addSubtask}
+                  >
+                    <LoadingButtonContent loading={addingSubtask} loadingText="...">
+                      <Plus className="h-4 w-4" />
+                    </LoadingButtonContent>
+                  </Button>
+                </div>
+                <SubtaskAssigneePicker
+                  members={parentAssignees}
+                  value={newSubtaskAssigneeIds}
+                  onChange={setNewSubtaskAssigneeIds}
+                  disabled={addingSubtask}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={addingSubtask || !newSubtaskName.trim()}
-                  onClick={addSubtask}
-                >
-                  <LoadingButtonContent loading={addingSubtask} loadingText="...">
-                    <Plus className="h-4 w-4" />
-                  </LoadingButtonContent>
-                </Button>
               </div>
             </div>
           ) : (
-            <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-              บันทึก task ก่อน แล้วค่อยเพิ่ม subtask ได้ในหน้าแก้ไข
-            </p>
+            <PendingSubtasksEditor
+              items={pendingSubtasks}
+              draft={newSubtaskName}
+              onDraftChange={setNewSubtaskName}
+              draftAssigneeIds={newSubtaskAssigneeIds}
+              onDraftAssigneeIdsChange={setNewSubtaskAssigneeIds}
+              availableMembers={parentAssignees}
+              onAdd={addPendingSubtask}
+              onRemove={(index) =>
+                setPendingSubtasks((current) =>
+                  current.filter((_, itemIndex) => itemIndex !== index),
+                )
+              }
+              onChangeAssignees={(index, assigneeIds) =>
+                setPendingSubtasks((current) =>
+                  current.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, assigneeIds } : item,
+                  ),
+                )
+              }
+            />
           )}
 
           {task ? (

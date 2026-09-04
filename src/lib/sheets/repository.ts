@@ -96,6 +96,15 @@ export type SheetSubtask = {
   updatedAt: string;
 };
 
+export type SheetSubtaskAssignee = {
+  id: string;
+  subtaskId: string;
+  teamMemberId: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SheetTaskAssignee = {
   id: string;
   taskId: string;
@@ -202,6 +211,15 @@ const taskAssigneesTable = new SheetTable<SheetTaskAssignee>("TaskAssignees", [
   "updatedAt",
 ]);
 
+const subtaskAssigneesTable = new SheetTable<SheetSubtaskAssignee>("SubtaskAssignees", [
+  "id",
+  "subtaskId",
+  "teamMemberId",
+  "sortOrder",
+  "createdAt",
+  "updatedAt",
+]);
+
 function serializeStatusHistory(entry: SheetStatusHistory) {
   return {
     id: entry.id,
@@ -214,13 +232,23 @@ function serializeStatusHistory(entry: SheetStatusHistory) {
   };
 }
 
-function serializeSubtask(entry: SheetSubtask) {
+function serializeSubtask(
+  entry: SheetSubtask,
+  assignees: Array<{
+    id: string;
+    nickname: string;
+    color: string;
+    isActive: boolean;
+    sortOrder: number;
+  }> = [],
+) {
   return {
     id: entry.id,
     taskId: entry.taskId,
     name: entry.name,
     isDone: Boolean(entry.isDone),
     sortOrder: Number(entry.sortOrder) || 0,
+    assignees,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   };
@@ -233,11 +261,31 @@ function historyForTask(histories: SheetStatusHistory[], taskId: string) {
     .map(serializeStatusHistory);
 }
 
-function subtasksForTask(subtasks: SheetSubtask[], taskId: string) {
+function subtasksForTask(
+  subtasks: SheetSubtask[],
+  taskId: string,
+  subtaskAssignments: SheetSubtaskAssignee[] = [],
+  members: SheetTeamMember[] = [],
+) {
+  const memberById = new Map(members.map((member) => [member.id, member]));
   return subtasks
     .filter((entry) => entry.taskId === taskId)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
-    .map(serializeSubtask);
+    .map((entry) => {
+      const assignees = subtaskAssignments
+        .filter((assignment) => assignment.subtaskId === entry.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
+        .map((assignment) => memberById.get(assignment.teamMemberId))
+        .filter(Boolean)
+        .map((member) => ({
+          id: member!.id,
+          nickname: member!.nickname,
+          color: member!.color,
+          isActive: Boolean(member!.isActive),
+          sortOrder: Number(member!.sortOrder) || 0,
+        }));
+      return serializeSubtask(entry, assignees);
+    });
 }
 
 function normalizeAssigneeIds(input?: {
@@ -267,6 +315,63 @@ async function syncTaskAssignees(taskId: string, assigneeIds: string[]) {
   await tasksTable.update(taskId, {
     assigneeId: assigneeIds[0] ?? null,
   });
+
+  const allowed = new Set(assigneeIds);
+  const taskSubtasks = (await subtasksTable.getAll()).filter(
+    (entry) => entry.taskId === taskId,
+  );
+  const subtaskIds = new Set(taskSubtasks.map((entry) => entry.id));
+  await subtaskAssigneesTable.deleteWhere(
+    (entry) =>
+      subtaskIds.has(entry.subtaskId) && !allowed.has(entry.teamMemberId),
+  );
+}
+
+async function syncSubtaskAssignees(
+  subtaskId: string,
+  assigneeIds: string[],
+  allowedAssigneeIds: string[],
+) {
+  const allowed = new Set(allowedAssigneeIds);
+  const filtered = [...new Set(assigneeIds.filter((id) => allowed.has(id)))];
+  await subtaskAssigneesTable.deleteWhere((entry) => entry.subtaskId === subtaskId);
+  for (const [index, teamMemberId] of filtered.entries()) {
+    await subtaskAssigneesTable.create({
+      id: createId(),
+      subtaskId,
+      teamMemberId,
+      sortOrder: index,
+    });
+  }
+  return filtered;
+}
+
+async function getTaskAssigneeIds(taskId: string) {
+  const [task, assignments] = await Promise.all([
+    tasksTable.findById(taskId),
+    taskAssigneesTable.getAll(),
+  ]);
+  if (!task) return [];
+  const linked = assignments
+    .filter((entry) => entry.taskId === taskId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((entry) => entry.teamMemberId);
+  if (linked.length > 0) return linked;
+  return task.assigneeId ? [task.assigneeId] : [];
+}
+
+async function loadSubtaskWithAssignees(subtask: SheetSubtask) {
+  const [assignments, members] = await Promise.all([
+    subtaskAssigneesTable.getAll(),
+    teamMembersTable.getAll(),
+  ]);
+  const [hydrated] = subtasksForTask(
+    [subtask],
+    subtask.taskId,
+    assignments,
+    members,
+  );
+  return hydrated;
 }
 
 function assigneesForTask(
@@ -321,6 +426,7 @@ async function hydrateTask(
   subtasks: SheetSubtask[] = [],
   assignments: SheetTaskAssignee[] = [],
   members: SheetTeamMember[] = [],
+  subtaskAssignments: SheetSubtaskAssignee[] = [],
 ) {
   const [project, priority, status] = await Promise.all([
     projectsTable.findById(task.projectId),
@@ -351,7 +457,7 @@ async function hydrateTask(
     assignee,
     assignees,
     statusHistory: historyForTask(histories, task.id),
-    subtasks: subtasksForTask(subtasks, task.id),
+    subtasks: subtasksForTask(subtasks, task.id, subtaskAssignments, members),
   };
 }
 
@@ -568,13 +674,15 @@ export async function getDefaultTaskType() {
 }
 
 export async function listTasks(projectId?: string | null) {
-  const [tasks, histories, subtasks, assignments, members] = await Promise.all([
-    tasksTable.getAll(),
-    statusHistoriesTable.getAll(),
-    subtasksTable.getAll(),
-    taskAssigneesTable.getAll(),
-    teamMembersTable.getAll(),
-  ]);
+  const [tasks, histories, subtasks, assignments, members, subtaskAssignments] =
+    await Promise.all([
+      tasksTable.getAll(),
+      statusHistoriesTable.getAll(),
+      subtasksTable.getAll(),
+      taskAssigneesTable.getAll(),
+      teamMembersTable.getAll(),
+      subtaskAssigneesTable.getAll(),
+    ]);
 
   for (const task of tasks) {
     if (!task.assigneeId) continue;
@@ -596,7 +704,16 @@ export async function listTasks(projectId?: string | null) {
   const hydrated = await Promise.all(
     filtered
       .sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt.localeCompare(a.createdAt))
-      .map((task) => hydrateTask(task, histories, subtasks, assignments, members)),
+      .map((task) =>
+        hydrateTask(
+          task,
+          histories,
+          subtasks,
+          assignments,
+          members,
+          subtaskAssignments,
+        ),
+      ),
   );
 
   return hydrated;
@@ -617,6 +734,7 @@ export async function createTask(data: {
   statusId: string;
   assigneeId?: string | null;
   assigneeIds?: string[] | null;
+  subtasks?: Array<string | { name?: string; assigneeIds?: string[] }> | null;
   sortOrder?: number;
 }) {
   const project = await projectsTable.findById(data.projectId);
@@ -629,6 +747,17 @@ export async function createTask(data: {
     (data.assigneeId ? [data.assigneeId] : []);
   const taskTypes =
     normalizeTaskTypes(data) ?? parseTaskTypes(data.taskType ?? "Back End");
+  const pendingSubtasks = (data.subtasks ?? [])
+    .map((item) => {
+      if (typeof item === "string") {
+        return { name: item.trim(), assigneeIds: [] as string[] };
+      }
+      return {
+        name: (item?.name ?? "").trim(),
+        assigneeIds: [...new Set((item?.assigneeIds ?? []).filter(Boolean))],
+      };
+    })
+    .filter((item) => item.name);
 
   const task = await tasksTable.create({
     id: createId(),
@@ -649,19 +778,41 @@ export async function createTask(data: {
 
   await syncTaskAssignees(task.id, assigneeIds);
 
+  for (const [index, item] of pendingSubtasks.entries()) {
+    const subtask = await subtasksTable.create({
+      id: createId(),
+      taskId: task.id,
+      name: item.name,
+      isDone: false,
+      sortOrder: index,
+    });
+    if (item.assigneeIds.length > 0) {
+      await syncSubtaskAssignees(subtask.id, item.assigneeIds, assigneeIds);
+    }
+  }
+
   await recordStatusChange({
     taskId: task.id,
     toStatusId: data.statusId,
   });
 
-  const [histories, subtasks, assignments, members] = await Promise.all([
-    statusHistoriesTable.getAll(),
-    subtasksTable.getAll(),
-    taskAssigneesTable.getAll(),
-    teamMembersTable.getAll(),
-  ]);
+  const [histories, subtasks, assignments, members, subtaskAssignments] =
+    await Promise.all([
+      statusHistoriesTable.getAll(),
+      subtasksTable.getAll(),
+      taskAssigneesTable.getAll(),
+      teamMembersTable.getAll(),
+      subtaskAssigneesTable.getAll(),
+    ]);
   const latest = (await tasksTable.findById(task.id)) ?? task;
-  return hydrateTask(latest, histories, subtasks, assignments, members);
+  return hydrateTask(
+    latest,
+    histories,
+    subtasks,
+    assignments,
+    members,
+    subtaskAssignments,
+  );
 }
 
 export async function updateTask(
@@ -727,26 +878,44 @@ export async function updateTask(
     await syncTaskAssignees(id, data.assigneeId ? [data.assigneeId] : []);
   }
 
-  const [histories, subtasks, assignments, members] = await Promise.all([
-    statusHistoriesTable.getAll(),
-    subtasksTable.getAll(),
-    taskAssigneesTable.getAll(),
-    teamMembersTable.getAll(),
-  ]);
+  const [histories, subtasks, assignments, members, subtaskAssignments] =
+    await Promise.all([
+      statusHistoriesTable.getAll(),
+      subtasksTable.getAll(),
+      taskAssigneesTable.getAll(),
+      teamMembersTable.getAll(),
+      subtaskAssigneesTable.getAll(),
+    ]);
   const latest = (await tasksTable.findById(id)) ?? task;
-  return hydrateTask(latest, histories, subtasks, assignments, members);
+  return hydrateTask(
+    latest,
+    histories,
+    subtasks,
+    assignments,
+    members,
+    subtaskAssignments,
+  );
 }
 
 export async function deleteTask(id: string) {
+  const taskSubtasks = (await subtasksTable.getAll()).filter(
+    (entry) => entry.taskId === id,
+  );
+  const subtaskIds = new Set(taskSubtasks.map((entry) => entry.id));
   await Promise.all([
     statusHistoriesTable.deleteWhere((entry) => entry.taskId === id),
+    subtaskAssigneesTable.deleteWhere((entry) => subtaskIds.has(entry.subtaskId)),
     subtasksTable.deleteWhere((entry) => entry.taskId === id),
     taskAssigneesTable.deleteWhere((entry) => entry.taskId === id),
   ]);
   await tasksTable.delete(id);
 }
 
-export async function createSubtask(data: { taskId: string; name: string }) {
+export async function createSubtask(data: {
+  taskId: string;
+  name: string;
+  assigneeIds?: string[] | null;
+}) {
   const task = await tasksTable.findById(data.taskId);
   if (!task) throw new Error("Task not found");
 
@@ -758,22 +927,43 @@ export async function createSubtask(data: { taskId: string; name: string }) {
     isDone: false,
     sortOrder,
   });
-  return serializeSubtask(subtask);
+
+  if (data.assigneeIds !== undefined) {
+    const allowed = await getTaskAssigneeIds(data.taskId);
+    await syncSubtaskAssignees(subtask.id, data.assigneeIds ?? [], allowed);
+  }
+
+  return loadSubtaskWithAssignees(subtask);
 }
 
 export async function updateSubtask(
   id: string,
-  data: Partial<{ name: string; isDone: boolean; sortOrder: number }>,
+  data: Partial<{
+    name: string;
+    isDone: boolean;
+    sortOrder: number;
+    assigneeIds: string[] | null;
+  }>,
 ) {
+  const existing = await subtasksTable.findById(id);
+  if (!existing) throw new Error(`Subtask not found: ${id}`);
+
   const payload: Partial<SheetSubtask> = {};
   if (data.name !== undefined) payload.name = data.name.trim();
   if (data.isDone !== undefined) payload.isDone = data.isDone;
   if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder;
   const subtask = await subtasksTable.update(id, payload);
-  return serializeSubtask(subtask);
+
+  if (data.assigneeIds !== undefined) {
+    const allowed = await getTaskAssigneeIds(existing.taskId);
+    await syncSubtaskAssignees(id, data.assigneeIds ?? [], allowed);
+  }
+
+  return loadSubtaskWithAssignees(subtask);
 }
 
 export async function deleteSubtask(id: string) {
+  await subtaskAssigneesTable.deleteWhere((entry) => entry.subtaskId === id);
   await subtasksTable.delete(id);
 }
 
@@ -804,6 +994,7 @@ export async function ensureSheetStructure() {
     statusHistoriesTable.ensureHeader(),
     subtasksTable.ensureHeader(),
     taskAssigneesTable.ensureHeader(),
+    subtaskAssigneesTable.ensureHeader(),
   ]);
 }
 

@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AssigneeMultiSelect } from "@/components/assignee-multi-select";
+import {
+  PendingSubtasksEditor,
+  type PendingSubtask,
+} from "@/components/pending-subtasks-editor";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
@@ -59,8 +63,17 @@ export function TaskInlineCreate({
 }: TaskInlineCreateProps) {
   const [expanded, setExpanded] = useState(variant === "kanban");
   const [form, setForm] = useState(emptyForm);
+  const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
+  const [newSubtaskName, setNewSubtaskName] = useState("");
+  const [newSubtaskAssigneeIds, setNewSubtaskAssigneeIds] = useState<string[]>(
+    [],
+  );
   const [saving, setSaving] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const parentAssignees = teamMembers.filter((member) =>
+    form.assigneeIds.includes(member.id),
+  );
 
   useEffect(() => {
     const defaultType = taskTypes[0]?.name ?? "Back End";
@@ -71,6 +84,9 @@ export function TaskInlineCreate({
       priorityId: priorities[0]?.id ?? "",
       statusId: defaultStatusId ?? statuses[0]?.id ?? "",
     });
+    setPendingSubtasks([]);
+    setNewSubtaskName("");
+    setNewSubtaskAssigneeIds([]);
     setExpanded(variant === "kanban");
   }, [defaultStatusId, priorities, statuses, taskTypes, variant]);
 
@@ -81,6 +97,19 @@ export function TaskInlineCreate({
     }
   }, [focusTrigger]);
 
+  useEffect(() => {
+    const allowed = new Set(form.assigneeIds);
+    setPendingSubtasks((current) =>
+      current.map((item) => ({
+        ...item,
+        assigneeIds: item.assigneeIds.filter((id) => allowed.has(id)),
+      })),
+    );
+    setNewSubtaskAssigneeIds((current) =>
+      current.filter((id) => allowed.has(id)),
+    );
+  }, [form.assigneeIds]);
+
   function resetForm() {
     const defaultType = taskTypes[0]?.name ?? "Back End";
     setForm({
@@ -90,6 +119,9 @@ export function TaskInlineCreate({
       priorityId: priorities[0]?.id ?? "",
       statusId: defaultStatusId ?? statuses[0]?.id ?? "",
     });
+    setPendingSubtasks([]);
+    setNewSubtaskName("");
+    setNewSubtaskAssigneeIds([]);
     setExpanded(variant === "kanban");
   }
 
@@ -98,11 +130,30 @@ export function TaskInlineCreate({
     onCancel?.();
   }
 
+  function addPendingSubtask() {
+    const name = newSubtaskName.trim();
+    if (!name) return;
+    setPendingSubtasks((current) => [
+      ...current,
+      { name, assigneeIds: newSubtaskAssigneeIds },
+    ]);
+    setNewSubtaskName("");
+    setNewSubtaskAssigneeIds([]);
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!form.name.trim()) return;
 
     setSaving(true);
+
+    const draftName = newSubtaskName.trim();
+    const subtasks = draftName
+      ? [
+          ...pendingSubtasks,
+          { name: draftName, assigneeIds: newSubtaskAssigneeIds },
+        ]
+      : pendingSubtasks;
 
     const payload = {
       ...form,
@@ -110,6 +161,7 @@ export function TaskInlineCreate({
       name: form.name.trim(),
       assigneeIds: form.assigneeIds,
       taskTypes: form.taskTypes,
+      subtasks,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       uatDate: form.uatDate || null,
@@ -203,6 +255,31 @@ export function TaskInlineCreate({
                 ...current,
                 endDate: event.target.value,
               }))
+            }
+          />
+        </div>
+
+        <div className="mb-2">
+          <PendingSubtasksEditor
+            compact
+            items={pendingSubtasks}
+            draft={newSubtaskName}
+            onDraftChange={setNewSubtaskName}
+            draftAssigneeIds={newSubtaskAssigneeIds}
+            onDraftAssigneeIdsChange={setNewSubtaskAssigneeIds}
+            availableMembers={parentAssignees}
+            onAdd={addPendingSubtask}
+            onRemove={(index) =>
+              setPendingSubtasks((current) =>
+                current.filter((_, itemIndex) => itemIndex !== index),
+              )
+            }
+            onChangeAssignees={(index, assigneeIds) =>
+              setPendingSubtasks((current) =>
+                current.map((item, itemIndex) =>
+                  itemIndex === index ? { ...item, assigneeIds } : item,
+                ),
+              )
             }
           />
         </div>
@@ -443,6 +520,29 @@ export function TaskInlineCreate({
               className="min-h-[60px] bg-white text-sm"
             />
           </div>
+
+          <PendingSubtasksEditor
+            compact
+            items={pendingSubtasks}
+            draft={newSubtaskName}
+            onDraftChange={setNewSubtaskName}
+            draftAssigneeIds={newSubtaskAssigneeIds}
+            onDraftAssigneeIdsChange={setNewSubtaskAssigneeIds}
+            availableMembers={parentAssignees}
+            onAdd={addPendingSubtask}
+            onRemove={(index) =>
+              setPendingSubtasks((current) =>
+                current.filter((_, itemIndex) => itemIndex !== index),
+              )
+            }
+            onChangeAssignees={(index, assigneeIds) =>
+              setPendingSubtasks((current) =>
+                current.map((item, itemIndex) =>
+                  itemIndex === index ? { ...item, assigneeIds } : item,
+                ),
+              )
+            }
+          />
 
           <div className="flex justify-end">
             <button

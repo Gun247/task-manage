@@ -58,6 +58,7 @@ export interface Subtask {
   name: string;
   isDone: boolean;
   sortOrder: number;
+  assignees: TeamMember[];
   createdAt: string;
   updatedAt: string;
 }

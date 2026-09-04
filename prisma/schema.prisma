@@ -37,6 +37,7 @@ model TeamMember {
   sortOrder Int      @default(0)
   tasks     Task[]
   taskAssignments TaskAssignee[]
+  subtaskAssignments SubtaskAssignee[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -105,16 +106,31 @@ model StatusHistory {
 }
 
 model Subtask {
-  id        String   @id @default(cuid())
-  taskId    String
-  name      String
-  isDone    Boolean  @default(false)
-  sortOrder Int      @default(0)
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String            @id @default(cuid())
+  taskId      String
+  name        String
+  isDone      Boolean           @default(false)
+  sortOrder   Int               @default(0)
+  task        Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignments SubtaskAssignee[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([taskId, sortOrder])
+}
+
+model SubtaskAssignee {
+  id           String     @id @default(cuid())
+  subtaskId    String
+  teamMemberId String
+  sortOrder    Int        @default(0)
+  subtask      Subtask    @relation(fields: [subtaskId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([subtaskId, teamMemberId])
+  @@index([subtaskId, sortOrder])
 }
 
 model TaskAssignee {

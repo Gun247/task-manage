@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       statusId: body.statusId ?? defaultStatus.id,
       assigneeId: body.assigneeId ?? null,
       assigneeIds: Array.isArray(body.assigneeIds) ? body.assigneeIds : undefined,
+      subtasks: Array.isArray(body.subtasks) ? body.subtasks : undefined,
       sortOrder: body.sortOrder,
     });
 

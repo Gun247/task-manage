@@ -16,13 +16,72 @@ import {
 import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import type { Task, TaskTypeOption } from "@/lib/types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TaskCalendarViewProps {
   tasks: Task[];
   taskTypes?: TaskTypeOption[];
   onEditTask: (task: Task) => void;
+}
+
+function isDateOnDay(value: string | null | undefined, day: Date) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return isSameDay(date, day);
+}
+
+function taskTypeLabel(task: Task, taskTypes: TaskTypeOption[]) {
+  return (task.taskTypes?.length
+    ? task.taskTypes
+    : task.taskType
+      ? [task.taskType]
+      : []
+  )
+    .map((name) => {
+      const option = taskTypes.find((item) => item.name === name);
+      return option?.name ?? name;
+    })
+    .join(", ");
+}
+
+function formatTaskSummaryLine(task: Task, index: number) {
+  const lines = [`${index + 1}. ${task.name}`];
+  if (task.description?.trim()) {
+    lines.push(`   ${task.description.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+function buildTimelineSummaryText(
+  date: Date,
+  uatTasks: Task[],
+  prdTasks: Task[],
+) {
+  const dateLabel = format(date, "d MMMM yyyy", { locale: th });
+  const sections = [`สรุป Timeline — ${dateLabel}`, ""];
+
+  sections.push(`Timeline UAT (${uatTasks.length})`);
+  if (uatTasks.length === 0) {
+    sections.push("- ไม่มี task");
+  } else {
+    sections.push(
+      ...uatTasks.map((task, index) => formatTaskSummaryLine(task, index)),
+    );
+  }
+
+  sections.push("");
+  sections.push(`Timeline PRD (${prdTasks.length})`);
+  if (prdTasks.length === 0) {
+    sections.push("- ไม่มี task");
+  } else {
+    sections.push(
+      ...prdTasks.map((task, index) => formatTaskSummaryLine(task, index)),
+    );
+  }
+
+  return sections.join("\n");
 }
 
 export function TaskCalendarView({
@@ -32,6 +91,7 @@ export function TaskCalendarView({
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [copied, setCopied] = useState(false);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -50,6 +110,16 @@ export function TaskCalendarView({
     });
   }, [tasks, selectedDate]);
 
+  const uatTasksForDay = useMemo(
+    () => tasks.filter((task) => isDateOnDay(task.uatDate, selectedDate)),
+    [tasks, selectedDate],
+  );
+
+  const prdTasksForDay = useMemo(
+    () => tasks.filter((task) => isDateOnDay(task.prdDate, selectedDate)),
+    [tasks, selectedDate],
+  );
+
   function getTasksOnDay(day: Date) {
     return tasks.filter((task) => {
       if (!task.startDate && !task.endDate) return false;
@@ -59,8 +129,33 @@ export function TaskCalendarView({
     });
   }
 
+  async function copyTimelineSummary() {
+    const text = buildTimelineSummaryText(
+      selectedDate,
+      uatTasksForDay,
+      prdTasksForDay,
+    );
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "absolute";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary">
@@ -171,6 +266,103 @@ export function TaskCalendarView({
           Task วันนี้ ({tasksForDay.length})
         </p>
 
+        <div className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+              สรุป Timeline วันนี้
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-[11px]"
+              onClick={copyTimelineSummary}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                  คัดลอกแล้ว
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  คัดลอกสรุป
+                </>
+              )}
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 p-2.5">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-amber-800">
+                Timeline UAT
+              </span>
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                {uatTasksForDay.length}
+              </span>
+            </div>
+            {uatTasksForDay.length === 0 ? (
+              <p className="text-xs text-amber-700/70">ไม่มี task</p>
+            ) : (
+              <ul className="space-y-1">
+                {uatTasksForDay.map((task) => (
+                  <li key={task.id}>
+                    <button
+                      type="button"
+                      onClick={() => onEditTask(task)}
+                      className="w-full rounded-md px-1.5 py-1 text-left hover:bg-amber-100/80"
+                    >
+                      <span className="block truncate text-xs font-medium text-amber-950">
+                        {task.name}
+                      </span>
+                      {task.description ? (
+                        <span className="mt-0.5 block line-clamp-2 text-[10px] leading-relaxed text-amber-900/70">
+                          {task.description}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/80 p-2.5">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-emerald-800">
+                Timeline PRD
+              </span>
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+                {prdTasksForDay.length}
+              </span>
+            </div>
+            {prdTasksForDay.length === 0 ? (
+              <p className="text-xs text-emerald-700/70">ไม่มี task</p>
+            ) : (
+              <ul className="space-y-1">
+                {prdTasksForDay.map((task) => (
+                  <li key={task.id}>
+                    <button
+                      type="button"
+                      onClick={() => onEditTask(task)}
+                      className="w-full rounded-md px-1.5 py-1 text-left hover:bg-emerald-100/80"
+                    >
+                      <span className="block truncate text-xs font-medium text-emerald-950">
+                        {task.name}
+                      </span>
+                      {task.description ? (
+                        <span className="mt-0.5 block line-clamp-2 text-[10px] leading-relaxed text-emerald-900/70">
+                          {task.description}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
         <div className="mt-4 space-y-3">
           {tasksForDay.length === 0 && (
             <p className="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">
@@ -189,19 +381,29 @@ export function TaskCalendarView({
                 <Badge color={task.status.color}>{task.status.name}</Badge>
               </div>
               <p className="text-sm font-semibold text-slate-900">{task.name}</p>
+              {task.description ? (
+                <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-600">
+                  {task.description}
+                </p>
+              ) : null}
               <p className="mt-1 text-xs text-slate-500">
-                {(task.taskTypes?.length
-                  ? task.taskTypes
-                  : task.taskType
-                    ? [task.taskType]
-                    : []
-                )
-                  .map((name) => {
-                    const option = taskTypes.find((item) => item.name === name);
-                    return option?.name ?? name;
-                  })
-                  .join(", ")}
+                {taskTypeLabel(task, taskTypes)}
               </p>
+              {(isDateOnDay(task.uatDate, selectedDate) ||
+                isDateOnDay(task.prdDate, selectedDate)) && (
+                <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+                  {isDateOnDay(task.uatDate, selectedDate) ? (
+                    <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
+                      UAT วันนี้
+                    </span>
+                  ) : null}
+                  {isDateOnDay(task.prdDate, selectedDate) ? (
+                    <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800">
+                      PRD วันนี้
+                    </span>
+                  ) : null}
+                </div>
+              )}
             </button>
           ))}
         </div>

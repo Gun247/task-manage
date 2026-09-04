@@ -12,6 +12,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.isDone !== undefined ? { isDone: Boolean(body.isDone) } : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
+      ...(body.assigneeIds !== undefined
+        ? {
+            assigneeIds: Array.isArray(body.assigneeIds)
+              ? body.assigneeIds
+              : [],
+          }
+        : {}),
     });
 
     return NextResponse.json(subtask);

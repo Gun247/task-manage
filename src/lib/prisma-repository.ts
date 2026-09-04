@@ -34,6 +34,12 @@ function serializeTask(
       sortOrder: number;
       createdAt: Date;
       updatedAt: Date;
+      assignments?: Array<{
+        sortOrder: number;
+        teamMember: NonNullable<
+          Awaited<ReturnType<typeof prisma.teamMember.findUnique>>
+        >;
+      }>;
     }>;
     assignments?: Array<{
       sortOrder: number;
@@ -97,6 +103,10 @@ function serializeTask(
         name: entry.name,
         isDone: entry.isDone,
         sortOrder: entry.sortOrder,
+        assignees: (entry.assignments ?? [])
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((assignment) => assignment.teamMember),
         createdAt: entry.createdAt.toISOString(),
         updatedAt: entry.updatedAt.toISOString(),
       })),
@@ -109,12 +119,52 @@ const taskInclude = {
   status: true,
   assignee: true,
   statusHistory: { orderBy: { changedAt: "asc" as const } },
-  subtasks: { orderBy: { sortOrder: "asc" as const } },
+  subtasks: {
+    orderBy: { sortOrder: "asc" as const },
+    include: {
+      assignments: {
+        orderBy: { sortOrder: "asc" as const },
+        include: { teamMember: true },
+      },
+    },
+  },
   assignments: {
     orderBy: { sortOrder: "asc" as const },
     include: { teamMember: true },
   },
 };
+
+const subtaskInclude = {
+  assignments: {
+    orderBy: { sortOrder: "asc" as const },
+    include: { teamMember: true },
+  },
+};
+
+function serializeSubtask(
+  subtask: NonNullable<Awaited<ReturnType<typeof prisma.subtask.findFirst>>> & {
+    assignments?: Array<{
+      sortOrder: number;
+      teamMember: NonNullable<
+        Awaited<ReturnType<typeof prisma.teamMember.findUnique>>
+      >;
+    }>;
+  },
+) {
+  return {
+    id: subtask.id,
+    taskId: subtask.taskId,
+    name: subtask.name,
+    isDone: subtask.isDone,
+    sortOrder: subtask.sortOrder,
+    assignees: (subtask.assignments ?? [])
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((entry) => entry.teamMember),
+    createdAt: subtask.createdAt.toISOString(),
+    updatedAt: subtask.updatedAt.toISOString(),
+  };
+}
 
 function normalizeAssigneeIds(input?: {
   assigneeIds?: string[] | null;
@@ -145,6 +195,57 @@ async function syncTaskAssignees(taskId: string, assigneeIds: string[]) {
     where: { id: taskId },
     data: { assigneeId: assigneeIds[0] ?? null },
   });
+
+  // Drop subtask assignees who are no longer on the parent task
+  const allowed = new Set(assigneeIds);
+  const subtasks = await prisma.subtask.findMany({
+    where: { taskId },
+    select: { id: true },
+  });
+  if (subtasks.length > 0) {
+    await prisma.subtaskAssignee.deleteMany({
+      where: {
+        subtaskId: { in: subtasks.map((entry) => entry.id) },
+        ...(allowed.size > 0
+          ? { teamMemberId: { notIn: [...allowed] } }
+          : {}),
+      },
+    });
+  }
+}
+
+async function syncSubtaskAssignees(
+  subtaskId: string,
+  assigneeIds: string[],
+  allowedAssigneeIds: string[],
+) {
+  const allowed = new Set(allowedAssigneeIds);
+  const filtered = [...new Set(assigneeIds.filter((id) => allowed.has(id)))];
+  await prisma.subtaskAssignee.deleteMany({ where: { subtaskId } });
+  if (filtered.length > 0) {
+    await prisma.subtaskAssignee.createMany({
+      data: filtered.map((teamMemberId, index) => ({
+        subtaskId,
+        teamMemberId,
+        sortOrder: index,
+      })),
+    });
+  }
+  return filtered;
+}
+
+async function getTaskAssigneeIds(taskId: string) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      assignments: { orderBy: { sortOrder: "asc" } },
+    },
+  });
+  if (!task) return [];
+  if (task.assignments.length > 0) {
+    return task.assignments.map((entry) => entry.teamMemberId);
+  }
+  return task.assigneeId ? [task.assigneeId] : [];
 }
 
 export async function listProjects() {
@@ -402,6 +503,7 @@ export async function createTask(data: {
   statusId: string;
   assigneeId?: string | null;
   assigneeIds?: string[] | null;
+  subtasks?: Array<string | { name?: string; assigneeIds?: string[] }> | null;
   sortOrder?: number;
 }) {
   const project = await prisma.project.findUnique({ where: { id: data.projectId } });
@@ -413,6 +515,17 @@ export async function createTask(data: {
     (data.assigneeId ? [data.assigneeId] : []);
   const taskTypes =
     normalizeTaskTypes(data) ?? parseTaskTypes(data.taskType ?? "Back End");
+  const pendingSubtasks = (data.subtasks ?? [])
+    .map((item) => {
+      if (typeof item === "string") {
+        return { name: item.trim(), assigneeIds: [] as string[] };
+      }
+      return {
+        name: (item?.name ?? "").trim(),
+        assigneeIds: [...new Set((item?.assigneeIds ?? []).filter(Boolean))],
+      };
+    })
+    .filter((item) => item.name);
 
   const task = await prisma.task.create({
     data: {
@@ -436,10 +549,34 @@ export async function createTask(data: {
           changedAt: new Date(),
         },
       },
+      ...(pendingSubtasks.length > 0
+        ? {
+            subtasks: {
+              create: pendingSubtasks.map((item, sortOrder) => ({
+                name: item.name,
+                sortOrder,
+              })),
+            },
+          }
+        : {}),
     },
     include: taskInclude,
   });
   await syncTaskAssignees(task.id, assigneeIds);
+
+  if (pendingSubtasks.some((item) => item.assigneeIds.length > 0)) {
+    const createdSubtasks = await prisma.subtask.findMany({
+      where: { taskId: task.id },
+      orderBy: { sortOrder: "asc" },
+    });
+    for (const [index, subtask] of createdSubtasks.entries()) {
+      const wanted = pendingSubtasks[index]?.assigneeIds ?? [];
+      if (wanted.length > 0) {
+        await syncSubtaskAssignees(subtask.id, wanted, assigneeIds);
+      }
+    }
+  }
+
   const refreshed = await prisma.task.findUniqueOrThrow({
     where: { id: task.id },
     include: taskInclude,
@@ -536,7 +673,11 @@ export async function deleteTask(id: string) {
   await prisma.task.delete({ where: { id } });
 }
 
-export async function createSubtask(data: { taskId: string; name: string }) {
+export async function createSubtask(data: {
+  taskId: string;
+  name: string;
+  assigneeIds?: string[] | null;
+}) {
   const task = await prisma.task.findUnique({ where: { id: data.taskId } });
   if (!task) throw new Error("Task not found");
 
@@ -554,22 +695,31 @@ export async function createSubtask(data: { taskId: string; name: string }) {
     },
   });
 
-  return {
-    id: subtask.id,
-    taskId: subtask.taskId,
-    name: subtask.name,
-    isDone: subtask.isDone,
-    sortOrder: subtask.sortOrder,
-    createdAt: subtask.createdAt.toISOString(),
-    updatedAt: subtask.updatedAt.toISOString(),
-  };
+  if (data.assigneeIds !== undefined) {
+    const allowed = await getTaskAssigneeIds(data.taskId);
+    await syncSubtaskAssignees(subtask.id, data.assigneeIds ?? [], allowed);
+  }
+
+  const refreshed = await prisma.subtask.findUniqueOrThrow({
+    where: { id: subtask.id },
+    include: subtaskInclude,
+  });
+  return serializeSubtask(refreshed);
 }
 
 export async function updateSubtask(
   id: string,
-  data: Partial<{ name: string; isDone: boolean; sortOrder: number }>,
+  data: Partial<{
+    name: string;
+    isDone: boolean;
+    sortOrder: number;
+    assigneeIds: string[] | null;
+  }>,
 ) {
-  const subtask = await prisma.subtask.update({
+  const existing = await prisma.subtask.findUnique({ where: { id } });
+  if (!existing) throw new Error(`Subtask not found: ${id}`);
+
+  await prisma.subtask.update({
     where: { id },
     data: {
       ...(data.name !== undefined ? { name: data.name.trim() } : {}),
@@ -578,15 +728,16 @@ export async function updateSubtask(
     },
   });
 
-  return {
-    id: subtask.id,
-    taskId: subtask.taskId,
-    name: subtask.name,
-    isDone: subtask.isDone,
-    sortOrder: subtask.sortOrder,
-    createdAt: subtask.createdAt.toISOString(),
-    updatedAt: subtask.updatedAt.toISOString(),
-  };
+  if (data.assigneeIds !== undefined) {
+    const allowed = await getTaskAssigneeIds(existing.taskId);
+    await syncSubtaskAssignees(id, data.assigneeIds ?? [], allowed);
+  }
+
+  const refreshed = await prisma.subtask.findUniqueOrThrow({
+    where: { id },
+    include: subtaskInclude,
+  });
+  return serializeSubtask(refreshed);
 }
 
 export async function deleteSubtask(id: string) {
