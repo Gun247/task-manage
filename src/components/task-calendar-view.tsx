@@ -9,7 +9,6 @@ import {
   format,
   isSameDay,
   isSameMonth,
-  isWithinInterval,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
@@ -30,6 +29,16 @@ function isDateOnDay(value: string | null | undefined, day: Date) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return false;
   return isSameDay(date, day);
+}
+
+/** Show a task only on its start / end / UAT / PRD day — not the whole date range. */
+function taskAppearsOnDay(task: Task, day: Date) {
+  return (
+    isDateOnDay(task.startDate, day) ||
+    isDateOnDay(task.endDate, day) ||
+    isDateOnDay(task.uatDate, day) ||
+    isDateOnDay(task.prdDate, day)
+  );
 }
 
 function taskTypeLabel(task: Task, taskTypes: TaskTypeOption[]) {
@@ -101,14 +110,10 @@ export function TaskCalendarView({
     return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [currentMonth]);
 
-  const tasksForDay = useMemo(() => {
-    return tasks.filter((task) => {
-      if (!task.startDate && !task.endDate) return false;
-      const start = task.startDate ? new Date(task.startDate) : new Date(task.endDate!);
-      const end = task.endDate ? new Date(task.endDate) : start;
-      return isWithinInterval(selectedDate, { start, end });
-    });
-  }, [tasks, selectedDate]);
+  const tasksForDay = useMemo(
+    () => tasks.filter((task) => taskAppearsOnDay(task, selectedDate)),
+    [tasks, selectedDate],
+  );
 
   const uatTasksForDay = useMemo(
     () => tasks.filter((task) => isDateOnDay(task.uatDate, selectedDate)),
@@ -121,12 +126,7 @@ export function TaskCalendarView({
   );
 
   function getTasksOnDay(day: Date) {
-    return tasks.filter((task) => {
-      if (!task.startDate && !task.endDate) return false;
-      const start = task.startDate ? new Date(task.startDate) : new Date(task.endDate!);
-      const end = task.endDate ? new Date(task.endDate) : start;
-      return isWithinInterval(day, { start, end });
-    });
+    return tasks.filter((task) => taskAppearsOnDay(task, day));
   }
 
   async function copyTimelineSummary() {
@@ -201,6 +201,17 @@ export function TaskCalendarView({
           </div>
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+            Timeline UAT
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            Timeline PRD
+          </span>
+        </div>
+
         <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-500">
           {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((day) => (
             <div key={day}>{day}</div>
@@ -210,28 +221,64 @@ export function TaskCalendarView({
         <div className="grid grid-cols-7 gap-2">
           {calendarDays.map((day) => {
             const dayTasks = getTasksOnDay(day);
+            const uatCount = tasks.filter((task) =>
+              isDateOnDay(task.uatDate, day),
+            ).length;
+            const prdCount = tasks.filter((task) =>
+              isDateOnDay(task.prdDate, day),
+            ).length;
+            const hasUat = uatCount > 0;
+            const hasPrd = prdCount > 0;
             const isSelected = isSameDay(day, selectedDate);
             const isToday = isSameDay(day, new Date());
+
+            let dayTone = isSelected
+              ? "border-primary bg-primary/5"
+              : "border-slate-200 bg-white hover:bg-slate-50";
+
+            if (!isSelected && hasUat && hasPrd) {
+              dayTone =
+                "border-teal-300 bg-gradient-to-br from-amber-50 to-emerald-50 hover:from-amber-50/80 hover:to-emerald-50/80";
+            } else if (!isSelected && hasUat) {
+              dayTone = "border-amber-300 bg-amber-50 hover:bg-amber-50/80";
+            } else if (!isSelected && hasPrd) {
+              dayTone =
+                "border-emerald-300 bg-emerald-50 hover:bg-emerald-50/80";
+            }
 
             return (
               <button
                 key={day.toISOString()}
                 type="button"
                 onClick={() => setSelectedDate(day)}
-                className={`min-h-[92px] rounded-xl border p-2 text-left transition ${
-                  isSelected
-                    ? "border-primary bg-primary/5"
-                    : "border-slate-200 bg-white hover:bg-slate-50"
-                } ${!isSameMonth(day, currentMonth) ? "opacity-40" : ""}`}
+                className={`min-h-[92px] rounded-xl border p-2 text-left transition ${dayTone} ${
+                  !isSameMonth(day, currentMonth) ? "opacity-40" : ""
+                }`}
               >
-                <div
-                  className={`mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm ${
-                    isToday
-                      ? "bg-primary font-bold text-white"
-                      : "text-slate-700"
-                  }`}
-                >
-                  {format(day, "d")}
+                <div className="mb-2 flex items-start justify-between gap-1">
+                  <div
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm ${
+                      isToday
+                        ? "bg-primary font-bold text-white"
+                        : "text-slate-700"
+                    }`}
+                  >
+                    {format(day, "d")}
+                  </div>
+                  {(hasUat || hasPrd) && (
+                    <div className="flex flex-wrap justify-end gap-0.5">
+                      {hasUat ? (
+                        <span className="rounded bg-amber-500 px-1 py-0.5 text-[9px] font-semibold text-white">
+                          UAT{uatCount > 1 ? ` ${uatCount}` : ""}
+                        </span>
+                      ) : null}
+                      {hasPrd ? (
+                        <span className="rounded bg-emerald-500 px-1 py-0.5 text-[9px] font-semibold text-white">
+                          PRD{prdCount > 1 ? ` ${prdCount}` : ""}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   {dayTasks.slice(0, 2).map((task) => (

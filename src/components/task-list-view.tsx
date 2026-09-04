@@ -1,6 +1,6 @@
 "use client";
 
-import { AssigneesDisplay } from "@/components/assignee-multi-select";
+import { InlineAssigneePicker } from "@/components/assignee-multi-select";
 import { TaskTypesDisplay } from "@/components/task-type-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
@@ -16,6 +16,7 @@ interface TaskListViewProps {
   taskTypes: TaskTypeOption[];
   projectId: string;
   onEditTask: (task: Task) => void;
+  onTaskUpdated: (task: Task) => void;
   onSaved: () => void;
   focusCreateTrigger?: number;
 }
@@ -28,6 +29,7 @@ export function TaskListView({
   taskTypes,
   projectId,
   onEditTask,
+  onTaskUpdated,
   onSaved,
   focusCreateTrigger = 0,
 }: TaskListViewProps) {
@@ -61,7 +63,7 @@ export function TaskListView({
                 <th className="px-4 py-3 font-medium">Priority</th>
                 <th className="px-4 py-3 font-medium">Task Name</th>
                 <th className="px-4 py-3 font-medium">Subtasks</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">เปลี่ยนสถานะล่าสุด</th>
                 <th className="px-4 py-3 font-medium">Assignee</th>
                 <th className="px-4 py-3 font-medium">Start</th>
@@ -85,16 +87,23 @@ export function TaskListView({
                       {task.priority.label}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-900">
-                    {task.name}
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-slate-900">{task.name}</p>
+                    {task.description?.trim() ? (
+                      <p className="mt-0.5 line-clamp-2 max-w-xs text-xs leading-relaxed text-slate-500">
+                        {task.description.trim()}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {(task.subtasks ?? []).length > 0
                       ? `${(task.subtasks ?? []).filter((item) => item.isDone).length}/${(task.subtasks ?? []).length}`
                       : "-"}
                   </td>
-                  <td className="px-4 py-3">
-                    <Badge color={task.status.color}>{task.status.name}</Badge>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <Badge className="whitespace-nowrap" color={task.status.color}>
+                      {task.status.name}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
                     {formatDateTime(
@@ -103,7 +112,9 @@ export function TaskListView({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <AssigneesDisplay
+                    <InlineAssigneePicker
+                      taskId={task.id}
+                      members={teamMembers}
                       assignees={
                         task.assignees?.length
                           ? task.assignees
@@ -111,7 +122,7 @@ export function TaskListView({
                             ? [task.assignee]
                             : []
                       }
-                      empty="-"
+                      onUpdated={onTaskUpdated}
                     />
                   </td>
                   <td className="px-4 py-3 text-slate-600">

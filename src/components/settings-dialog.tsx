@@ -30,7 +30,7 @@ import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { GripVertical, Trash2 } from "lucide-react";
+import { Check, GripVertical, Pencil, Trash2, X } from "lucide-react";
 
 const COLOR_OPTIONS = [
   "#EF4444",
@@ -139,6 +139,10 @@ export function SettingsDialog({
   const [addingType, setAddingType] = useState(false);
   const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editMemberName, setEditMemberName] = useState("");
+  const [editMemberColor, setEditMemberColor] = useState(COLOR_OPTIONS[2]);
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
 
@@ -239,7 +243,41 @@ export function SettingsDialog({
     setDeletingMemberId(member.id);
     await fetch(`/api/team-members/${member.id}`, { method: "DELETE" });
     setDeletingMemberId(null);
+    if (editingMemberId === member.id) {
+      setEditingMemberId(null);
+    }
     onChanged();
+  }
+
+  function startEditMember(member: TeamMember) {
+    setEditingMemberId(member.id);
+    setEditMemberName(member.nickname);
+    setEditMemberColor(member.color);
+  }
+
+  function cancelEditMember() {
+    setEditingMemberId(null);
+    setEditMemberName("");
+    setEditMemberColor(COLOR_OPTIONS[2]);
+  }
+
+  async function saveMember(member: TeamMember) {
+    const nickname = editMemberName.trim();
+    const color = normalizeHex(editMemberColor);
+    if (!nickname || !color) return;
+
+    setSavingMemberId(member.id);
+    const response = await fetch(`/api/team-members/${member.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname, color }),
+    });
+    setSavingMemberId(null);
+
+    if (response.ok) {
+      cancelEditMember();
+      onChanged();
+    }
   }
 
   async function addType() {
@@ -356,36 +394,118 @@ export function SettingsDialog({
                   ยังไม่มีสมาชิกทีม — เพิ่มชื่อเล่นเพื่อ assign task ได้
                 </p>
               )}
-              {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-4 w-4 rounded-full"
-                      style={{ backgroundColor: member.color }}
-                    />
-                    <span className="text-sm font-medium text-slate-800">
-                      {member.nickname}
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={deletingMemberId === member.id}
-                    onClick={() => deleteMember(member)}
-                  >
-                    <LoadingButtonContent
-                      loading={deletingMemberId === member.id}
-                      loadingText=""
+              {teamMembers.map((member) => {
+                const isEditing = editingMemberId === member.id;
+
+                if (isEditing) {
+                  return (
+                    <div
+                      key={member.id}
+                      className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3"
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </LoadingButtonContent>
-                  </Button>
-                </div>
-              ))}
+                      <Input
+                        className="w-full"
+                        placeholder="ชื่อเล่น"
+                        value={editMemberName}
+                        onChange={(event) =>
+                          setEditMemberName(event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void saveMember(member);
+                          }
+                          if (event.key === "Escape") {
+                            cancelEditMember();
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <ColorTray
+                        label="สีสมาชิก"
+                        value={editMemberColor}
+                        onChange={(color) => setEditMemberColor(color)}
+                        options={COLOR_OPTIONS}
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={cancelEditMember}
+                          disabled={savingMemberId === member.id}
+                        >
+                          <X className="h-4 w-4" />
+                          ยกเลิก
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => saveMember(member)}
+                          disabled={
+                            savingMemberId === member.id ||
+                            !editMemberName.trim() ||
+                            !normalizeHex(editMemberColor)
+                          }
+                        >
+                          <LoadingButtonContent
+                            loading={savingMemberId === member.id}
+                            loadingText="กำลังบันทึก..."
+                          >
+                            <Check className="h-4 w-4" />
+                            บันทึก
+                          </LoadingButtonContent>
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-4 w-4 rounded-full"
+                        style={{ backgroundColor: member.color }}
+                      />
+                      <span className="text-sm font-medium text-slate-800">
+                        {member.nickname}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => startEditMember(member)}
+                        disabled={
+                          deletingMemberId === member.id ||
+                          savingMemberId !== null
+                        }
+                      >
+                        <Pencil className="h-4 w-4 text-slate-500" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={deletingMemberId === member.id}
+                        onClick={() => deleteMember(member)}
+                      >
+                        <LoadingButtonContent
+                          loading={deletingMemberId === member.id}
+                          loadingText=""
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </LoadingButtonContent>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="rounded-lg border border-dashed border-slate-300 p-4">

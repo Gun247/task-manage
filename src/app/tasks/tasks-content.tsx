@@ -271,6 +271,15 @@ export function TasksPageContent() {
     );
   }
 
+  function handleTaskUpdated(updated: Task) {
+    setTasks((current) =>
+      current.map((task) => (task.id === updated.id ? updated : task)),
+    );
+    setEditingTask((current) =>
+      current?.id === updated.id ? updated : current,
+    );
+  }
+
   return (
     <AppShell>
       <div className="border-b border-slate-200 bg-white">
@@ -465,6 +474,7 @@ export function TasksPageContent() {
                 taskTypes={taskTypes}
                 projectId={selectedProjectId}
                 onEditTask={openEditTask}
+                onTaskUpdated={handleTaskUpdated}
                 onSaved={handleSaved}
                 focusCreateTrigger={focusCreateTrigger}
               />
