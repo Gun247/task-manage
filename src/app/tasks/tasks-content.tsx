@@ -23,6 +23,7 @@ import type {
   Status,
   Task,
   TaskFilters,
+  TaskTypeOption,
   TeamMember,
   ViewMode,
 } from "@/lib/types";
@@ -45,6 +46,7 @@ export function TasksPageContent() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([]);
   const [view, setView] = useState<ViewMode>("list");
   const [filters, setFilters] = useState<TaskFilters>({
     search: "",
@@ -88,24 +90,32 @@ export function TasksPageContent() {
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [projectsData, statusesData, prioritiesData, membersData] =
-        await Promise.all([
+      const [
+        projectsData,
+        statusesData,
+        prioritiesData,
+        membersData,
+        taskTypesData,
+      ] = await Promise.all([
           fetchJsonArray<Project>("/api/projects"),
           fetchJsonArray<Status>("/api/statuses"),
           fetchJsonArray<Priority>("/api/priorities"),
           fetchJsonArray<TeamMember>("/api/team-members"),
+          fetchJsonArray<TaskTypeOption>("/api/task-types"),
         ]);
 
       setProjects(projectsData);
       setStatuses(statusesData);
       setPriorities(prioritiesData);
       setTeamMembers(membersData);
+      setTaskTypes(taskTypesData);
       return projectsData;
     } catch (err) {
       setProjects([]);
       setStatuses([]);
       setPriorities([]);
       setTeamMembers([]);
+      setTaskTypes([]);
       setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
       return [] as Project[];
     } finally {
@@ -152,10 +162,22 @@ export function TasksPageContent() {
       if (filters.priorityId && task.priorityId !== filters.priorityId) {
         return false;
       }
-      if (filters.assigneeId && task.assigneeId !== filters.assigneeId) {
+      if (
+        filters.assigneeId &&
+        !(
+          task.assignees?.some((member) => member.id === filters.assigneeId) ||
+          task.assigneeId === filters.assigneeId
+        )
+      ) {
         return false;
       }
-      if (filters.taskType && task.taskType !== filters.taskType) {
+      if (
+        filters.taskType &&
+        !(
+          task.taskTypes?.includes(filters.taskType) ||
+          task.taskType === filters.taskType
+        )
+      ) {
         return false;
       }
       return true;
@@ -230,7 +252,15 @@ export function TasksPageContent() {
   }
 
   async function handleSaved() {
-    await loadTasks(selectedProjectId);
+    if (!selectedProjectId) return;
+    const response = await fetch(`/api/tasks?projectId=${selectedProjectId}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const nextTasks = Array.isArray(data) ? (data as Task[]) : [];
+    setTasks(nextTasks);
+    setEditingTask((current) =>
+      current ? (nextTasks.find((task) => task.id === current.id) ?? current) : current,
+    );
   }
 
   return (
@@ -364,8 +394,11 @@ export function TasksPageContent() {
               }
             >
               <option value="">Type</option>
-              <option value="Back End">Back End</option>
-              <option value="Front End">Front End</option>
+              {taskTypes.map((type) => (
+                <option key={type.id} value={type.name}>
+                  {type.name}
+                </option>
+              ))}
             </Select>
           </div>
         </div>
@@ -408,6 +441,7 @@ export function TasksPageContent() {
                 statuses={statuses}
                 priorities={priorities}
                 teamMembers={teamMembers}
+                taskTypes={taskTypes}
                 projectId={selectedProjectId}
                 onEditTask={openEditTask}
                 onSaved={handleSaved}
@@ -419,6 +453,7 @@ export function TasksPageContent() {
                 statuses={statuses}
                 priorities={priorities}
                 teamMembers={teamMembers}
+                taskTypes={taskTypes}
                 projectId={selectedProjectId}
                 onStatusChange={handleStatusChange}
                 onEditTask={openEditTask}
@@ -430,6 +465,7 @@ export function TasksPageContent() {
             ) : (
               <TaskCalendarView
                 tasks={filteredTasks}
+                taskTypes={taskTypes}
                 onEditTask={openEditTask}
               />
             )}
@@ -450,6 +486,7 @@ export function TasksPageContent() {
         statuses={statuses}
         priorities={priorities}
         teamMembers={teamMembers}
+        taskTypes={taskTypes}
         projectId={selectedProjectId}
         onSaved={handleSaved}
       />
@@ -460,7 +497,11 @@ export function TasksPageContent() {
         statuses={statuses}
         teamMembers={teamMembers}
         priorities={priorities}
-        onChanged={loadData}
+        taskTypes={taskTypes}
+        onChanged={async () => {
+          await loadData();
+          await handleSaved();
+        }}
       />
     </AppShell>
   );

@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AssigneeMultiSelect } from "@/components/assignee-multi-select";
+import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
-import type { Priority, Status, TaskType, TeamMember } from "@/lib/types";
+import type {
+  Priority,
+  Status,
+  TaskType,
+  TaskTypeOption,
+  TeamMember,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 
@@ -13,6 +21,7 @@ interface TaskInlineCreateProps {
   statuses: Status[];
   priorities: Priority[];
   teamMembers: TeamMember[];
+  taskTypes: TaskTypeOption[];
   projectId: string;
   defaultStatusId?: string;
   onSaved: () => void;
@@ -26,19 +35,21 @@ const emptyForm = {
   description: "",
   remarks: "",
   taskType: "Back End" as TaskType,
+  taskTypes: ["Back End"] as TaskType[],
   startDate: "",
   endDate: "",
   uatDate: "",
   prdDate: "",
   priorityId: "",
   statusId: "",
-  assigneeId: "",
+  assigneeIds: [] as string[],
 };
 
 export function TaskInlineCreate({
   statuses,
   priorities,
   teamMembers,
+  taskTypes,
   projectId,
   defaultStatusId,
   onSaved,
@@ -52,13 +63,16 @@ export function TaskInlineCreate({
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const defaultType = taskTypes[0]?.name ?? "Back End";
     setForm({
       ...emptyForm,
+      taskType: defaultType,
+      taskTypes: [defaultType],
       priorityId: priorities[0]?.id ?? "",
       statusId: defaultStatusId ?? statuses[0]?.id ?? "",
     });
     setExpanded(variant === "kanban");
-  }, [defaultStatusId, priorities, statuses, variant]);
+  }, [defaultStatusId, priorities, statuses, taskTypes, variant]);
 
   useEffect(() => {
     if (focusTrigger > 0) {
@@ -68,8 +82,11 @@ export function TaskInlineCreate({
   }, [focusTrigger]);
 
   function resetForm() {
+    const defaultType = taskTypes[0]?.name ?? "Back End";
     setForm({
       ...emptyForm,
+      taskType: defaultType,
+      taskTypes: [defaultType],
       priorityId: priorities[0]?.id ?? "",
       statusId: defaultStatusId ?? statuses[0]?.id ?? "",
     });
@@ -91,7 +108,8 @@ export function TaskInlineCreate({
       ...form,
       projectId,
       name: form.name.trim(),
-      assigneeId: form.assigneeId || null,
+      assigneeIds: form.assigneeIds,
+      taskTypes: form.taskTypes,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       uatDate: form.uatDate || null,
@@ -133,7 +151,7 @@ export function TaskInlineCreate({
           className={cn(fieldInputClass, "mb-2 bg-white")}
         />
 
-        <div className="mb-2 grid grid-cols-2 gap-2">
+        <div className="mb-2">
           <Select
             value={form.priorityId}
             onChange={(event) =>
@@ -142,7 +160,7 @@ export function TaskInlineCreate({
                 priorityId: event.target.value,
               }))
             }
-            className={cn(fieldSelectClass, "bg-white")}
+            className={cn(fieldSelectClass, "mb-2 bg-white")}
           >
             {priorities.map((priority) => (
               <option key={priority.id} value={priority.id}>
@@ -150,39 +168,32 @@ export function TaskInlineCreate({
               </option>
             ))}
           </Select>
-          <Select
-            value={form.assigneeId}
-            onChange={(event) =>
+          <TaskTypeMultiSelect
+            options={taskTypes}
+            value={form.taskTypes}
+            onChange={(selected) =>
               setForm((current) => ({
                 ...current,
-                assigneeId: event.target.value,
+                taskTypes: selected,
+                taskType: selected[0] ?? taskTypes[0]?.name ?? "Back End",
               }))
             }
-            className={cn(fieldSelectClass, "bg-white")}
-          >
-            <option value="">ยังไม่ระบุ</option>
-            {teamMembers.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.nickname}
-              </option>
-            ))}
-          </Select>
+            className="bg-white"
+          />
         </div>
 
-        <div className="mb-2 grid grid-cols-2 gap-2">
-          <Select
-            value={form.taskType}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                taskType: event.target.value as TaskType,
-              }))
+        <div className="mb-2">
+          <AssigneeMultiSelect
+            members={teamMembers.filter((member) => member.isActive)}
+            value={form.assigneeIds}
+            onChange={(assigneeIds) =>
+              setForm((current) => ({ ...current, assigneeIds }))
             }
-            className={cn(fieldSelectClass, "bg-white")}
-          >
-            <option value="Back End">Back End</option>
-            <option value="Front End">Front End</option>
-          </Select>
+            className="bg-white"
+          />
+        </div>
+
+        <div className="mb-2">
           <DateInput
             compact
             label="สิ้นสุด"
@@ -331,37 +342,29 @@ export function TaskInlineCreate({
                 </option>
               ))}
             </Select>
-            <Select
-              value={form.assigneeId}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  assigneeId: event.target.value,
-                }))
-              }
-              className={cn(fieldSelectClass, "bg-white")}
-            >
-              <option value="">ยังไม่ระบุ</option>
-              {teamMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.nickname}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={form.taskType}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  taskType: event.target.value as TaskType,
-                }))
-              }
-              className={cn(fieldSelectClass, "bg-white")}
-            >
-              <option value="Back End">Back End</option>
-              <option value="Front End">Front End</option>
-            </Select>
           </div>
+
+          <TaskTypeMultiSelect
+            options={taskTypes}
+            value={form.taskTypes}
+            onChange={(selected) =>
+              setForm((current) => ({
+                ...current,
+                taskTypes: selected,
+                taskType: selected[0] ?? taskTypes[0]?.name ?? "Back End",
+              }))
+            }
+            className="bg-white"
+          />
+
+          <AssigneeMultiSelect
+            members={teamMembers.filter((member) => member.isActive)}
+            value={form.assigneeIds}
+            onChange={(assigneeIds) =>
+              setForm((current) => ({ ...current, assigneeIds }))
+            }
+            className="bg-white"
+          />
 
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:max-w-4xl">
             <DateInput

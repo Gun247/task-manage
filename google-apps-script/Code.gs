@@ -13,6 +13,7 @@ const SHEETS = {
   Priorities: ["id", "label", "color", "sortOrder", "createdAt", "updatedAt"],
   Statuses: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
   TeamMembers: ["id", "nickname", "color", "isActive", "sortOrder", "createdAt", "updatedAt"],
+  TaskTypes: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
   Tasks: [
     "id", "name", "description", "remarks", "taskType",
     "startDate", "endDate", "uatDate", "prdDate", "sortOrder", "projectId",
@@ -21,6 +22,12 @@ const SHEETS = {
   StatusHistories: [
     "id", "taskId", "fromStatusId", "fromStatusName",
     "toStatusId", "toStatusName", "changedAt", "createdAt", "updatedAt",
+  ],
+  Subtasks: [
+    "id", "taskId", "name", "isDone", "sortOrder", "createdAt", "updatedAt",
+  ],
+  TaskAssignees: [
+    "id", "taskId", "teamMemberId", "sortOrder", "createdAt", "updatedAt",
   ],
 };
 
@@ -124,6 +131,23 @@ function seedDefaults() {
       var match = existingStatuses.find(function(item) { return item.name === s.name; });
       if (match) {
         updateRow("Statuses", match.id, { color: s.color });
+      }
+    });
+  }
+  var typeDefaults = [
+    { name: "Back End", color: "#3B82F6", sortOrder: 0 },
+    { name: "Front End", color: "#EC4899", sortOrder: 1 },
+  ];
+  var existingTypes = getAll("TaskTypes");
+  if (existingTypes.length === 0) {
+    typeDefaults.forEach(function(t) {
+      createRow("TaskTypes", Object.assign({ id: Utilities.getUuid() }, t));
+    });
+  } else {
+    typeDefaults.forEach(function(t) {
+      var match = existingTypes.find(function(item) { return item.name === t.name; });
+      if (match) {
+        updateRow("TaskTypes", match.id, { color: t.color });
       }
     });
   }

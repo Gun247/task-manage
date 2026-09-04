@@ -1,9 +1,10 @@
 "use client";
 
+import { AssigneesDisplay } from "@/components/assignee-multi-select";
 import { Badge } from "@/components/ui/badge";
 import type { Task } from "@/lib/types";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { Calendar, Clock3, GripVertical } from "lucide-react";
+import { Calendar, CheckSquare, Clock3, GripVertical } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -14,6 +15,8 @@ interface TaskCardProps {
 export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
   const lastStatusChange =
     task.statusHistory?.[task.statusHistory.length - 1]?.changedAt;
+  const subtasks = task.subtasks ?? [];
+  const doneCount = subtasks.filter((item) => item.isDone).length;
 
   return (
     <button
@@ -30,17 +33,26 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
       </div>
       <p className="mb-2 text-sm font-semibold text-slate-900">{task.name}</p>
       <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-        <span
-          className="font-medium"
-          style={{ color: task.assignee?.color ?? "#94A3B8" }}
-        >
-          {task.assignee?.nickname ?? "ยังไม่ระบุ"}
-        </span>
-        <span className="inline-flex items-center gap-1">
+        <AssigneesDisplay
+          assignees={
+            task.assignees?.length
+              ? task.assignees
+              : task.assignee
+                ? [task.assignee]
+                : []
+          }
+        />
+        <span className="inline-flex shrink-0 items-center gap-1">
           <Calendar className="h-3 w-3" />
           {formatDate(task.endDate)}
         </span>
       </div>
+      {subtasks.length > 0 ? (
+        <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
+          <CheckSquare className="h-3 w-3" />
+          {doneCount}/{subtasks.length} subtasks
+        </div>
+      ) : null}
       {lastStatusChange ? (
         <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-400">
           <Clock3 className="h-3 w-3" />

@@ -1,4 +1,4 @@
-export type TaskType = "Back End" | "Front End";
+export type TaskType = string;
 
 export type ViewMode = "list" | "kanban" | "calendar";
 
@@ -27,6 +27,13 @@ export interface Status {
   sortOrder: number;
 }
 
+export interface TaskTypeOption {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+}
+
 export interface TeamMember {
   id: string;
   nickname: string;
@@ -45,12 +52,24 @@ export interface StatusHistoryEntry {
   changedAt: string;
 }
 
+export interface Subtask {
+  id: string;
+  taskId: string;
+  name: string;
+  isDone: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Task {
   id: string;
   name: string;
   description: string;
   remarks: string;
+  /** @deprecated use taskTypes — kept as first type for compatibility */
   taskType: TaskType;
+  taskTypes: TaskType[];
   startDate: string | null;
   endDate: string | null;
   uatDate: string | null;
@@ -59,12 +78,16 @@ export interface Task {
   projectId: string;
   priorityId: string;
   statusId: string;
+  /** @deprecated use assignees — kept as first assignee for compatibility */
   assigneeId: string | null;
   project: Project;
   priority: Priority;
   status: Status;
+  /** @deprecated use assignees */
   assignee: TeamMember | null;
+  assignees: TeamMember[];
   statusHistory: StatusHistoryEntry[];
+  subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;
 }

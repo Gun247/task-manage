@@ -13,6 +13,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.description !== undefined ? { description: body.description } : {}),
       ...(body.remarks !== undefined ? { remarks: body.remarks } : {}),
       ...(body.taskType !== undefined ? { taskType: body.taskType } : {}),
+      ...(body.taskTypes !== undefined
+        ? {
+            taskTypes: Array.isArray(body.taskTypes) ? body.taskTypes : [],
+          }
+        : {}),
       ...(body.startDate !== undefined
         ? { startDate: body.startDate ? body.startDate : null }
         : {}),
@@ -29,6 +34,13 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.statusId !== undefined ? { statusId: body.statusId } : {}),
       ...(body.assigneeId !== undefined
         ? { assigneeId: body.assigneeId || null }
+        : {}),
+      ...(body.assigneeIds !== undefined
+        ? {
+            assigneeIds: Array.isArray(body.assigneeIds)
+              ? body.assigneeIds
+              : [],
+          }
         : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
     });

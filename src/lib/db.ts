@@ -93,6 +93,32 @@ export async function deleteTeamMember(
   return resolveBackend().deleteTeamMember(...args);
 }
 
+export async function listTaskTypes() {
+  return resolveBackend().listTaskTypes();
+}
+
+export async function createTaskType(
+  ...args: Parameters<typeof sheetsRepo.createTaskType>
+) {
+  return resolveBackend().createTaskType(...args);
+}
+
+export async function updateTaskType(
+  ...args: Parameters<typeof sheetsRepo.updateTaskType>
+) {
+  return resolveBackend().updateTaskType(...args);
+}
+
+export async function deleteTaskType(
+  ...args: Parameters<typeof sheetsRepo.deleteTaskType>
+) {
+  return resolveBackend().deleteTaskType(...args);
+}
+
+export async function getDefaultTaskType() {
+  return resolveBackend().getDefaultTaskType();
+}
+
 export async function listTasks(
   ...args: Parameters<typeof sheetsRepo.listTasks>
 ) {
@@ -115,6 +141,24 @@ export async function deleteTask(
   ...args: Parameters<typeof sheetsRepo.deleteTask>
 ) {
   return resolveBackend().deleteTask(...args);
+}
+
+export async function createSubtask(
+  ...args: Parameters<typeof sheetsRepo.createSubtask>
+) {
+  return resolveBackend().createSubtask(...args);
+}
+
+export async function updateSubtask(
+  ...args: Parameters<typeof sheetsRepo.updateSubtask>
+) {
+  return resolveBackend().updateSubtask(...args);
+}
+
+export async function deleteSubtask(
+  ...args: Parameters<typeof sheetsRepo.deleteSubtask>
+) {
+  return resolveBackend().deleteSubtask(...args);
 }
 
 export async function getDefaultStatus() {

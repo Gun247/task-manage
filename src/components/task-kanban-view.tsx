@@ -16,7 +16,7 @@ import { TaskCard } from "@/components/task-card";
 import { TaskInlineCreate } from "@/components/task-inline-create";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Priority, Status, Task, TeamMember } from "@/lib/types";
+import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
 import { Plus } from "lucide-react";
 
 interface TaskKanbanViewProps {
@@ -24,6 +24,7 @@ interface TaskKanbanViewProps {
   statuses: Status[];
   priorities: Priority[];
   teamMembers: TeamMember[];
+  taskTypes: TaskTypeOption[];
   projectId: string;
   onStatusChange: (taskId: string, statusId: string) => void;
   onEditTask: (task: Task) => void;
@@ -65,6 +66,7 @@ function KanbanColumn({
   tasks,
   priorities,
   teamMembers,
+  taskTypes,
   projectId,
   isCreating,
   onStartCreate,
@@ -76,6 +78,7 @@ function KanbanColumn({
   tasks: Task[];
   priorities: Priority[];
   teamMembers: TeamMember[];
+  taskTypes: TaskTypeOption[];
   projectId: string;
   isCreating: boolean;
   onStartCreate: (statusId: string) => void;
@@ -114,6 +117,7 @@ function KanbanColumn({
             statuses={[status]}
             priorities={priorities}
             teamMembers={teamMembers}
+            taskTypes={taskTypes}
             projectId={projectId}
             defaultStatusId={status.id}
             onSaved={() => {
@@ -140,6 +144,7 @@ export function TaskKanbanView({
   statuses,
   priorities,
   teamMembers,
+  taskTypes,
   projectId,
   onStatusChange,
   onEditTask,
@@ -202,6 +207,7 @@ export function TaskKanbanView({
               tasks={tasksByStatus.get(status.id) ?? []}
               priorities={priorities}
               teamMembers={teamMembers}
+              taskTypes={taskTypes}
               projectId={projectId}
               isCreating={creatingInStatusId === status.id}
               onStartCreate={onStartCreate ?? (() => {})}

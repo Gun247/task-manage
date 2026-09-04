@@ -21,8 +21,7 @@ type HistoryItem = {
   projectColor: string;
   priorityLabel: string;
   priorityColor: string;
-  assigneeName: string | null;
-  assigneeColor: string | null;
+  assignees: Array<{ nickname: string; color: string }>;
   fromStatusName: string;
   toStatusName: string;
   toStatusColor: string;
@@ -68,8 +67,15 @@ function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
         projectColor: task.project.color,
         priorityLabel: task.priority.label,
         priorityColor: task.priority.color,
-        assigneeName: task.assignee?.nickname ?? null,
-        assigneeColor: task.assignee?.color ?? null,
+        assignees:
+          task.assignees?.length > 0
+            ? task.assignees.map((member) => ({
+                nickname: member.nickname,
+                color: member.color,
+              }))
+            : task.assignee
+              ? [{ nickname: task.assignee.nickname, color: task.assignee.color }]
+              : [],
         fromStatusName: entry.fromStatusName,
         toStatusName: entry.toStatusName,
         toStatusColor:
@@ -152,7 +158,9 @@ export default function HistoryPageContent() {
         item.projectName.toLowerCase().includes(query) ||
         item.toStatusName.toLowerCase().includes(query) ||
         item.fromStatusName.toLowerCase().includes(query) ||
-        (item.assigneeName?.toLowerCase().includes(query) ?? false)
+        (item.assignees.some((member) =>
+          member.nickname.toLowerCase().includes(query),
+        ))
       );
     });
   }, [historyItems, projectFilter, statusFilter, search]);
@@ -316,14 +324,16 @@ export default function HistoryPageContent() {
                                 </>
                               )}
                             </div>
-                            {item.assigneeName ? (
-                              <p
-                                className="mt-2 text-xs font-medium"
-                                style={{
-                                  color: item.assigneeColor ?? "#64748B",
-                                }}
-                              >
-                                {item.assigneeName}
+                            {item.assignees.length > 0 ? (
+                              <p className="mt-2 flex flex-wrap gap-1.5 text-xs font-medium">
+                                {item.assignees.map((member) => (
+                                  <span
+                                    key={member.nickname}
+                                    style={{ color: member.color }}
+                                  >
+                                    {member.nickname}
+                                  </span>
+                                ))}
                               </p>
                             ) : null}
                           </div>

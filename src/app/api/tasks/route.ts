@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       description: body.description,
       remarks: body.remarks,
       taskType: body.taskType,
+      taskTypes: Array.isArray(body.taskTypes) ? body.taskTypes : undefined,
       startDate: body.startDate ?? null,
       endDate: body.endDate ?? null,
       uatDate: body.uatDate ?? null,
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       priorityId: body.priorityId ?? defaultPriority.id,
       statusId: body.statusId ?? defaultStatus.id,
       assigneeId: body.assigneeId ?? null,
+      assigneeIds: Array.isArray(body.assigneeIds) ? body.assigneeIds : undefined,
       sortOrder: body.sortOrder,
     });
 

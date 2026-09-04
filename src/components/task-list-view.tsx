@@ -1,8 +1,10 @@
 "use client";
 
+import { AssigneesDisplay } from "@/components/assignee-multi-select";
+import { TaskTypesDisplay } from "@/components/task-type-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
-import type { Priority, Status, Task, TeamMember } from "@/lib/types";
+import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { ClipboardList } from "lucide-react";
 
@@ -11,6 +13,7 @@ interface TaskListViewProps {
   statuses: Status[];
   priorities: Priority[];
   teamMembers: TeamMember[];
+  taskTypes: TaskTypeOption[];
   projectId: string;
   onEditTask: (task: Task) => void;
   onSaved: () => void;
@@ -22,6 +25,7 @@ export function TaskListView({
   statuses,
   priorities,
   teamMembers,
+  taskTypes,
   projectId,
   onEditTask,
   onSaved,
@@ -33,6 +37,7 @@ export function TaskListView({
         statuses={statuses}
         priorities={priorities}
         teamMembers={teamMembers}
+        taskTypes={taskTypes}
         projectId={projectId}
         onSaved={onSaved}
         focusTrigger={focusCreateTrigger}
@@ -55,6 +60,7 @@ export function TaskListView({
               <tr>
                 <th className="px-4 py-3 font-medium">Priority</th>
                 <th className="px-4 py-3 font-medium">Task Name</th>
+                <th className="px-4 py-3 font-medium">Subtasks</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">เปลี่ยนสถานะล่าสุด</th>
                 <th className="px-4 py-3 font-medium">Assignee</th>
@@ -82,6 +88,11 @@ export function TaskListView({
                   <td className="px-4 py-3 font-medium text-slate-900">
                     {task.name}
                   </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
+                    {(task.subtasks ?? []).length > 0
+                      ? `${(task.subtasks ?? []).filter((item) => item.isDone).length}/${(task.subtasks ?? []).length}`
+                      : "-"}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge color={task.status.color}>{task.status.name}</Badge>
                   </td>
@@ -92,12 +103,16 @@ export function TaskListView({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className="font-medium"
-                      style={{ color: task.assignee?.color ?? "#94A3B8" }}
-                    >
-                      {task.assignee?.nickname ?? "-"}
-                    </span>
+                    <AssigneesDisplay
+                      assignees={
+                        task.assignees?.length
+                          ? task.assignees
+                          : task.assignee
+                            ? [task.assignee]
+                            : []
+                      }
+                      empty="-"
+                    />
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {formatDate(task.startDate)}
@@ -111,7 +126,18 @@ export function TaskListView({
                   <td className="px-4 py-3 text-slate-600">
                     {formatDate(task.prdDate)}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{task.taskType}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    <TaskTypesDisplay
+                      options={taskTypes}
+                      types={
+                        task.taskTypes?.length
+                          ? task.taskTypes
+                          : task.taskType
+                            ? [task.taskType]
+                            : []
+                      }
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -15,16 +15,21 @@ import {
 } from "date-fns";
 import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import type { Task } from "@/lib/types";
+import type { Task, TaskTypeOption } from "@/lib/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TaskCalendarViewProps {
   tasks: Task[];
+  taskTypes?: TaskTypeOption[];
   onEditTask: (task: Task) => void;
 }
 
-export function TaskCalendarView({ tasks, onEditTask }: TaskCalendarViewProps) {
+export function TaskCalendarView({
+  tasks,
+  taskTypes = [],
+  onEditTask,
+}: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -184,7 +189,19 @@ export function TaskCalendarView({ tasks, onEditTask }: TaskCalendarViewProps) {
                 <Badge color={task.status.color}>{task.status.name}</Badge>
               </div>
               <p className="text-sm font-semibold text-slate-900">{task.name}</p>
-              <p className="mt-1 text-xs text-slate-500">{task.taskType}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {(task.taskTypes?.length
+                  ? task.taskTypes
+                  : task.taskType
+                    ? [task.taskType]
+                    : []
+                )
+                  .map((name) => {
+                    const option = taskTypes.find((item) => item.name === name);
+                    return option?.name ?? name;
+                  })
+                  .join(", ")}
+              </p>
             </button>
           ))}
         </div>

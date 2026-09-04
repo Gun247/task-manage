@@ -28,7 +28,7 @@ import { ColorTray, normalizeHex } from "@/components/ui/color-tray";
 import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Priority, Status, TeamMember } from "@/lib/types";
+import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GripVertical, Trash2 } from "lucide-react";
 
@@ -49,6 +49,7 @@ interface SettingsDialogProps {
   statuses: Status[];
   teamMembers: TeamMember[];
   priorities: Priority[];
+  taskTypes: TaskTypeOption[];
   onChanged: () => void;
 }
 
@@ -123,6 +124,7 @@ export function SettingsDialog({
   statuses,
   teamMembers,
   priorities,
+  taskTypes,
   onChanged,
 }: SettingsDialogProps) {
   const [orderedStatuses, setOrderedStatuses] = useState(statuses);
@@ -130,10 +132,14 @@ export function SettingsDialog({
   const [newStatusColor, setNewStatusColor] = useState<string>(COLOR_OPTIONS[3]);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberColor, setNewMemberColor] = useState<string>(COLOR_OPTIONS[2]);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeColor, setNewTypeColor] = useState<string>(COLOR_OPTIONS[3]);
   const [addingStatus, setAddingStatus] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
+  const [addingType, setAddingType] = useState(false);
   const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
+  const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
@@ -236,13 +242,41 @@ export function SettingsDialog({
     onChanged();
   }
 
+  async function addType() {
+    if (!newTypeName.trim()) return;
+    const color = normalizeHex(newTypeColor);
+    if (!color) return;
+    setAddingType(true);
+    await fetch("/api/task-types", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newTypeName.trim(),
+        color,
+      }),
+    });
+    setNewTypeName("");
+    setAddingType(false);
+    onChanged();
+  }
+
+  async function deleteType(type: TaskTypeOption) {
+    if (taskTypes.length <= 1) return;
+    setDeletingTypeId(type.id);
+    const response = await fetch(`/api/task-types/${type.id}`, {
+      method: "DELETE",
+    });
+    setDeletingTypeId(null);
+    if (response.ok) onChanged();
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            จัดการสถานะ ทีม และ priority ของโปรเจกต์
+            จัดการสถานะ ทีม Task Type และ priority ของโปรเจกต์
           </DialogDescription>
         </DialogHeader>
 
@@ -250,6 +284,7 @@ export function SettingsDialog({
           <TabsList>
             <TabsTrigger value="status">สถานะ</TabsTrigger>
             <TabsTrigger value="team">ทีม</TabsTrigger>
+            <TabsTrigger value="type">Type</TabsTrigger>
             <TabsTrigger value="priority">Priority</TabsTrigger>
           </TabsList>
 
@@ -378,6 +413,79 @@ export function SettingsDialog({
                   }
                 >
                   <LoadingButtonContent loading={addingMember} loadingText="กำลังเพิ่ม...">
+                    เพิ่ม
+                  </LoadingButtonContent>
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="type" className="space-y-4">
+            <div className="space-y-2">
+              {taskTypes.length === 0 && (
+                <p className="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">
+                  ยังไม่มี Task Type — เพิ่มเพื่อเลือกในฟอร์ม task ได้
+                </p>
+              )}
+              {taskTypes.map((type) => (
+                <div
+                  key={type.id}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-4 w-4 rounded-full"
+                      style={{ backgroundColor: type.color }}
+                    />
+                    <span className="text-sm font-medium text-slate-800">
+                      {type.name}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={
+                      deletingTypeId === type.id || taskTypes.length <= 1
+                    }
+                    onClick={() => deleteType(type)}
+                  >
+                    <LoadingButtonContent
+                      loading={deletingTypeId === type.id}
+                      loadingText=""
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </LoadingButtonContent>
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-dashed border-slate-300 p-4">
+              <Label>เพิ่ม Task Type</Label>
+              <div className="mt-2 space-y-3">
+                <Input
+                  className="w-full"
+                  placeholder="เช่น QA, DevOps, Design"
+                  value={newTypeName}
+                  onChange={(event) => setNewTypeName(event.target.value)}
+                />
+                <ColorTray
+                  label="สี Type"
+                  value={newTypeColor}
+                  onChange={(color) => setNewTypeColor(color)}
+                  options={COLOR_OPTIONS}
+                />
+                <Button
+                  type="button"
+                  onClick={addType}
+                  disabled={
+                    addingType ||
+                    !newTypeName.trim() ||
+                    !normalizeHex(newTypeColor)
+                  }
+                >
+                  <LoadingButtonContent loading={addingType} loadingText="กำลังเพิ่ม...">
                     เพิ่ม
                   </LoadingButtonContent>
                 </Button>
