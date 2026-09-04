@@ -1,14 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --primary: #1e3a5f;
+  /* Sky–grass theme (floating island) */
+  --background: #e8f4fc;
+  --foreground: #1e3a2f;
+  --primary: #6bb82a;
+  --primary-dark: #3d7a18;
+  --accent: #5bb5e8;
+  --muted: #d6e8f5;
+  --surface: #ffffff;
+  --border: #b8d4e8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-accent: var(--accent);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
   --font-sans: var(--font-noto-sans-thai), var(--font-inter), sans-serif;
 }
 

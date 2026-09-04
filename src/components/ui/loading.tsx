@@ -22,7 +22,7 @@ export function LoadingSpinner({
 }: LoadingSpinnerProps) {
   return (
     <Loader2
-      className={cn("animate-spin text-[#1E3A5F]", spinnerSizes[size], className)}
+      className={cn("animate-spin text-primary", spinnerSizes[size], className)}
       aria-hidden
     />
   );

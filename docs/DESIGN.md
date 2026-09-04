@@ -22,13 +22,18 @@ Wireframe ถูกสร้างก่อนเขียนโค้ด (desig
 
 ### Color Palette
 
+ธีม **sky–grass** จากภาพ floating island
+
 | Token | Hex | ใช้กับ |
 |-------|-----|--------|
-| Primary / Brand | `#1E3A5F` | header title, active tab, kanban drop highlight |
-| Background | `#F8FAFC` | page background (`--background`) |
-| Foreground | `#0F172A` | body text |
+| Primary / Brand | `#6BB82A` | header title, buttons, active tab, kanban drop highlight |
+| Primary dark | `#3D7A18` | button hover |
+| Accent | `#5BB5E8` | waterfall blue — links / progress accents |
+| Background | `#E8F4FC` | page background (`--background`) — soft sky |
+| Foreground | `#1E3A2F` | body text — deep forest |
+| Muted | `#D6E8F5` | soft cloud shadow surfaces |
 | Surface | `#FFFFFF` | cards, columns, dialogs |
-| Border | `slate-200` | tables, columns, inputs |
+| Border | `#B8D4E8` | tables, columns, inputs |
 
 ### Status Colors (seed)
 
@@ -36,7 +41,7 @@ Wireframe ถูกสร้างก่อนเขียนโค้ด (desig
 |--------|-------|
 | Backlog | `#6B7280` |
 | In Progress | `#3B82F6` |
-| Done | `#1E3A5F` |
+| Done | `#6BB82A` |
 | UAT | `#F97316` |
 | PRD | `#22C55E` |
 

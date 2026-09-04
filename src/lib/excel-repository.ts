@@ -46,6 +46,8 @@ export type ExcelTask = {
   taskType: string;
   startDate: string;
   endDate: string;
+  uatDate: string;
+  prdDate: string;
   sortOrder: number;
   projectId: string;
   priorityId: string;
@@ -113,6 +115,8 @@ const tasksTable = new ExcelTable<ExcelTask>("Tasks", [
   "taskType",
   "startDate",
   "endDate",
+  "uatDate",
+  "prdDate",
   "sortOrder",
   "projectId",
   "priorityId",
@@ -196,6 +200,8 @@ async function hydrateTask(
     ...task,
     startDate: task.startDate || null,
     endDate: task.endDate || null,
+    uatDate: task.uatDate || null,
+    prdDate: task.prdDate || null,
     project,
     priority,
     status,
@@ -225,7 +231,7 @@ export async function createProject(data: {
     id: createId(),
     name: data.name,
     description: data.description ?? "",
-    color: data.color ?? "#1E3A5F",
+    color: data.color ?? "#6BB82A",
     sortOrder,
   });
 }
@@ -347,6 +353,8 @@ export async function createTask(data: {
   taskType?: string;
   startDate?: string | null;
   endDate?: string | null;
+  uatDate?: string | null;
+  prdDate?: string | null;
   projectId: string;
   priorityId: string;
   statusId: string;
@@ -366,6 +374,8 @@ export async function createTask(data: {
     taskType: data.taskType ?? "Back End",
     startDate: data.startDate ?? "",
     endDate: data.endDate ?? "",
+    uatDate: data.uatDate ?? "",
+    prdDate: data.prdDate ?? "",
     sortOrder: data.sortOrder ?? 0,
     projectId: data.projectId,
     priorityId: data.priorityId,
@@ -391,6 +401,8 @@ export async function updateTask(
     taskType: string;
     startDate: string | null;
     endDate: string | null;
+    uatDate: string | null;
+    prdDate: string | null;
     priorityId: string;
     statusId: string;
     assigneeId: string | null;
@@ -409,6 +421,8 @@ export async function updateTask(
   if (data.taskType !== undefined) payload.taskType = data.taskType;
   if (data.startDate !== undefined) payload.startDate = data.startDate ?? "";
   if (data.endDate !== undefined) payload.endDate = data.endDate ?? "";
+  if (data.uatDate !== undefined) payload.uatDate = data.uatDate ?? "";
+  if (data.prdDate !== undefined) payload.prdDate = data.prdDate ?? "";
   if (data.priorityId !== undefined) payload.priorityId = data.priorityId;
   if (data.statusId !== undefined) payload.statusId = data.statusId;
   if (data.assigneeId !== undefined) payload.assigneeId = data.assigneeId;
@@ -473,7 +487,7 @@ export async function seedDefaultData() {
       id: createId(),
       name: "FWF Task Manager",
       description: "Foreigner Worker Fund",
-      color: "#1E3A5F",
+      color: "#6BB82A",
       sortOrder: 0,
     });
   }
@@ -492,7 +506,7 @@ export async function seedDefaultData() {
   const statusDefaults = [
     { name: "Backlog", color: "#6B7280", sortOrder: 0 },
     { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
+    { name: "Done", color: "#6BB82A", sortOrder: 2 },
     { name: "UAT", color: "#F97316", sortOrder: 3 },
     { name: "PRD", color: "#22C55E", sortOrder: 4 },
   ];

@@ -19,6 +19,12 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.endDate !== undefined
         ? { endDate: body.endDate ? body.endDate : null }
         : {}),
+      ...(body.uatDate !== undefined
+        ? { uatDate: body.uatDate ? body.uatDate : null }
+        : {}),
+      ...(body.prdDate !== undefined
+        ? { prdDate: body.prdDate ? body.prdDate : null }
+        : {}),
       ...(body.priorityId !== undefined ? { priorityId: body.priorityId } : {}),
       ...(body.statusId !== undefined ? { statusId: body.statusId } : {}),
       ...(body.assigneeId !== undefined

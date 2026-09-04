@@ -67,14 +67,21 @@ export class ExcelTable<T extends RowRecord> {
 
     if (matrix.length <= 1) return [];
 
+    const headers = matrix[0].map((value) => String(value ?? ""));
+
     return matrix
       .slice(1)
       .filter((row) => row[0])
       .map((row) => {
         const record = {} as Record<string, string | number | boolean | null>;
-        for (let i = 0; i < this.columns.length; i++) {
-          const key = this.columns[i];
-          record[key] = parseCellValue(row[i], key);
+        for (const key of this.columns) {
+          const index = headers.indexOf(key);
+          record[key] =
+            index >= 0
+              ? parseCellValue(row[index], key)
+              : key === "assigneeId"
+                ? null
+                : "";
         }
         return record as T;
       });
@@ -98,8 +105,32 @@ export class ExcelTable<T extends RowRecord> {
       const workbook = readWorkbook();
       if (!workbook.SheetNames.includes(this.sheetName)) {
         this.writeRows(workbook, []);
+        writeWorkbook(workbook);
+        return;
       }
-      writeWorkbook(workbook);
+
+      const sheet = workbook.Sheets[this.sheetName];
+      if (!sheet) {
+        this.writeRows(workbook, []);
+        writeWorkbook(workbook);
+        return;
+      }
+
+      const matrix = XLSX.utils.sheet_to_json<(string | number | boolean)[]>(sheet, {
+        header: 1,
+        defval: "",
+        raw: false,
+      }) as (string | number | boolean)[][];
+      const headers = (matrix[0] ?? []).map((value) => String(value ?? ""));
+      const needsMigrate =
+        this.columns.length !== headers.length ||
+        this.columns.some((column, index) => headers[index] !== column);
+
+      if (needsMigrate) {
+        const rows = this.rowsFromSheet(sheet);
+        this.writeRows(workbook, rows);
+        writeWorkbook(workbook);
+      }
     });
   }
 

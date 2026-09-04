@@ -15,7 +15,7 @@ const SHEETS = {
   TeamMembers: ["id", "nickname", "color", "isActive", "sortOrder", "createdAt", "updatedAt"],
   Tasks: [
     "id", "name", "description", "remarks", "taskType",
-    "startDate", "endDate", "sortOrder", "projectId",
+    "startDate", "endDate", "uatDate", "prdDate", "sortOrder", "projectId",
     "priorityId", "statusId", "assigneeId", "createdAt", "updatedAt",
   ],
   StatusHistories: [
@@ -94,7 +94,7 @@ function seedDefaults() {
       id: Utilities.getUuid(),
       name: "FWF Task Manager",
       description: "Foreigner Worker Fund",
-      color: "#1E3A5F",
+      color: "#6BB82A",
       sortOrder: 0,
     });
   }
@@ -110,7 +110,7 @@ function seedDefaults() {
   var statusDefaults = [
     { name: "Backlog", color: "#6B7280", sortOrder: 0 },
     { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
+    { name: "Done", color: "#6BB82A", sortOrder: 2 },
     { name: "UAT", color: "#F97316", sortOrder: 3 },
     { name: "PRD", color: "#22C55E", sortOrder: 4 },
   ];

@@ -17,11 +17,11 @@ export function AppNav() {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 lg:px-8">
         <Link href="/projects" className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1E3A5F] text-white">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <FolderKanban className="h-4.5 w-4.5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-[#1E3A5F]">
+            <p className="truncate text-sm font-bold text-primary">
               FWF Task Manager
             </p>
             <p className="truncate text-xs text-slate-500">
@@ -45,7 +45,7 @@ export function AppNav() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition sm:text-sm",
                   isActive
-                    ? "bg-white text-[#1E3A5F] shadow-sm"
+                    ? "bg-white text-primary shadow-sm"
                     : "text-slate-500 hover:text-slate-700",
                 )}
               >

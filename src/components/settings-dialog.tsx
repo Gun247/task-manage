@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ColorTray, normalizeHex } from "@/components/ui/color-tray";
 import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,9 +39,9 @@ const COLOR_OPTIONS = [
   "#3B82F6",
   "#8B5CF6",
   "#EC4899",
-  "#1E3A5F",
+  "#6BB82A",
   "#6B7280",
-];
+] as const;
 
 interface SettingsDialogProps {
   open: boolean;
@@ -80,7 +81,7 @@ function SortableStatusRow({
       style={style}
       className={cn(
         "flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2 py-2",
-        isDragging && "z-10 border-[#1E3A5F]/40 shadow-md",
+        isDragging && "z-10 border-primary/40 shadow-md",
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -126,9 +127,9 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
   const [orderedStatuses, setOrderedStatuses] = useState(statuses);
   const [newStatusName, setNewStatusName] = useState("");
-  const [newStatusColor, setNewStatusColor] = useState(COLOR_OPTIONS[3]);
+  const [newStatusColor, setNewStatusColor] = useState<string>(COLOR_OPTIONS[3]);
   const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberColor, setNewMemberColor] = useState(COLOR_OPTIONS[2]);
+  const [newMemberColor, setNewMemberColor] = useState<string>(COLOR_OPTIONS[2]);
   const [addingStatus, setAddingStatus] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
   const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
@@ -145,11 +146,13 @@ export function SettingsDialog({
 
   async function addStatus() {
     if (!newStatusName.trim()) return;
+    const color = normalizeHex(newStatusColor);
+    if (!color) return;
     setAddingStatus(true);
     await fetch("/api/statuses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newStatusName.trim(), color: newStatusColor }),
+      body: JSON.stringify({ name: newStatusName.trim(), color }),
     });
     setNewStatusName("");
     setAddingStatus(false);
@@ -210,13 +213,15 @@ export function SettingsDialog({
 
   async function addMember() {
     if (!newMemberName.trim()) return;
+    const color = normalizeHex(newMemberColor);
+    if (!color) return;
     setAddingMember(true);
     await fetch("/api/team-members", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         nickname: newMemberName.trim(),
-        color: newMemberColor,
+        color,
       }),
     });
     setNewMemberName("");
@@ -279,32 +284,27 @@ export function SettingsDialog({
 
             <div className="rounded-lg border border-dashed border-slate-300 p-4">
               <Label>เพิ่มสถานะใหม่</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 space-y-3">
                 <Input
-                  className="min-w-[180px] flex-1"
+                  className="w-full"
                   placeholder="ชื่อสถานะ"
                   value={newStatusName}
                   onChange={(event) => setNewStatusName(event.target.value)}
                 />
-                <div className="flex gap-1">
-                  {COLOR_OPTIONS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`h-8 w-8 rounded-full border-2 ${
-                        newStatusColor === color
-                          ? "border-slate-900"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setNewStatusColor(color)}
-                    />
-                  ))}
-                </div>
+                <ColorTray
+                  label="สีสถานะ"
+                  value={newStatusColor}
+                  onChange={(color) => setNewStatusColor(color)}
+                  options={COLOR_OPTIONS}
+                />
                 <Button
                   type="button"
                   onClick={addStatus}
-                  disabled={addingStatus || !newStatusName.trim()}
+                  disabled={
+                    addingStatus ||
+                    !newStatusName.trim() ||
+                    !normalizeHex(newStatusColor)
+                  }
                 >
                   <LoadingButtonContent loading={addingStatus} loadingText="กำลังเพิ่ม...">
                     เพิ่ม
@@ -355,32 +355,27 @@ export function SettingsDialog({
 
             <div className="rounded-lg border border-dashed border-slate-300 p-4">
               <Label>เพิ่มสมาชิกทีม</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 space-y-3">
                 <Input
-                  className="min-w-[180px] flex-1"
+                  className="w-full"
                   placeholder="ชื่อเล่น"
                   value={newMemberName}
                   onChange={(event) => setNewMemberName(event.target.value)}
                 />
-                <div className="flex gap-1">
-                  {COLOR_OPTIONS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`h-8 w-8 rounded-full border-2 ${
-                        newMemberColor === color
-                          ? "border-slate-900"
-                          : "border-transparent"
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setNewMemberColor(color)}
-                    />
-                  ))}
-                </div>
+                <ColorTray
+                  label="สีสมาชิก"
+                  value={newMemberColor}
+                  onChange={(color) => setNewMemberColor(color)}
+                  options={COLOR_OPTIONS}
+                />
                 <Button
                   type="button"
                   onClick={addMember}
-                  disabled={addingMember || !newMemberName.trim()}
+                  disabled={
+                    addingMember ||
+                    !newMemberName.trim() ||
+                    !normalizeHex(newMemberColor)
+                  }
                 >
                   <LoadingButtonContent loading={addingMember} loadingText="กำลังเพิ่ม...">
                     เพิ่ม

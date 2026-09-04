@@ -19,7 +19,7 @@ export function ProjectCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-[#1E3A5F]/30 hover:shadow-md",
+        "group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-primary/30 hover:shadow-md",
         className,
       )}
     >
@@ -67,7 +67,7 @@ export function ProjectCard({
             ) : null}
             <Link
               href={`/tasks?project=${project.id}`}
-              className="inline-flex items-center gap-1 rounded-lg bg-[#1E3A5F] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#16304f]"
+              className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-primary-dark"
             >
               เปิด
               <ArrowRight className="h-3.5 w-3.5" />

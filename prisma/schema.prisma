@@ -59,6 +59,8 @@ model Task {
   taskType    String          @default("Back End")
   startDate   DateTime?
   endDate     DateTime?
+  uatDate     DateTime?
+  prdDate     DateTime?
   sortOrder   Int             @default(0)
   projectId   String
   priorityId  String

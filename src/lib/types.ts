@@ -53,6 +53,8 @@ export interface Task {
   taskType: TaskType;
   startDate: string | null;
   endDate: string | null;
+  uatDate: string | null;
+  prdDate: string | null;
   sortOrder: number;
   projectId: string;
   priorityId: string;

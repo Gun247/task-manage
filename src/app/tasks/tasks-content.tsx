@@ -11,6 +11,7 @@ import { Input, Select } from "@/components/ui/input";
 import { TaskListView } from "@/components/task-list-view";
 import { TaskKanbanView } from "@/components/task-kanban-view";
 import { TaskCalendarView } from "@/components/task-calendar-view";
+import { TaskDashboardBar } from "@/components/task-dashboard-bar";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
@@ -239,7 +240,7 @@ export function TasksPageContent() {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <nav className="mb-1 flex items-center gap-1 text-xs text-slate-500">
-                <Link href="/projects" className="hover:text-[#1E3A5F]">
+                <Link href="/projects" className="hover:text-primary">
                   โปรเจกต์
                 </Link>
                 <ChevronRight className="h-3 w-3" />
@@ -273,7 +274,7 @@ export function TasksPageContent() {
                     className={cn(
                       "inline-flex h-full items-center rounded-md px-3 text-sm font-medium transition sm:px-4",
                       view === item.id
-                        ? "bg-white text-[#1E3A5F] shadow-sm"
+                        ? "bg-white text-primary shadow-sm"
                         : "text-slate-500 hover:text-slate-700",
                     )}
                   >
@@ -396,7 +397,8 @@ export function TasksPageContent() {
             </div>
           </div>
         ) : (
-          <div className="relative min-h-[280px]">
+          <div className="relative min-h-[280px] space-y-4">
+            <TaskDashboardBar tasks={tasks} statuses={statuses} />
             {tasksLoading ? (
               <LoadingOverlay label="กำลังโหลด task..." />
             ) : null}

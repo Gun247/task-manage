@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Task" ADD COLUMN "uatDate" DATETIME;
+ALTER TABLE "Task" ADD COLUMN "prdDate" DATETIME;

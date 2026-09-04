@@ -52,6 +52,8 @@ export async function POST(request: Request) {
       taskType: body.taskType,
       startDate: body.startDate ?? null,
       endDate: body.endDate ?? null,
+      uatDate: body.uatDate ?? null,
+      prdDate: body.prdDate ?? null,
       projectId,
       priorityId: body.priorityId ?? defaultPriority.id,
       statusId: body.statusId ?? defaultStatus.id,

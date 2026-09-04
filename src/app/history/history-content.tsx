@@ -176,11 +176,11 @@ export default function HistoryPageContent() {
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
           <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-[#1E3A5F]/10 text-[#1E3A5F]">
+            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <History className="h-5 w-5" />
             </span>
             <div>
-              <h1 className="text-2xl font-bold text-[#1E3A5F]">ประวัติ Task</h1>
+              <h1 className="text-2xl font-bold text-primary">ประวัติ Task</h1>
               <p className="mt-1 text-sm text-slate-500">
                 ไทม์ไลน์การเปลี่ยนสถานะของทุก task —
                 ดูว่างานถึงขั้นไหนแล้วเมื่อไหร่
@@ -266,7 +266,7 @@ export default function HistoryPageContent() {
                         href={`/tasks?project=${item.projectId}`}
                         className={cn(
                           "block rounded-2xl border border-slate-200 bg-white p-4 transition",
-                          "hover:border-[#1E3A5F]/25 hover:shadow-sm",
+                          "hover:border-primary/25 hover:shadow-sm",
                         )}
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">

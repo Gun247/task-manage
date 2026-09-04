@@ -83,7 +83,7 @@ export default function ManageProjectsPage() {
 
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E3A5F]">จัดการโปรเจกต์</h1>
+            <h1 className="text-2xl font-bold text-primary">จัดการโปรเจกต์</h1>
             <p className="mt-1 text-sm text-slate-500">
               แก้ไข ลบ หรือสร้างโปรเจกต์ใหม่
             </p>

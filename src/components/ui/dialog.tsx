@@ -61,7 +61,7 @@ export function DialogTitle({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("text-lg font-semibold text-[#1E3A5F]", className)}
+      className={cn("text-lg font-semibold text-primary", className)}
       {...props}
     />
   );

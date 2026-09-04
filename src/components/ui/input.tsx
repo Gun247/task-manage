@@ -9,7 +9,7 @@ export const Input = forwardRef<
     <input
       ref={ref}
       className={cn(
-        "flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A5F]/20",
+        "flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
         className,
       )}
       {...props}
@@ -24,7 +24,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "flex min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A5F]/20",
+        "flex min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
         className,
       )}
       {...props}
@@ -51,7 +51,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm leading-10 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1E3A5F]/20",
+        "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm leading-10 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
         className,
       )}
       {...props}

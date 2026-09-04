@@ -25,6 +25,8 @@ function serializeTask(
     ...task,
     startDate: toIso(task.startDate),
     endDate: toIso(task.endDate),
+    uatDate: toIso(task.uatDate),
+    prdDate: toIso(task.prdDate),
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
     project: {
@@ -80,7 +82,7 @@ export async function createProject(data: {
     data: {
       name: data.name,
       description: data.description ?? "",
-      color: data.color ?? "#1E3A5F",
+      color: data.color ?? "#6BB82A",
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
@@ -209,6 +211,8 @@ export async function createTask(data: {
   taskType?: string;
   startDate?: string | null;
   endDate?: string | null;
+  uatDate?: string | null;
+  prdDate?: string | null;
   projectId: string;
   priorityId: string;
   statusId: string;
@@ -228,6 +232,8 @@ export async function createTask(data: {
       taskType: data.taskType ?? "Back End",
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
+      uatDate: data.uatDate ? new Date(data.uatDate) : null,
+      prdDate: data.prdDate ? new Date(data.prdDate) : null,
       projectId: data.projectId,
       priorityId: data.priorityId,
       statusId: data.statusId,
@@ -255,6 +261,8 @@ export async function updateTask(
     taskType: string;
     startDate: string | null;
     endDate: string | null;
+    uatDate: string | null;
+    prdDate: string | null;
     priorityId: string;
     statusId: string;
     assigneeId: string | null;
@@ -293,6 +301,12 @@ export async function updateTask(
         : {}),
       ...(data.endDate !== undefined
         ? { endDate: data.endDate ? new Date(data.endDate) : null }
+        : {}),
+      ...(data.uatDate !== undefined
+        ? { uatDate: data.uatDate ? new Date(data.uatDate) : null }
+        : {}),
+      ...(data.prdDate !== undefined
+        ? { prdDate: data.prdDate ? new Date(data.prdDate) : null }
         : {}),
       ...(data.priorityId !== undefined ? { priorityId: data.priorityId } : {}),
       ...(data.statusId !== undefined ? { statusId: data.statusId } : {}),
@@ -333,13 +347,13 @@ export async function seedDefaultData() {
     where: { name: "FWF Task Manager" },
     update: {
       description: "Foreigner Worker Fund",
-      color: "#1E3A5F",
+      color: "#6BB82A",
       sortOrder: 0,
     },
     create: {
       name: "FWF Task Manager",
       description: "Foreigner Worker Fund",
-      color: "#1E3A5F",
+      color: "#6BB82A",
       sortOrder: 0,
     },
   });
@@ -360,7 +374,7 @@ export async function seedDefaultData() {
   const statuses = [
     { name: "Backlog", color: "#6B7280", sortOrder: 0 },
     { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
+    { name: "Done", color: "#6BB82A", sortOrder: 2 },
     { name: "UAT", color: "#F97316", sortOrder: 3 },
     { name: "PRD", color: "#22C55E", sortOrder: 4 },
   ];

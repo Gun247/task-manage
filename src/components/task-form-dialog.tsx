@@ -35,6 +35,8 @@ const emptyForm = {
   taskType: "Back End" as TaskType,
   startDate: "",
   endDate: "",
+  uatDate: "",
+  prdDate: "",
   priorityId: "",
   statusId: "",
   assigneeId: "",
@@ -65,6 +67,8 @@ export function TaskFormDialog({
         taskType: task.taskType,
         startDate: task.startDate ? task.startDate.slice(0, 10) : "",
         endDate: task.endDate ? task.endDate.slice(0, 10) : "",
+        uatDate: task.uatDate ? task.uatDate.slice(0, 10) : "",
+        prdDate: task.prdDate ? task.prdDate.slice(0, 10) : "",
         priorityId: task.priorityId,
         statusId: task.statusId,
         assigneeId: task.assigneeId ?? "",
@@ -89,6 +93,8 @@ export function TaskFormDialog({
       assigneeId: form.assigneeId || null,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
+      uatDate: form.uatDate || null,
+      prdDate: form.prdDate || null,
     };
 
     const response = await fetch(task ? `/api/tasks/${task.id}` : "/api/tasks", {
@@ -226,6 +232,28 @@ export function TaskFormDialog({
                 }))
               }
               min={form.startDate || undefined}
+            />
+            <DateInput
+              id="uatDate"
+              label="Timeline UAT"
+              value={form.uatDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  uatDate: event.target.value,
+                }))
+              }
+            />
+            <DateInput
+              id="prdDate"
+              label="Timeline PRD"
+              value={form.prdDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  prdDate: event.target.value,
+                }))
+              }
             />
           </div>
 

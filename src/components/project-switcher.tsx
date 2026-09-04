@@ -47,7 +47,7 @@ export function ProjectSwitcher({
         disabled={projects.length === 0}
         className={cn(
           "flex h-9 min-w-[200px] max-w-[280px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
-          open && "border-[#1E3A5F]/40 ring-2 ring-[#1E3A5F]/10",
+          open && "border-primary/40 ring-2 ring-primary/10",
         )}
       >
         {selectedProject ? (
@@ -88,7 +88,7 @@ export function ProjectSwitcher({
                 }}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-slate-50",
-                  project.id === selectedProjectId && "bg-blue-50/60",
+                  project.id === selectedProjectId && "bg-primary/10",
                 )}
               >
                 <span
@@ -106,7 +106,7 @@ export function ProjectSwitcher({
                   ) : null}
                 </div>
                 {project.id === selectedProjectId ? (
-                  <Check className="h-4 w-4 shrink-0 text-[#1E3A5F]" />
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
                 ) : null}
               </button>
             ))}
@@ -119,7 +119,7 @@ export function ProjectSwitcher({
                 onCreateNew();
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-[#1E3A5F] transition hover:bg-slate-50"
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-primary transition hover:bg-slate-50"
             >
               <Plus className="h-4 w-4" />
               สร้างโปรเจกต์ใหม่

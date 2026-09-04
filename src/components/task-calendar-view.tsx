@@ -58,7 +58,7 @@ export function TaskCalendarView({ tasks, onEditTask }: TaskCalendarViewProps) {
     <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#1E3A5F]">
+          <h2 className="text-lg font-semibold text-primary">
             {format(currentMonth, "MMMM yyyy", { locale: th })}
           </h2>
           <div className="flex gap-2">
@@ -120,14 +120,14 @@ export function TaskCalendarView({ tasks, onEditTask }: TaskCalendarViewProps) {
                 onClick={() => setSelectedDate(day)}
                 className={`min-h-[92px] rounded-xl border p-2 text-left transition ${
                   isSelected
-                    ? "border-[#1E3A5F] bg-blue-50"
+                    ? "border-primary bg-primary/5"
                     : "border-slate-200 bg-white hover:bg-slate-50"
                 } ${!isSameMonth(day, currentMonth) ? "opacity-40" : ""}`}
               >
                 <div
                   className={`mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm ${
                     isToday
-                      ? "bg-[#1E3A5F] font-bold text-white"
+                      ? "bg-primary font-bold text-white"
                       : "text-slate-700"
                   }`}
                 >
@@ -159,7 +159,7 @@ export function TaskCalendarView({ tasks, onEditTask }: TaskCalendarViewProps) {
       </div>
 
       <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-[#1E3A5F]">
+        <h3 className="text-base font-semibold text-primary">
           {format(selectedDate, "d MMMM yyyy", { locale: th })}
         </h3>
         <p className="mt-1 text-sm text-slate-500">

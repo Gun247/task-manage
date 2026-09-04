@@ -28,6 +28,8 @@ const emptyForm = {
   taskType: "Back End" as TaskType,
   startDate: "",
   endDate: "",
+  uatDate: "",
+  prdDate: "",
   priorityId: "",
   statusId: "",
   assigneeId: "",
@@ -92,6 +94,8 @@ export function TaskInlineCreate({
       assigneeId: form.assigneeId || null,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
+      uatDate: form.uatDate || null,
+      prdDate: form.prdDate || null,
     };
 
     const response = await fetch("/api/tasks", {
@@ -116,7 +120,7 @@ export function TaskInlineCreate({
     return (
       <form
         onSubmit={handleSubmit}
-        className="mb-3 rounded-xl border border-[#1E3A5F]/20 bg-blue-50/50 p-3"
+        className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
       >
         <Input
           ref={nameInputRef}
@@ -262,10 +266,10 @@ export function TaskInlineCreate({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-b border-[#1E3A5F]/15 bg-blue-50/40"
+      className="border-b border-primary/15 bg-primary/5"
     >
       <div className="flex items-center gap-2 px-4 py-2">
-        <Plus className="h-4 w-4 shrink-0 text-[#1E3A5F]" />
+        <Plus className="h-4 w-4 shrink-0 text-primary" />
         <Input
           ref={nameInputRef}
           required
@@ -293,7 +297,7 @@ export function TaskInlineCreate({
       </div>
 
       {expanded ? (
-        <div className="space-y-3 border-t border-[#1E3A5F]/10 px-4 py-3">
+        <div className="space-y-3 border-t border-primary/10 px-4 py-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Select
               value={form.priorityId}
@@ -359,7 +363,7 @@ export function TaskInlineCreate({
             </Select>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:max-w-md">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:max-w-4xl">
             <DateInput
               compact
               id="inline-start-date"
@@ -385,6 +389,30 @@ export function TaskInlineCreate({
                 }))
               }
               min={form.startDate || undefined}
+            />
+            <DateInput
+              compact
+              id="inline-uat-date"
+              label="Timeline UAT"
+              value={form.uatDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  uatDate: event.target.value,
+                }))
+              }
+            />
+            <DateInput
+              compact
+              id="inline-prd-date"
+              label="Timeline PRD"
+              value={form.prdDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  prdDate: event.target.value,
+                }))
+              }
             />
           </div>
 

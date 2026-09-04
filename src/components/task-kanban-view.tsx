@@ -89,7 +89,7 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={`flex min-h-[560px] w-[280px] shrink-0 flex-col rounded-2xl border bg-white p-3 transition ${
-        isOver ? "border-[#1E3A5F] bg-blue-50/40" : "border-slate-200"
+        isOver ? "border-primary bg-primary/5" : "border-slate-200"
       }`}
     >
       <div className="mb-3 flex items-center justify-between">

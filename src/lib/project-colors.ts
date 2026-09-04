@@ -1,5 +1,5 @@
 export const PROJECT_COLOR_OPTIONS = [
-  "#1E3A5F",
+  "#6BB82A",
   "#3B82F6",
   "#22C55E",
   "#F97316",

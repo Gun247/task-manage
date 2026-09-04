@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FolderKanban,
   History,
+  LayoutDashboard,
   LayoutGrid,
   Menu,
   Settings2,
@@ -15,6 +16,13 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    description: "ภาพรวมงานทั้งหมด",
+    icon: LayoutDashboard,
+    match: (pathname: string) => pathname.startsWith("/dashboard"),
+  },
   {
     id: "projects",
     label: "โปรเจกต์",
@@ -44,6 +52,7 @@ function resolveHref(
   pathname: string,
   projectId: string | null,
 ) {
+  if (id === "dashboard") return "/dashboard";
   if (id === "projects") {
     if (pathname.startsWith("/tasks") && projectId) {
       return `/tasks?project=${projectId}`;
@@ -81,11 +90,11 @@ function SidebarNav({
           onClick={onNavigate}
           className="flex items-center gap-2.5"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1E3A5F] text-white">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <FolderKanban className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-[#1E3A5F]">
+            <p className="truncate text-sm font-bold text-primary">
               FWF Task Manager
             </p>
             <p className="truncate text-xs text-slate-500">
@@ -112,14 +121,14 @@ function SidebarNav({
               className={cn(
                 "flex items-start gap-3 rounded-xl px-3 py-2.5 transition",
                 isActive
-                  ? "bg-[#1E3A5F]/08 text-[#1E3A5F]"
+                  ? "bg-primary/10 text-primary"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
               )}
             >
               <Icon
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",
-                  isActive ? "text-[#1E3A5F]" : "text-slate-400",
+                  isActive ? "text-primary" : "text-slate-400",
                 )}
               />
               <span className="min-w-0">
@@ -127,7 +136,7 @@ function SidebarNav({
                 <span
                   className={cn(
                     "block text-xs",
-                    isActive ? "text-[#1E3A5F]/70" : "text-slate-400",
+                    isActive ? "text-primary/70" : "text-slate-400",
                   )}
                 >
                   {item.description}
@@ -163,11 +172,11 @@ function SidebarFallback({ className }: { className?: string }) {
     >
       <div className="border-b border-slate-200 px-4 py-4">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1E3A5F] text-white">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <FolderKanban className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-[#1E3A5F]">
+            <p className="truncate text-sm font-bold text-primary">
               FWF Task Manager
             </p>
             <p className="truncate text-xs text-slate-500">
@@ -226,7 +235,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-[#1E3A5F]">
+            <p className="truncate text-sm font-bold text-primary">
               FWF Task Manager
             </p>
           </div>

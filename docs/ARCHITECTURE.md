@@ -197,7 +197,7 @@ npm run dev    # port 43123
 ## Convention สำหรับการแก้ไข
 
 - UI text ภาษาไทย, code/identifier ภาษาอังกฤษ
-- สี primary brand: `#1E3A5F`, background: `#F8FAFC`
+- สี primary brand: `#6BB82A`, background: `#E8F4FC` (ธีม sky–grass)
 - Component ใหม่ที่ reuse ได้ → `src/components/ui/`
 - API ใหม่ → `src/app/api/<resource>/route.ts`
 - เปลี่ยน schema → `npx prisma migrate dev` + อัปเดต `seed.ts` ถ้าจำเป็น

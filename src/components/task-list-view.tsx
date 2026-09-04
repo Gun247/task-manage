@@ -60,6 +60,8 @@ export function TaskListView({
                 <th className="px-4 py-3 font-medium">Assignee</th>
                 <th className="px-4 py-3 font-medium">Start</th>
                 <th className="px-4 py-3 font-medium">End</th>
+                <th className="px-4 py-3 font-medium">Timeline UAT</th>
+                <th className="px-4 py-3 font-medium">Timeline PRD</th>
                 <th className="px-4 py-3 font-medium">Type</th>
               </tr>
             </thead>
@@ -102,6 +104,12 @@ export function TaskListView({
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {formatDate(task.endDate)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {formatDate(task.uatDate)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {formatDate(task.prdDate)}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{task.taskType}</td>
                 </tr>

@@ -49,7 +49,7 @@ export default function ProjectsPage() {
       <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E3A5F]">โปรเจกต์ทั้งหมด</h1>
+            <h1 className="text-2xl font-bold text-primary">โปรเจกต์ทั้งหมด</h1>
             <p className="mt-1 text-sm text-slate-500">
               เลือกโปรเจกต์เพื่อดูและจัดการ task
             </p>
@@ -114,7 +114,7 @@ export default function ProjectsPage() {
         <div className="mt-8 text-center">
           <Link
             href="/projects/manage"
-            className="text-sm font-medium text-[#1E3A5F] hover:underline"
+            className="text-sm font-medium text-primary hover:underline"
           >
             จัดการโปรเจกต์ →
           </Link>
