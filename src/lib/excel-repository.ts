@@ -55,6 +55,18 @@ export type ExcelTask = {
   updatedAt: string;
 };
 
+export type ExcelStatusHistory = {
+  id: string;
+  taskId: string;
+  fromStatusId: string;
+  fromStatusName: string;
+  toStatusId: string;
+  toStatusName: string;
+  changedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 const projectsTable = new ExcelTable<ExcelProject>("Projects", [
   "id",
   "name",
@@ -110,7 +122,65 @@ const tasksTable = new ExcelTable<ExcelTask>("Tasks", [
   "updatedAt",
 ]);
 
-async function hydrateTask(task: ExcelTask) {
+const statusHistoriesTable = new ExcelTable<ExcelStatusHistory>("StatusHistories", [
+  "id",
+  "taskId",
+  "fromStatusId",
+  "fromStatusName",
+  "toStatusId",
+  "toStatusName",
+  "changedAt",
+  "createdAt",
+  "updatedAt",
+]);
+
+function serializeStatusHistory(entry: ExcelStatusHistory) {
+  return {
+    id: entry.id,
+    taskId: entry.taskId,
+    fromStatusId: entry.fromStatusId || null,
+    fromStatusName: entry.fromStatusName,
+    toStatusId: entry.toStatusId,
+    toStatusName: entry.toStatusName,
+    changedAt: entry.changedAt,
+  };
+}
+
+function historyForTask(histories: ExcelStatusHistory[], taskId: string) {
+  return histories
+    .filter((entry) => entry.taskId === taskId)
+    .sort((a, b) => a.changedAt.localeCompare(b.changedAt))
+    .map(serializeStatusHistory);
+}
+
+async function recordStatusChange(params: {
+  taskId: string;
+  fromStatusId?: string | null;
+  toStatusId: string;
+}) {
+  const [fromStatus, toStatus] = await Promise.all([
+    params.fromStatusId
+      ? statusesTable.findById(params.fromStatusId)
+      : Promise.resolve(null),
+    statusesTable.findById(params.toStatusId),
+  ]);
+
+  const changedAt = new Date().toISOString();
+  await statusHistoriesTable.create({
+    id: createId(),
+    taskId: params.taskId,
+    fromStatusId: params.fromStatusId ?? "",
+    fromStatusName: fromStatus?.name ?? "",
+    toStatusId: params.toStatusId,
+    toStatusName: toStatus?.name ?? "",
+    changedAt,
+  });
+}
+
+async function hydrateTask(
+  task: ExcelTask,
+  histories: ExcelStatusHistory[] = [],
+) {
   const [project, priority, status, assignee] = await Promise.all([
     projectsTable.findById(task.projectId),
     prioritiesTable.findById(task.priorityId),
@@ -130,6 +200,7 @@ async function hydrateTask(task: ExcelTask) {
     priority,
     status,
     assignee,
+    statusHistory: historyForTask(histories, task.id),
   };
 }
 
@@ -254,7 +325,10 @@ export async function deleteTeamMember(id: string) {
 }
 
 export async function listTasks(projectId?: string | null) {
-  const tasks = await tasksTable.getAll();
+  const [tasks, histories] = await Promise.all([
+    tasksTable.getAll(),
+    statusHistoriesTable.getAll(),
+  ]);
   const filtered = projectId
     ? tasks.filter((task) => task.projectId === projectId)
     : tasks;
@@ -262,7 +336,7 @@ export async function listTasks(projectId?: string | null) {
   return Promise.all(
     filtered
       .sort((a, b) => a.sortOrder - b.sortOrder || b.createdAt.localeCompare(a.createdAt))
-      .map((task) => hydrateTask(task)),
+      .map((task) => hydrateTask(task, histories)),
   );
 }
 
@@ -299,7 +373,13 @@ export async function createTask(data: {
     assigneeId: data.assigneeId ?? null,
   });
 
-  return hydrateTask(task);
+  await recordStatusChange({
+    taskId: task.id,
+    toStatusId: data.statusId,
+  });
+
+  const histories = await statusHistoriesTable.getAll();
+  return hydrateTask(task, histories);
 }
 
 export async function updateTask(
@@ -317,6 +397,11 @@ export async function updateTask(
     sortOrder: number;
   }>,
 ) {
+  const existing = await tasksTable.findById(id);
+  if (!existing) {
+    throw new Error(`Task not found: ${id}`);
+  }
+
   const payload: Partial<ExcelTask> = {};
   if (data.name !== undefined) payload.name = data.name;
   if (data.description !== undefined) payload.description = data.description;
@@ -329,11 +414,21 @@ export async function updateTask(
   if (data.assigneeId !== undefined) payload.assigneeId = data.assigneeId;
   if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder;
 
+  if (data.statusId !== undefined && data.statusId !== existing.statusId) {
+    await recordStatusChange({
+      taskId: id,
+      fromStatusId: existing.statusId,
+      toStatusId: data.statusId,
+    });
+  }
+
   const task = await tasksTable.update(id, payload);
-  return hydrateTask(task);
+  const histories = await statusHistoriesTable.getAll();
+  return hydrateTask(task, histories);
 }
 
 export async function deleteTask(id: string) {
+  await statusHistoriesTable.deleteWhere((entry) => entry.taskId === id);
   await tasksTable.delete(id);
 }
 
@@ -360,6 +455,7 @@ export async function ensureSheetStructure() {
     statusesTable.ensureHeader(),
     teamMembersTable.ensureHeader(),
     tasksTable.ensureHeader(),
+    statusHistoriesTable.ensureHeader(),
   ]);
 }
 
@@ -393,16 +489,23 @@ export async function seedDefaultData() {
     }
   }
 
+  const statusDefaults = [
+    { name: "Backlog", color: "#6B7280", sortOrder: 0 },
+    { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
+    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
+    { name: "UAT", color: "#F97316", sortOrder: 3 },
+    { name: "PRD", color: "#22C55E", sortOrder: 4 },
+  ];
   if (statuses.length === 0) {
-    const defaults = [
-      { name: "Backlog", color: "#6B7280", sortOrder: 0 },
-      { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-      { name: "PRD", color: "#22C55E", sortOrder: 2 },
-      { name: "UAT", color: "#F97316", sortOrder: 3 },
-      { name: "Done", color: "#1E3A5F", sortOrder: 4 },
-    ];
-    for (const status of defaults) {
+    for (const status of statusDefaults) {
       await statusesTable.create({ id: createId(), ...status });
+    }
+  } else {
+    for (const status of statusDefaults) {
+      const existing = statuses.find((item) => item.name === status.name);
+      if (existing) {
+        await statusesTable.update(existing.id, { color: status.color });
+      }
     }
   }
 }

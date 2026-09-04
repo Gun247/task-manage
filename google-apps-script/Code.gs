@@ -18,6 +18,10 @@ const SHEETS = {
     "startDate", "endDate", "sortOrder", "projectId",
     "priorityId", "statusId", "assigneeId", "createdAt", "updatedAt",
   ],
+  StatusHistories: [
+    "id", "taskId", "fromStatusId", "fromStatusName",
+    "toStatusId", "toStatusName", "changedAt", "createdAt", "updatedAt",
+  ],
 };
 
 function doGet(e) {
@@ -103,15 +107,24 @@ function seedDefaults() {
       createRow("Priorities", Object.assign({ id: Utilities.getUuid() }, p));
     });
   }
-  if (getAll("Statuses").length === 0) {
-    [
-      { name: "Backlog", color: "#6B7280", sortOrder: 0 },
-      { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-      { name: "PRD", color: "#22C55E", sortOrder: 2 },
-      { name: "UAT", color: "#F97316", sortOrder: 3 },
-      { name: "Done", color: "#1E3A5F", sortOrder: 4 },
-    ].forEach(function(s) {
+  var statusDefaults = [
+    { name: "Backlog", color: "#6B7280", sortOrder: 0 },
+    { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
+    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
+    { name: "UAT", color: "#F97316", sortOrder: 3 },
+    { name: "PRD", color: "#22C55E", sortOrder: 4 },
+  ];
+  var existingStatuses = getAll("Statuses");
+  if (existingStatuses.length === 0) {
+    statusDefaults.forEach(function(s) {
       createRow("Statuses", Object.assign({ id: Utilities.getUuid() }, s));
+    });
+  } else {
+    statusDefaults.forEach(function(s) {
+      var match = existingStatuses.find(function(item) { return item.name === s.name; });
+      if (match) {
+        updateRow("Statuses", match.id, { color: s.color });
+      }
     });
   }
   return { success: true };

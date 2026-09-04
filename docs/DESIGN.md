@@ -36,9 +36,9 @@ Wireframe ถูกสร้างก่อนเขียนโค้ด (desig
 |--------|-------|
 | Backlog | `#6B7280` |
 | In Progress | `#3B82F6` |
-| PRD | `#22C55E` |
-| UAT | `#F97316` |
 | Done | `#1E3A5F` |
+| UAT | `#F97316` |
+| PRD | `#22C55E` |
 
 ### Priority Colors (seed)
 

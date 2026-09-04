@@ -44,15 +44,15 @@ async function main() {
   const statuses = [
     { name: "Backlog", color: "#6B7280", sortOrder: 0 },
     { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "PRD", color: "#22C55E", sortOrder: 2 },
+    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
     { name: "UAT", color: "#F97316", sortOrder: 3 },
-    { name: "Done", color: "#1E3A5F", sortOrder: 4 },
+    { name: "PRD", color: "#22C55E", sortOrder: 4 },
   ];
 
   for (const status of statuses) {
     await prisma.status.upsert({
       where: { name: status.name },
-      update: status,
+      update: { color: status.color },
       create: status,
     });
   }

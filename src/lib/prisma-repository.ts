@@ -10,6 +10,15 @@ function serializeTask(
     priority: NonNullable<Awaited<ReturnType<typeof prisma.priority.findUnique>>>;
     status: NonNullable<Awaited<ReturnType<typeof prisma.status.findUnique>>>;
     assignee: Awaited<ReturnType<typeof prisma.teamMember.findUnique>>;
+    statusHistory?: Array<{
+      id: string;
+      taskId: string;
+      fromStatusId: string | null;
+      fromStatusName: string;
+      toStatusId: string;
+      toStatusName: string;
+      changedAt: Date;
+    }>;
   },
 ) {
   return {
@@ -26,8 +35,28 @@ function serializeTask(
     priority: task.priority,
     status: task.status,
     assignee: task.assignee,
+    statusHistory: (task.statusHistory ?? [])
+      .slice()
+      .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime())
+      .map((entry) => ({
+        id: entry.id,
+        taskId: entry.taskId,
+        fromStatusId: entry.fromStatusId,
+        fromStatusName: entry.fromStatusName,
+        toStatusId: entry.toStatusId,
+        toStatusName: entry.toStatusName,
+        changedAt: entry.changedAt.toISOString(),
+      })),
   };
 }
+
+const taskInclude = {
+  project: true,
+  priority: true,
+  status: true,
+  assignee: true,
+  statusHistory: { orderBy: { changedAt: "asc" as const } },
+};
 
 export async function listProjects() {
   const projects = await prisma.project.findMany({
@@ -167,7 +196,7 @@ export async function deleteTeamMember(id: string) {
 export async function listTasks(projectId?: string | null) {
   const tasks = await prisma.task.findMany({
     where: projectId ? { projectId } : undefined,
-    include: { project: true, priority: true, status: true, assignee: true },
+    include: taskInclude,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   return tasks.map(serializeTask);
@@ -189,6 +218,8 @@ export async function createTask(data: {
   const project = await prisma.project.findUnique({ where: { id: data.projectId } });
   if (!project) throw new Error("Project not found");
 
+  const toStatus = await prisma.status.findUnique({ where: { id: data.statusId } });
+
   const task = await prisma.task.create({
     data: {
       name: data.name,
@@ -202,8 +233,15 @@ export async function createTask(data: {
       statusId: data.statusId,
       assigneeId: data.assigneeId ?? null,
       sortOrder: data.sortOrder ?? 0,
+      statusHistory: {
+        create: {
+          toStatusId: data.statusId,
+          toStatusName: toStatus?.name ?? "",
+          changedAt: new Date(),
+        },
+      },
     },
-    include: { project: true, priority: true, status: true, assignee: true },
+    include: taskInclude,
   });
   return serializeTask(task);
 }
@@ -223,6 +261,26 @@ export async function updateTask(
     sortOrder: number;
   }>,
 ) {
+  const existing = await prisma.task.findUnique({
+    where: { id },
+    include: { status: true },
+  });
+  if (!existing) throw new Error(`Task not found: ${id}`);
+
+  if (data.statusId !== undefined && data.statusId !== existing.statusId) {
+    const toStatus = await prisma.status.findUnique({ where: { id: data.statusId } });
+    await prisma.statusHistory.create({
+      data: {
+        taskId: id,
+        fromStatusId: existing.statusId,
+        fromStatusName: existing.status.name,
+        toStatusId: data.statusId,
+        toStatusName: toStatus?.name ?? "",
+        changedAt: new Date(),
+      },
+    });
+  }
+
   const task = await prisma.task.update({
     where: { id },
     data: {
@@ -241,7 +299,7 @@ export async function updateTask(
       ...(data.assigneeId !== undefined ? { assigneeId: data.assigneeId } : {}),
       ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
     },
-    include: { project: true, priority: true, status: true, assignee: true },
+    include: taskInclude,
   });
   return serializeTask(task);
 }
@@ -302,14 +360,14 @@ export async function seedDefaultData() {
   const statuses = [
     { name: "Backlog", color: "#6B7280", sortOrder: 0 },
     { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "PRD", color: "#22C55E", sortOrder: 2 },
+    { name: "Done", color: "#1E3A5F", sortOrder: 2 },
     { name: "UAT", color: "#F97316", sortOrder: 3 },
-    { name: "Done", color: "#1E3A5F", sortOrder: 4 },
+    { name: "PRD", color: "#22C55E", sortOrder: 4 },
   ];
   for (const status of statuses) {
     await prisma.status.upsert({
       where: { name: status.name },
-      update: status,
+      update: { color: status.color },
       create: status,
     });
   }

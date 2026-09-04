@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Settings, Plus, Search, ChevronRight } from "lucide-react";
-import { AppNav } from "@/components/app-nav";
+import { AppShell } from "@/components/app-shell";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -162,20 +162,49 @@ export function TasksPageContent() {
   }, [tasks, filters]);
 
   async function handleStatusChange(taskId: string, statusId: string) {
+    const changedAt = new Date().toISOString();
     setTasks((current) =>
       current.map((task) => {
         if (task.id !== taskId) return task;
         const status = statuses.find((item) => item.id === statusId);
-        if (!status) return task;
-        return { ...task, statusId, status };
+        if (!status || task.statusId === statusId) return task;
+        return {
+          ...task,
+          statusId,
+          status,
+          statusHistory: [
+            ...(task.statusHistory ?? []),
+            {
+              id: `temp-${changedAt}`,
+              taskId,
+              fromStatusId: task.statusId,
+              fromStatusName: task.status.name,
+              toStatusId: statusId,
+              toStatusName: status.name,
+              changedAt,
+            },
+          ],
+        };
       }),
     );
 
-    await fetch(`/api/tasks/${taskId}`, {
+    const response = await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ statusId }),
     });
+
+    if (response.ok) {
+      const updated = (await response.json()) as Task;
+      setTasks((current) =>
+        current.map((task) => (task.id === taskId ? updated : task)),
+      );
+      setEditingTask((current) =>
+        current?.id === taskId ? updated : current,
+      );
+    } else {
+      await loadData();
+    }
   }
 
   function openEditTask(task: Task) {
@@ -204,9 +233,7 @@ export function TasksPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <AppNav />
-
+    <AppShell>
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-3 lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -237,14 +264,14 @@ export function TasksPageContent() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+              <div className="inline-flex h-9 items-center rounded-lg bg-slate-100 p-0.5">
                 {views.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setView(item.id)}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:py-2 sm:text-sm",
+                      "inline-flex h-full items-center rounded-md px-3 text-sm font-medium transition sm:px-4",
                       view === item.id
                         ? "bg-white text-[#1E3A5F] shadow-sm"
                         : "text-slate-500 hover:text-slate-700",
@@ -258,19 +285,19 @@ export function TasksPageContent() {
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                className="h-9 rounded-lg px-3 text-sm"
                 onClick={() => setSettingsOpen(true)}
               >
-                <Settings className="h-3.5 w-3.5" />
+                <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Settings</span>
               </Button>
               <Button
                 type="button"
-                size="sm"
+                className="h-9 rounded-lg px-3 text-sm"
                 onClick={() => focusCreateTask()}
                 disabled={!selectedProjectId}
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-4 w-4" />
                 New Task
               </Button>
             </div>
@@ -433,6 +460,6 @@ export function TasksPageContent() {
         priorities={priorities}
         onChanged={loadData}
       />
-    </div>
+    </AppShell>
   );
 }

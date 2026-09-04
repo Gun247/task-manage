@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
 import type { Priority, Status, Task, TeamMember } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { ClipboardList } from "lucide-react";
 
 interface TaskListViewProps {
@@ -56,9 +56,10 @@ export function TaskListView({
                 <th className="px-4 py-3 font-medium">Priority</th>
                 <th className="px-4 py-3 font-medium">Task Name</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">เปลี่ยนสถานะล่าสุด</th>
                 <th className="px-4 py-3 font-medium">Assignee</th>
                 <th className="px-4 py-3 font-medium">Start</th>
-                <th className="px-4 py-3 font-medium">End (UAT)</th>
+                <th className="px-4 py-3 font-medium">End</th>
                 <th className="px-4 py-3 font-medium">Type</th>
               </tr>
             </thead>
@@ -81,6 +82,12 @@ export function TaskListView({
                   </td>
                   <td className="px-4 py-3">
                     <Badge color={task.status.color}>{task.status.name}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-500">
+                    {formatDateTime(
+                      task.statusHistory?.[task.statusHistory.length - 1]
+                        ?.changedAt,
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span

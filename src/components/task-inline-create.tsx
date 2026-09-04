@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import type { Priority, Status, TaskType, TeamMember } from "@/lib/types";
@@ -178,8 +179,9 @@ export function TaskInlineCreate({
             <option value="Back End">Back End</option>
             <option value="Front End">Front End</option>
           </Select>
-          <Input
-            type="date"
+          <DateInput
+            compact
+            label="สิ้นสุด"
             value={form.endDate}
             onChange={(event) =>
               setForm((current) => ({
@@ -187,7 +189,6 @@ export function TaskInlineCreate({
                 endDate: event.target.value,
               }))
             }
-            className={cn(fieldInputClass, "bg-white")}
           />
         </div>
 
@@ -293,7 +294,7 @@ export function TaskInlineCreate({
 
       {expanded ? (
         <div className="space-y-3 border-t border-[#1E3A5F]/10 px-4 py-3">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Select
               value={form.priorityId}
               onChange={(event) =>
@@ -356,32 +357,35 @@ export function TaskInlineCreate({
               <option value="Back End">Back End</option>
               <option value="Front End">Front End</option>
             </Select>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                type="date"
-                value={form.startDate}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    startDate: event.target.value,
-                  }))
-                }
-                className={cn(fieldInputClass, "bg-white")}
-                title="Start Date"
-              />
-              <Input
-                type="date"
-                value={form.endDate}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    endDate: event.target.value,
-                  }))
-                }
-                className={cn(fieldInputClass, "bg-white")}
-                title="End Date (UAT)"
-              />
-            </div>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:max-w-md">
+            <DateInput
+              compact
+              id="inline-start-date"
+              label="วันเริ่ม"
+              value={form.startDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  startDate: event.target.value,
+                }))
+              }
+              max={form.endDate || undefined}
+            />
+            <DateInput
+              compact
+              id="inline-end-date"
+              label="วันสิ้นสุด"
+              value={form.endDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  endDate: event.target.value,
+                }))
+              }
+              min={form.startDate || undefined}
+            />
           </div>
 
           <div className="grid gap-2 lg:grid-cols-2">

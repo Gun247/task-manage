@@ -18,13 +18,15 @@ model Priority {
 }
 
 model Status {
-  id        String   @id @default(cuid())
-  name      String   @unique
+  id        String          @id @default(cuid())
+  name      String          @unique
   color     String
-  sortOrder Int      @default(0)
+  sortOrder Int             @default(0)
   tasks     Task[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  fromHistory StatusHistory[] @relation("StatusHistoryFrom")
+  toHistory   StatusHistory[] @relation("StatusHistoryTo")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
 model TeamMember {
@@ -50,22 +52,40 @@ model Project {
 }
 
 model Task {
-  id          String      @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
-  description String      @default("")
-  remarks     String      @default("")
-  taskType    String      @default("Back End")
+  description String          @default("")
+  remarks     String          @default("")
+  taskType    String          @default("Back End")
   startDate   DateTime?
   endDate     DateTime?
-  sortOrder   Int         @default(0)
+  sortOrder   Int             @default(0)
   projectId   String
   priorityId  String
   statusId    String
   assigneeId  String?
-  project     Project     @relation(fields: [projectId], references: [id])
-  priority    Priority    @relation(fields: [priorityId], references: [id])
-  status      Status      @relation(fields: [statusId], references: [id])
-  assignee    TeamMember? @relation(fields: [assigneeId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  project     Project         @relation(fields: [projectId], references: [id])
+  priority    Priority        @relation(fields: [priorityId], references: [id])
+  status      Status          @relation(fields: [statusId], references: [id])
+  assignee    TeamMember?     @relation(fields: [assigneeId], references: [id])
+  statusHistory StatusHistory[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model StatusHistory {
+  id             String   @id @default(cuid())
+  taskId         String
+  fromStatusId   String?
+  fromStatusName String   @default("")
+  toStatusId     String
+  toStatusName   String
+  changedAt      DateTime @default(now())
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fromStatus     Status?  @relation("StatusHistoryFrom", fields: [fromStatusId], references: [id], onDelete: SetNull)
+  toStatus       Status   @relation("StatusHistoryTo", fields: [toStatusId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([taskId, changedAt])
 }

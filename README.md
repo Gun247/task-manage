@@ -152,7 +152,7 @@ Project ──< Task >── Status
 
 - **Project:** FWF Task Manager
 - **Priority:** P0, P1, P2
-- **Status:** Backlog, In Progress, PRD, UAT, Done
+- **Status:** Backlog, In Progress, Done, UAT, PRD
 - **TeamMember:** ว่าง (เพิ่มผ่าน Settings)
 - **Task:** ว่าง (เพิ่มผ่าน + New Task)
 

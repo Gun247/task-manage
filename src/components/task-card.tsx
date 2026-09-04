@@ -2,8 +2,8 @@
 
 import { Badge } from "@/components/ui/badge";
 import type { Task } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
-import { Calendar, GripVertical } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/utils";
+import { Calendar, Clock3, GripVertical } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -12,6 +12,9 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
+  const lastStatusChange =
+    task.statusHistory?.[task.statusHistory.length - 1]?.changedAt;
+
   return (
     <button
       type="button"
@@ -38,6 +41,12 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
           {formatDate(task.endDate)}
         </span>
       </div>
+      {lastStatusChange ? (
+        <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-400">
+          <Clock3 className="h-3 w-3" />
+          {formatDateTime(lastStatusChange)}
+        </div>
+      ) : null}
     </button>
   );
 }

@@ -35,6 +35,16 @@ export interface TeamMember {
   sortOrder: number;
 }
 
+export interface StatusHistoryEntry {
+  id: string;
+  taskId: string;
+  fromStatusId: string | null;
+  fromStatusName: string;
+  toStatusId: string;
+  toStatusName: string;
+  changedAt: string;
+}
+
 export interface Task {
   id: string;
   name: string;
@@ -52,6 +62,7 @@ export interface Task {
   priority: Priority;
   status: Status;
   assignee: TeamMember | null;
+  statusHistory: StatusHistoryEntry[];
   createdAt: string;
   updatedAt: string;
 }

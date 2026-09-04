@@ -257,6 +257,15 @@ export class SheetTable<T extends RowRecord> {
     });
   }
 
+  async deleteWhere(predicate: (row: T) => boolean): Promise<number> {
+    const rows = await this.getAll();
+    const targets = rows.filter(predicate);
+    for (const row of targets) {
+      await this.delete(String(row.id));
+    }
+    return targets.length;
+  }
+
   async findFirst(
     orderBy?: { key: keyof T; direction: "asc" | "desc" },
     predicate?: (row: T) => boolean,

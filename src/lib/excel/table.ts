@@ -188,6 +188,19 @@ export class ExcelTable<T extends RowRecord> {
     });
   }
 
+  async deleteWhere(predicate: (row: T) => boolean): Promise<number> {
+    return withExcelLock(() => {
+      const workbook = readWorkbook();
+      const sheet = workbook.Sheets[this.sheetName];
+      const rows = sheet ? this.rowsFromSheet(sheet) : [];
+      const remaining = rows.filter((row) => !predicate(row));
+      const removed = rows.length - remaining.length;
+      this.writeRows(workbook, remaining);
+      writeWorkbook(workbook);
+      return removed;
+    });
+  }
+
   async findFirst(
     orderBy?: { key: keyof T; direction: "asc" | "desc" },
     predicate?: (row: T) => boolean,

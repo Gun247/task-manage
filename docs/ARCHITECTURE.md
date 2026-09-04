@@ -77,7 +77,7 @@ Priority ──< Task >── Status
 `prisma/seed.ts` สร้างเฉพาะ:
 
 - Priority: P0 (#EF4444), P1 (#F97316), P2 (#6B7280)
-- Status: Backlog → In Progress → PRD → UAT → Done
+- Status: Backlog → In Progress → Done → UAT → PRD
 
 **ไม่ seed** TeamMember หรือ Task — user เพิ่มผ่าน UI
 

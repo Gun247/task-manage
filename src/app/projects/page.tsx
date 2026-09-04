@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FolderKanban, Plus, Search } from "lucide-react";
-import { AppNav } from "@/components/app-nav";
+import { AppShell } from "@/components/app-shell";
 import { ProjectCard } from "@/components/project-card";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { Button } from "@/components/ui/button";
@@ -45,9 +45,7 @@ export default function ProjectsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <AppNav />
-
+    <AppShell>
       <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -128,6 +126,6 @@ export default function ProjectsPage() {
         onOpenChange={setDialogOpen}
         onSaved={() => loadProjects()}
       />
-    </div>
+    </AppShell>
   );
 }

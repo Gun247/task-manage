@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,8 @@ import {
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import type { Priority, Status, Task, TaskType, TeamMember } from "@/lib/types";
+import { formatDateTime } from "@/lib/utils";
+import { History } from "lucide-react";
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -200,34 +203,30 @@ export function TaskFormDialog({
                 <option value="Front End">Front End</option>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={form.startDate}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    startDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="endDate">Planned End Date (UAT)</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={form.endDate}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    endDate: event.target.value,
-                  }))
-                }
-              />
-            </div>
+            <DateInput
+              id="startDate"
+              label="วันเริ่ม"
+              value={form.startDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  startDate: event.target.value,
+                }))
+              }
+              max={form.endDate || undefined}
+            />
+            <DateInput
+              id="endDate"
+              label="วันสิ้นสุด"
+              value={form.endDate}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  endDate: event.target.value,
+                }))
+              }
+              min={form.startDate || undefined}
+            />
           </div>
 
           <div>
@@ -257,6 +256,48 @@ export function TaskFormDialog({
               }
             />
           </div>
+
+          {task ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                <History className="h-4 w-4 text-slate-500" />
+                ประวัติสถานะ
+              </div>
+              {(task.statusHistory ?? []).length === 0 ? (
+                <p className="text-xs text-slate-500">ยังไม่มีประวัติการเปลี่ยนสถานะ</p>
+              ) : (
+                <ol className="space-y-2">
+                  {[...(task.statusHistory ?? [])]
+                    .slice()
+                    .reverse()
+                    .map((entry) => (
+                      <li
+                        key={entry.id}
+                        className="flex items-start justify-between gap-3 text-sm"
+                      >
+                        <div className="min-w-0">
+                          {entry.fromStatusName ? (
+                            <p className="text-slate-700">
+                              <span className="text-slate-500">{entry.fromStatusName}</span>
+                              {" → "}
+                              <span className="font-medium">{entry.toStatusName}</span>
+                            </p>
+                          ) : (
+                            <p className="text-slate-700">
+                              เริ่มที่{" "}
+                              <span className="font-medium">{entry.toStatusName}</span>
+                            </p>
+                          )}
+                        </div>
+                        <time className="shrink-0 text-xs text-slate-500">
+                          {formatDateTime(entry.changedAt)}
+                        </time>
+                      </li>
+                    ))}
+                </ol>
+              )}
+            </div>
+          ) : null}
 
           <div className="flex justify-end gap-2">
             <Button
