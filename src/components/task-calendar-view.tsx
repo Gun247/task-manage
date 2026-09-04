@@ -60,6 +60,18 @@ function formatTaskSummaryLine(task: Task, index: number) {
   if (task.description?.trim()) {
     lines.push(`   ${task.description.trim()}`);
   }
+
+  const subtasks = [...(task.subtasks ?? [])].sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  );
+  if (subtasks.length > 0) {
+    lines.push("   Subtasks:");
+    for (const subtask of subtasks) {
+      const mark = subtask.isDone ? "[x]" : "[ ]";
+      lines.push(`   - ${mark} ${subtask.name}`);
+    }
+  }
+
   return lines.join("\n");
 }
 

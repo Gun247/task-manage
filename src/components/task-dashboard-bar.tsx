@@ -1,23 +1,11 @@
 "use client";
 
 import type { Status, Task } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, isTaskOverdue } from "@/lib/utils";
 import { AlertTriangle, CheckCircle2, ListTodo } from "lucide-react";
 
-function startOfToday() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
 function isTerminalStatus(name: string) {
-  const normalized = name.toLowerCase();
-  return normalized === "done" || normalized === "prd";
-}
-
-function isOverdue(task: Task) {
-  if (!task.endDate || isTerminalStatus(task.status.name)) return false;
-  return new Date(task.endDate) < startOfToday();
+  return name.toLowerCase() === "done";
 }
 
 export function TaskDashboardBar({
@@ -30,7 +18,7 @@ export function TaskDashboardBar({
   className?: string;
 }) {
   const total = tasks.length;
-  const overdue = tasks.filter(isOverdue).length;
+  const overdue = tasks.filter(isTaskOverdue).length;
   const done = tasks.filter((task) => isTerminalStatus(task.status.name)).length;
   const byStatus = statuses.map((status) => ({
     status,

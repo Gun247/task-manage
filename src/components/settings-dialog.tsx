@@ -30,6 +30,10 @@ import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  getStatusDescription,
+  isDefaultStatusName,
+} from "@/lib/default-statuses";
 import { Check, GripVertical, Pencil, Trash2, X } from "lucide-react";
 
 const COLOR_OPTIONS = [
@@ -70,6 +74,8 @@ function SortableStatusRow({
     transition,
     isDragging,
   } = useSortable({ id: status.id });
+  const description = getStatusDescription(status.name);
+  const isDefault = isDefaultStatusName(status.name);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -81,7 +87,7 @@ function SortableStatusRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center justify-between rounded-lg border border-slate-200 bg-white px-2 py-2",
+        "flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2",
         isDragging && "z-10 border-primary/40 shadow-md",
       )}
     >
@@ -99,21 +105,37 @@ function SortableStatusRow({
           className="h-4 w-4 shrink-0 rounded-full"
           style={{ backgroundColor: status.color }}
         />
-        <span className="truncate text-sm font-medium text-slate-800">
-          {status.name}
-        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium text-slate-800">
+              {status.name}
+            </span>
+            {isDefault ? (
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                default
+              </span>
+            ) : null}
+          </div>
+          {description ? (
+            <p className="truncate text-xs text-slate-500">{description}</p>
+          ) : null}
+        </div>
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        disabled={deleting}
-        onClick={onDelete}
-      >
-        <LoadingButtonContent loading={deleting} loadingText="">
-          <Trash2 className="h-4 w-4 text-red-500" />
-        </LoadingButtonContent>
-      </Button>
+      {isDefault ? (
+        <span className="shrink-0 px-2 text-[10px] text-slate-400">ลบไม่ได้</span>
+      ) : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={deleting}
+          onClick={onDelete}
+        >
+          <LoadingButtonContent loading={deleting} loadingText="">
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </LoadingButtonContent>
+        </Button>
+      )}
     </div>
   );
 }
@@ -141,7 +163,7 @@ export function SettingsDialog({
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editMemberName, setEditMemberName] = useState("");
-  const [editMemberColor, setEditMemberColor] = useState(COLOR_OPTIONS[2]);
+  const [editMemberColor, setEditMemberColor] = useState<string>(COLOR_OPTIONS[2]);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
@@ -170,6 +192,7 @@ export function SettingsDialog({
   }
 
   async function deleteStatus(status: Status) {
+    if (isDefaultStatusName(status.name)) return;
     if (orderedStatuses.length <= 1) return;
 
     const fallback = orderedStatuses.find((item) => item.id !== status.id);
@@ -328,9 +351,9 @@ export function SettingsDialog({
 
           <TabsContent value="status" className="space-y-4">
             <p className="text-xs text-slate-500">
-              ลากไอคอน{" "}
+              สถานะเริ่มต้น 5 รายการจะมีเสมอ และลบไม่ได้ — ลากไอคอน{" "}
               <GripVertical className="inline h-3.5 w-3.5 align-text-bottom" />{" "}
-              เพื่อเรียงลำดับสถานะ (ใช้ใน Kanban และฟอร์ม)
+              เพื่อเรียงลำดับ (ใช้ใน Kanban และฟอร์ม)
               {reordering ? " — กำลังบันทึก..." : null}
             </p>
             <DndContext

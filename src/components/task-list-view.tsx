@@ -5,7 +5,7 @@ import { TaskTypesDisplay } from "@/components/task-type-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
 import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { cn, formatDate, formatDateTime, isTaskOverdue } from "@/lib/utils";
 import { ClipboardList } from "lucide-react";
 
 interface TaskListViewProps {
@@ -74,83 +74,118 @@ export function TaskListView({
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task, index) => (
-                <tr
-                  key={task.id}
-                  className={`cursor-pointer border-t border-slate-100 hover:bg-slate-50 ${
-                    index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                  }`}
-                  onClick={() => onEditTask(task)}
-                >
-                  <td className="px-4 py-3">
-                    <Badge color={task.priority.color}>
-                      {task.priority.label}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900">{task.name}</p>
-                    {task.description?.trim() ? (
-                      <p className="mt-0.5 line-clamp-2 max-w-xs text-xs leading-relaxed text-slate-500">
-                        {task.description.trim()}
-                      </p>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {(task.subtasks ?? []).length > 0
-                      ? `${(task.subtasks ?? []).filter((item) => item.isDone).length}/${(task.subtasks ?? []).length}`
-                      : "-"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <Badge className="whitespace-nowrap" color={task.status.color}>
-                      {task.status.name}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">
-                    {formatDateTime(
-                      task.statusHistory?.[task.statusHistory.length - 1]
-                        ?.changedAt,
+              {tasks.map((task, index) => {
+                const overdue = isTaskOverdue(task);
+                return (
+                  <tr
+                    key={task.id}
+                    className={cn(
+                      "cursor-pointer border-t transition",
+                      overdue
+                        ? "border-red-100 bg-red-50/80 hover:bg-red-50"
+                        : cn(
+                            "border-slate-100 hover:bg-slate-50",
+                            index % 2 === 0 ? "bg-white" : "bg-slate-50/40",
+                          ),
                     )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <InlineAssigneePicker
-                      taskId={task.id}
-                      members={teamMembers}
-                      assignees={
-                        task.assignees?.length
-                          ? task.assignees
-                          : task.assignee
-                            ? [task.assignee]
-                            : []
-                      }
-                      onUpdated={onTaskUpdated}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatDate(task.startDate)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatDate(task.endDate)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatDate(task.uatDate)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatDate(task.prdDate)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    <TaskTypesDisplay
-                      options={taskTypes}
-                      types={
-                        task.taskTypes?.length
-                          ? task.taskTypes
-                          : task.taskType
-                            ? [task.taskType]
-                            : []
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
+                    onClick={() => onEditTask(task)}
+                  >
+                    <td className="px-4 py-3">
+                      <Badge color={task.priority.color}>
+                        {task.priority.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className={cn(
+                            "font-medium",
+                            overdue ? "text-red-800" : "text-slate-900",
+                          )}
+                        >
+                          {task.name}
+                        </p>
+                        {overdue ? (
+                          <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                            เกินกำหนด
+                          </span>
+                        ) : null}
+                      </div>
+                      {task.description?.trim() ? (
+                        <p
+                          className={cn(
+                            "mt-0.5 line-clamp-2 max-w-xs text-xs leading-relaxed",
+                            overdue ? "text-red-700/70" : "text-slate-500",
+                          )}
+                        >
+                          {task.description.trim()}
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      {(task.subtasks ?? []).length > 0
+                        ? `${(task.subtasks ?? []).filter((item) => item.isDone).length}/${(task.subtasks ?? []).length}`
+                        : "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <Badge className="whitespace-nowrap" color={task.status.color}>
+                        {task.status.name}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      {formatDateTime(
+                        task.statusHistory?.[task.statusHistory.length - 1]
+                          ?.changedAt,
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <InlineAssigneePicker
+                        taskId={task.id}
+                        members={teamMembers}
+                        assignees={
+                          task.assignees?.length
+                            ? task.assignees
+                            : task.assignee
+                              ? [task.assignee]
+                              : []
+                        }
+                        onUpdated={onTaskUpdated}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {formatDate(task.startDate)}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-4 py-3",
+                        overdue
+                          ? "font-semibold text-red-600"
+                          : "text-slate-600",
+                      )}
+                    >
+                      {formatDate(task.endDate)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {formatDate(task.uatDate)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {formatDate(task.prdDate)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <TaskTypesDisplay
+                        options={taskTypes}
+                        types={
+                          task.taskTypes?.length
+                            ? task.taskTypes
+                            : task.taskType
+                              ? [task.taskType]
+                              : []
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

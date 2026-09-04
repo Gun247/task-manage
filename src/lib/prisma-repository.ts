@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import {
+  DEFAULT_STATUSES,
+  DONE_STATUS_NAME,
+  isDefaultStatusName,
+  PRD_STATUS_NAME,
+  shouldAutoPromotePrdToDone,
+} from "@/lib/default-statuses";
+import {
   DEFAULT_TASK_TYPES,
   normalizeTaskTypes,
   parseTaskTypes,
@@ -312,7 +319,80 @@ export async function updatePriority(
   return prisma.priority.update({ where: { id }, data });
 }
 
+export async function ensureDefaultStatuses() {
+  for (const status of DEFAULT_STATUSES) {
+    await prisma.status.upsert({
+      where: { name: status.name },
+      update: {
+        color: status.color,
+        sortOrder: status.sortOrder,
+      },
+      create: {
+        name: status.name,
+        color: status.color,
+        sortOrder: status.sortOrder,
+      },
+    });
+  }
+}
+
+export async function promotePrdTasksToDone() {
+  await ensureDefaultStatuses();
+
+  const [prdStatus, doneStatus] = await Promise.all([
+    prisma.status.findUnique({ where: { name: PRD_STATUS_NAME } }),
+    prisma.status.findUnique({ where: { name: DONE_STATUS_NAME } }),
+  ]);
+  if (!prdStatus || !doneStatus) return 0;
+
+  const tasks = await prisma.task.findMany({
+    where: { statusId: prdStatus.id },
+    include: {
+      statusHistory: { orderBy: { changedAt: "desc" } },
+    },
+  });
+
+  const now = new Date();
+  let promoted = 0;
+
+  for (const task of tasks) {
+    const enteredPrd = task.statusHistory.find(
+      (entry) => entry.toStatusId === prdStatus.id,
+    );
+
+    if (
+      !shouldAutoPromotePrdToDone({
+        enteredPrdAt: enteredPrd?.changedAt ?? null,
+        prdDate: task.prdDate,
+        updatedAt: task.updatedAt,
+        now,
+      })
+    ) {
+      continue;
+    }
+
+    await prisma.statusHistory.create({
+      data: {
+        taskId: task.id,
+        fromStatusId: prdStatus.id,
+        fromStatusName: prdStatus.name,
+        toStatusId: doneStatus.id,
+        toStatusName: doneStatus.name,
+        changedAt: now,
+      },
+    });
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { statusId: doneStatus.id },
+    });
+    promoted += 1;
+  }
+
+  return promoted;
+}
+
 export async function listStatuses() {
+  await ensureDefaultStatuses();
   return prisma.status.findMany({ orderBy: { sortOrder: "asc" } });
 }
 
@@ -331,10 +411,27 @@ export async function updateStatus(
   id: string,
   data: Partial<{ name: string; color: string; sortOrder: number }>,
 ) {
+  const existing = await prisma.status.findUnique({ where: { id } });
+  if (!existing) throw new Error(`Status not found: ${id}`);
+
+  if (
+    isDefaultStatusName(existing.name) &&
+    data.name !== undefined &&
+    data.name !== existing.name
+  ) {
+    throw new Error(`ไม่สามารถเปลี่ยนชื่อสถานะเริ่มต้น "${existing.name}" ได้`);
+  }
+
   return prisma.status.update({ where: { id }, data });
 }
 
 export async function deleteStatus(id: string, moveToStatusId?: string) {
+  const existing = await prisma.status.findUnique({ where: { id } });
+  if (!existing) throw new Error(`Status not found: ${id}`);
+  if (isDefaultStatusName(existing.name)) {
+    throw new Error(`ไม่สามารถลบสถานะเริ่มต้น "${existing.name}" ได้`);
+  }
+
   const taskCount = await prisma.task.count({ where: { statusId: id } });
   if (taskCount > 0) {
     if (!moveToStatusId) {
@@ -480,6 +577,7 @@ export async function getDefaultTaskType() {
 }
 
 export async function listTasks(projectId?: string | null) {
+  await promotePrdTasksToDone();
   const tasks = await prisma.task.findMany({
     where: projectId ? { projectId } : undefined,
     include: taskInclude,
@@ -793,18 +891,16 @@ export async function seedDefaultData() {
     });
   }
 
-  const statuses = [
-    { name: "Backlog", color: "#6B7280", sortOrder: 0 },
-    { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "Done", color: "#6BB82A", sortOrder: 2 },
-    { name: "UAT", color: "#F97316", sortOrder: 3 },
-    { name: "PRD", color: "#22C55E", sortOrder: 4 },
-  ];
+  const statuses = [...DEFAULT_STATUSES];
   for (const status of statuses) {
     await prisma.status.upsert({
       where: { name: status.name },
-      update: { color: status.color },
-      create: status,
+      update: { color: status.color, sortOrder: status.sortOrder },
+      create: {
+        name: status.name,
+        color: status.color,
+        sortOrder: status.sortOrder,
+      },
     });
   }
 

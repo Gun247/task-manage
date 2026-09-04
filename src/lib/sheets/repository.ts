@@ -1,6 +1,13 @@
 import { createId, SheetTable } from "./table";
 import { callAppsScript } from "./apps-script-client";
 import {
+  DEFAULT_STATUSES,
+  DONE_STATUS_NAME,
+  isDefaultStatusName,
+  PRD_STATUS_NAME,
+  shouldAutoPromotePrdToDone,
+} from "../default-statuses";
+import {
   DEFAULT_TASK_TYPES,
   normalizeTaskTypes,
   parseTaskTypes,
@@ -514,7 +521,75 @@ export async function updatePriority(
   return prioritiesTable.update(id, data);
 }
 
+export async function ensureDefaultStatuses() {
+  const statuses = await statusesTable.getAll();
+  for (const status of DEFAULT_STATUSES) {
+    const existing = statuses.find((item) => item.name === status.name);
+    if (existing) {
+      await statusesTable.update(existing.id, {
+        color: status.color,
+        sortOrder: status.sortOrder,
+      });
+    } else {
+      await statusesTable.create({
+        id: createId(),
+        name: status.name,
+        color: status.color,
+        sortOrder: status.sortOrder,
+      });
+    }
+  }
+}
+
+export async function promotePrdTasksToDone() {
+  await ensureDefaultStatuses();
+  const statuses = await statusesTable.getAll();
+  const prdStatus = statuses.find((item) => item.name === PRD_STATUS_NAME);
+  const doneStatus = statuses.find((item) => item.name === DONE_STATUS_NAME);
+  if (!prdStatus || !doneStatus) return 0;
+
+  const [tasks, histories] = await Promise.all([
+    tasksTable.getAll(),
+    statusHistoriesTable.getAll(),
+  ]);
+  const now = new Date();
+  let promoted = 0;
+
+  for (const task of tasks) {
+    if (task.statusId !== prdStatus.id) continue;
+
+    const enteredPrd = histories
+      .filter(
+        (entry) =>
+          entry.taskId === task.id && entry.toStatusId === prdStatus.id,
+      )
+      .sort((a, b) => b.changedAt.localeCompare(a.changedAt))[0];
+
+    if (
+      !shouldAutoPromotePrdToDone({
+        enteredPrdAt: enteredPrd?.changedAt ?? null,
+        prdDate: task.prdDate || null,
+        updatedAt: task.updatedAt,
+        now,
+      })
+    ) {
+      continue;
+    }
+
+    await recordStatusChange({
+      taskId: task.id,
+      fromStatusId: prdStatus.id,
+      toStatusId: doneStatus.id,
+    });
+    await tasksTable.update(task.id, { statusId: doneStatus.id });
+    promoted += 1;
+  }
+
+  return promoted;
+}
+
 export async function listStatuses() {
+  await ensureDefaultStatuses();
   const statuses = await statusesTable.getAll();
   return statuses.sort((a, b) => a.sortOrder - b.sortOrder);
 }
@@ -533,10 +608,25 @@ export async function updateStatus(
   id: string,
   data: Partial<Pick<SheetStatus, "name" | "color" | "sortOrder">>,
 ) {
+  const existing = await statusesTable.findById(id);
+  if (!existing) throw new Error(`Status not found: ${id}`);
+  if (
+    isDefaultStatusName(existing.name) &&
+    data.name !== undefined &&
+    data.name !== existing.name
+  ) {
+    throw new Error(`ไม่สามารถเปลี่ยนชื่อสถานะเริ่มต้น "${existing.name}" ได้`);
+  }
   return statusesTable.update(id, data);
 }
 
 export async function deleteStatus(id: string, moveToStatusId?: string) {
+  const existing = await statusesTable.findById(id);
+  if (!existing) throw new Error(`Status not found: ${id}`);
+  if (isDefaultStatusName(existing.name)) {
+    throw new Error(`ไม่สามารถลบสถานะเริ่มต้น "${existing.name}" ได้`);
+  }
+
   const taskCount = await tasksTable.count((task) => task.statusId === id);
   if (taskCount > 0) {
     if (!moveToStatusId) {
@@ -674,6 +764,7 @@ export async function getDefaultTaskType() {
 }
 
 export async function listTasks(projectId?: string | null) {
+  await promotePrdTasksToDone();
   const [tasks, histories, subtasks, assignments, members, subtaskAssignments] =
     await Promise.all([
       tasksTable.getAll(),
@@ -1006,10 +1097,9 @@ export async function seedDefaultData() {
 
   await ensureSheetStructure();
 
-  const [projects, priorities, statuses, taskTypes] = await Promise.all([
+  const [projects, priorities, taskTypes] = await Promise.all([
     projectsTable.getAll(),
     prioritiesTable.getAll(),
-    statusesTable.getAll(),
     taskTypesTable.getAll(),
   ]);
 
@@ -1034,25 +1124,7 @@ export async function seedDefaultData() {
     }
   }
 
-  const statusDefaults = [
-    { name: "Backlog", color: "#6B7280", sortOrder: 0 },
-    { name: "In Progress", color: "#3B82F6", sortOrder: 1 },
-    { name: "Done", color: "#6BB82A", sortOrder: 2 },
-    { name: "UAT", color: "#F97316", sortOrder: 3 },
-    { name: "PRD", color: "#22C55E", sortOrder: 4 },
-  ];
-  if (statuses.length === 0) {
-    for (const status of statusDefaults) {
-      await statusesTable.create({ id: createId(), ...status });
-    }
-  } else {
-    for (const status of statusDefaults) {
-      const existing = statuses.find((item) => item.name === status.name);
-      if (existing) {
-        await statusesTable.update(existing.id, { color: status.color });
-      }
-    }
-  }
+  await ensureDefaultStatuses();
 
   if (taskTypes.length === 0) {
     for (const type of DEFAULT_TASK_TYPES) {

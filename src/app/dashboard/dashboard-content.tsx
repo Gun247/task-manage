@@ -25,8 +25,7 @@ function startOfToday() {
 }
 
 function isTerminalStatus(name: string) {
-  const normalized = name.toLowerCase();
-  return normalized === "done" || normalized === "prd";
+  return name.toLowerCase() === "done";
 }
 
 function isOverdue(task: Task) {
