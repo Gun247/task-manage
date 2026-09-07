@@ -13,25 +13,17 @@ import {
 } from "@dnd-kit/core";
 import { useMemo, useState } from "react";
 import { TaskCard } from "@/components/task-card";
-import { TaskInlineCreate } from "@/components/task-inline-create";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
+import type { Status, Task } from "@/lib/types";
 import { Plus } from "lucide-react";
 
 interface TaskKanbanViewProps {
   tasks: Task[];
   statuses: Status[];
-  priorities: Priority[];
-  teamMembers: TeamMember[];
-  taskTypes: TaskTypeOption[];
-  projectId: string;
   onStatusChange: (taskId: string, statusId: string) => void;
   onEditTask: (task: Task) => void;
-  onSaved: () => void;
-  creatingInStatusId?: string | null;
   onStartCreate?: (statusId: string) => void;
-  onCancelCreate?: () => void;
 }
 
 function DraggableTaskCard({
@@ -64,26 +56,12 @@ function DraggableTaskCard({
 function KanbanColumn({
   status,
   tasks,
-  priorities,
-  teamMembers,
-  taskTypes,
-  projectId,
-  isCreating,
   onStartCreate,
-  onCancelCreate,
-  onSaved,
   onEditTask,
 }: {
   status: Status;
   tasks: Task[];
-  priorities: Priority[];
-  teamMembers: TeamMember[];
-  taskTypes: TaskTypeOption[];
-  projectId: string;
-  isCreating: boolean;
   onStartCreate: (statusId: string) => void;
-  onCancelCreate: () => void;
-  onSaved: () => void;
   onEditTask: (task: Task) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
@@ -111,22 +89,6 @@ function KanbanColumn({
       </div>
 
       <div className="flex flex-1 flex-col gap-3">
-        {isCreating ? (
-          <TaskInlineCreate
-            variant="kanban"
-            statuses={[status]}
-            priorities={priorities}
-            teamMembers={teamMembers}
-            taskTypes={taskTypes}
-            projectId={projectId}
-            defaultStatusId={status.id}
-            onSaved={() => {
-              onSaved();
-              onCancelCreate();
-            }}
-            onCancel={onCancelCreate}
-          />
-        ) : null}
         {tasks.map((task) => (
           <DraggableTaskCard
             key={task.id}
@@ -142,16 +104,9 @@ function KanbanColumn({
 export function TaskKanbanView({
   tasks,
   statuses,
-  priorities,
-  teamMembers,
-  taskTypes,
-  projectId,
   onStatusChange,
   onEditTask,
-  onSaved,
-  creatingInStatusId = null,
   onStartCreate,
-  onCancelCreate,
 }: TaskKanbanViewProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const sensors = useSensors(
@@ -205,14 +160,7 @@ export function TaskKanbanView({
               key={status.id}
               status={status}
               tasks={tasksByStatus.get(status.id) ?? []}
-              priorities={priorities}
-              teamMembers={teamMembers}
-              taskTypes={taskTypes}
-              projectId={projectId}
-              isCreating={creatingInStatusId === status.id}
               onStartCreate={onStartCreate ?? (() => {})}
-              onCancelCreate={onCancelCreate ?? (() => {})}
-              onSaved={onSaved}
               onEditTask={onEditTask}
             />
           ))}

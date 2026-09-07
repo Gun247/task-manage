@@ -29,9 +29,7 @@ interface TaskInlineCreateProps {
   projectId: string;
   defaultStatusId?: string;
   onSaved: () => void;
-  variant?: "list" | "kanban";
   focusTrigger?: number;
-  onCancel?: () => void;
 }
 
 const emptyForm = {
@@ -57,11 +55,9 @@ export function TaskInlineCreate({
   projectId,
   defaultStatusId,
   onSaved,
-  variant = "list",
   focusTrigger = 0,
-  onCancel,
 }: TaskInlineCreateProps) {
-  const [expanded, setExpanded] = useState(variant === "kanban");
+  const [expanded, setExpanded] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
   const [newSubtaskName, setNewSubtaskName] = useState("");
@@ -87,8 +83,8 @@ export function TaskInlineCreate({
     setPendingSubtasks([]);
     setNewSubtaskName("");
     setNewSubtaskAssigneeIds([]);
-    setExpanded(variant === "kanban");
-  }, [defaultStatusId, priorities, statuses, taskTypes, variant]);
+    setExpanded(false);
+  }, [defaultStatusId, priorities, statuses, taskTypes]);
 
   useEffect(() => {
     if (focusTrigger > 0) {
@@ -122,12 +118,7 @@ export function TaskInlineCreate({
     setPendingSubtasks([]);
     setNewSubtaskName("");
     setNewSubtaskAssigneeIds([]);
-    setExpanded(variant === "kanban");
-  }
-
-  function handleCancel() {
-    resetForm();
-    onCancel?.();
+    setExpanded(false);
   }
 
   function addPendingSubtask() {
@@ -185,171 +176,6 @@ export function TaskInlineCreate({
 
   const fieldSelectClass = "h-9 py-0 text-sm leading-9";
   const fieldInputClass = "h-9 py-0 text-sm leading-9";
-
-  if (variant === "kanban") {
-    return (
-      <form
-        onSubmit={handleSubmit}
-        className="mb-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
-      >
-        <Input
-          ref={nameInputRef}
-          required
-          placeholder="ชื่อ task..."
-          value={form.name}
-          onChange={(event) =>
-            setForm((current) => ({ ...current, name: event.target.value }))
-          }
-          className={cn(fieldInputClass, "mb-2 bg-white")}
-        />
-
-        <div className="mb-2">
-          <Select
-            value={form.priorityId}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                priorityId: event.target.value,
-              }))
-            }
-            className={cn(fieldSelectClass, "mb-2 bg-white")}
-          >
-            {priorities.map((priority) => (
-              <option key={priority.id} value={priority.id}>
-                {priority.label}
-              </option>
-            ))}
-          </Select>
-          <TaskTypeMultiSelect
-            options={taskTypes}
-            value={form.taskTypes}
-            onChange={(selected) =>
-              setForm((current) => ({
-                ...current,
-                taskTypes: selected,
-                taskType: selected[0] ?? taskTypes[0]?.name ?? "Back End",
-              }))
-            }
-            className="bg-white"
-          />
-        </div>
-
-        <div className="mb-2">
-          <AssigneeMultiSelect
-            members={teamMembers.filter((member) => member.isActive)}
-            value={form.assigneeIds}
-            onChange={(assigneeIds) =>
-              setForm((current) => ({ ...current, assigneeIds }))
-            }
-            className="bg-white"
-          />
-        </div>
-
-        <div className="mb-2">
-          <DateInput
-            compact
-            label="สิ้นสุด"
-            value={form.endDate}
-            onChange={(event) =>
-              setForm((current) => ({
-                ...current,
-                endDate: event.target.value,
-              }))
-            }
-          />
-        </div>
-
-        <div className="mb-2">
-          <PendingSubtasksEditor
-            compact
-            items={pendingSubtasks}
-            draft={newSubtaskName}
-            onDraftChange={setNewSubtaskName}
-            draftAssigneeIds={newSubtaskAssigneeIds}
-            onDraftAssigneeIdsChange={setNewSubtaskAssigneeIds}
-            availableMembers={parentAssignees}
-            onAdd={addPendingSubtask}
-            onRemove={(index) =>
-              setPendingSubtasks((current) =>
-                current.filter((_, itemIndex) => itemIndex !== index),
-              )
-            }
-            onChangeAssignees={(index, assigneeIds) =>
-              setPendingSubtasks((current) =>
-                current.map((item, itemIndex) =>
-                  itemIndex === index ? { ...item, assigneeIds } : item,
-                ),
-              )
-            }
-          />
-        </div>
-
-        {expanded ? (
-          <div className="mb-2 space-y-2">
-            <Textarea
-              placeholder="Description"
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
-              }
-              className="min-h-[60px] bg-white text-xs"
-            />
-            <Textarea
-              placeholder="Remarks"
-              value={form.remarks}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  remarks: event.target.value,
-                }))
-              }
-              className="min-h-[50px] bg-white text-xs"
-            />
-          </div>
-        ) : null}
-
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setExpanded((current) => !current)}
-            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="h-3 w-3" />
-                ซ่อนรายละเอียด
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3" />
-                เพิ่มรายละเอียด
-              </>
-            )}
-          </button>
-          <div className="flex gap-1">
-            {onCancel ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleCancel}
-              >
-                ยกเลิก
-              </Button>
-            ) : null}
-            <Button type="submit" size="sm" disabled={saving || !form.name.trim()}>
-              <LoadingButtonContent loading={saving} loadingText="...">
-                สร้าง
-              </LoadingButtonContent>
-            </Button>
-          </div>
-        </div>
-      </form>
-    );
-  }
 
   return (
     <form

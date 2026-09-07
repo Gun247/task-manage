@@ -65,9 +65,9 @@ export function TasksPageContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [focusCreateTrigger, setFocusCreateTrigger] = useState(0);
-  const [creatingInStatusId, setCreatingInStatusId] = useState<string | null>(
-    null,
-  );
+  const [createDefaultStatusId, setCreateDefaultStatusId] = useState<
+    string | undefined
+  >();
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -240,12 +240,19 @@ export function TasksPageContent() {
 
   function openEditTask(task: Task) {
     setEditingTask(task);
+    setCreateDefaultStatusId(undefined);
+    setTaskDialogOpen(true);
+  }
+
+  function openCreateTask(statusId?: string) {
+    setEditingTask(null);
+    setCreateDefaultStatusId(statusId ?? statuses[0]?.id);
     setTaskDialogOpen(true);
   }
 
   function focusCreateTask(statusId?: string) {
     if (view === "kanban") {
-      setCreatingInStatusId(statusId ?? statuses[0]?.id ?? null);
+      openCreateTask(statusId);
       return;
     }
     if (view !== "list") {
@@ -482,16 +489,9 @@ export function TasksPageContent() {
               <TaskKanbanView
                 tasks={filteredTasks}
                 statuses={statuses}
-                priorities={priorities}
-                teamMembers={teamMembers}
-                taskTypes={taskTypes}
-                projectId={selectedProjectId}
                 onStatusChange={handleStatusChange}
                 onEditTask={openEditTask}
-                onSaved={handleSaved}
-                creatingInStatusId={creatingInStatusId}
-                onStartCreate={focusCreateTask}
-                onCancelCreate={() => setCreatingInStatusId(null)}
+                onStartCreate={openCreateTask}
               />
             ) : (
               <TaskCalendarView
@@ -512,13 +512,20 @@ export function TasksPageContent() {
 
       <TaskFormDialog
         open={taskDialogOpen}
-        onOpenChange={setTaskDialogOpen}
+        onOpenChange={(open) => {
+          setTaskDialogOpen(open);
+          if (!open) {
+            setEditingTask(null);
+            setCreateDefaultStatusId(undefined);
+          }
+        }}
         task={editingTask}
         statuses={statuses}
         priorities={priorities}
         teamMembers={teamMembers}
         taskTypes={taskTypes}
         projectId={selectedProjectId}
+        defaultStatusId={createDefaultStatusId}
         onSaved={handleSaved}
       />
 
