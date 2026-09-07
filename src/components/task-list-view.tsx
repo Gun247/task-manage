@@ -5,7 +5,12 @@ import { TaskTypesDisplay } from "@/components/task-type-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
 import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
-import { cn, formatDate, formatDateTime, isTaskOverdue } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatDateTime,
+  getTaskOverdueState,
+} from "@/lib/utils";
 import { ClipboardList } from "lucide-react";
 
 interface TaskListViewProps {
@@ -75,7 +80,8 @@ export function TaskListView({
             </thead>
             <tbody>
               {tasks.map((task, index) => {
-                const overdue = isTaskOverdue(task);
+                const { overdue, field: overdueField } =
+                  getTaskOverdueState(task);
                 return (
                   <tr
                     key={task.id}
@@ -158,17 +164,31 @@ export function TaskListView({
                     <td
                       className={cn(
                         "px-4 py-3",
-                        overdue
+                        overdueField === "endDate"
                           ? "font-semibold text-red-600"
                           : "text-slate-600",
                       )}
                     >
                       {formatDate(task.endDate)}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td
+                      className={cn(
+                        "px-4 py-3",
+                        overdueField === "uatDate"
+                          ? "font-semibold text-red-600"
+                          : "text-slate-600",
+                      )}
+                    >
                       {formatDate(task.uatDate)}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td
+                      className={cn(
+                        "px-4 py-3",
+                        overdueField === "prdDate"
+                          ? "font-semibold text-red-600"
+                          : "text-slate-600",
+                      )}
+                    >
                       {formatDate(task.prdDate)}
                     </td>
                     <td className="px-4 py-3 text-slate-600">

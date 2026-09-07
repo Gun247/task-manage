@@ -50,6 +50,7 @@ export function getStatusDescription(name: string) {
   );
 }
 
+export const UAT_STATUS_NAME = "UAT";
 export const PRD_STATUS_NAME = "PRD";
 export const DONE_STATUS_NAME = "Done";
 export const PRD_TO_DONE_AFTER_MS = 24 * 60 * 60 * 1000;

@@ -1,5 +1,10 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  DONE_STATUS_NAME,
+  PRD_STATUS_NAME,
+  UAT_STATUS_NAME,
+} from "@/lib/default-statuses";
 import type { Task } from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
@@ -34,9 +39,74 @@ function startOfToday() {
   return date;
 }
 
-/** Overdue when End date is before today and status is not Done. */
+function statusName(task: Task) {
+  return (task.status?.name ?? "").trim().toLowerCase();
+}
+
+function isPastDue(value: string | null | undefined) {
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed < startOfToday();
+}
+
+export type TaskOverdueField = "endDate" | "uatDate" | "prdDate";
+
+/**
+ * Overdue rules:
+ * - No Timeline UAT and no Timeline PRD → use End date; Done is complete
+ * - Has Timeline UAT only → use UAT date; UAT / PRD / Done are complete
+ * - Has both UAT and PRD → PRD takes priority; PRD / Done are complete
+ *   (UAT is not enough). If still before UAT, a passed UAT date is also overdue.
+ * - Has Timeline PRD only → use PRD date; PRD / Done are complete
+ */
+export function getTaskOverdueState(task: Task): {
+  overdue: boolean;
+  field: TaskOverdueField | null;
+} {
+  const status = statusName(task);
+  const done = status === DONE_STATUS_NAME.toLowerCase();
+  const uat = status === UAT_STATUS_NAME.toLowerCase();
+  const prd = status === PRD_STATUS_NAME.toLowerCase();
+  const hasUat = Boolean(task.uatDate);
+  const hasPrd = Boolean(task.prdDate);
+
+  if (done) return { overdue: false, field: null };
+
+  if (hasUat && hasPrd) {
+    if (prd) return { overdue: false, field: null };
+    if (!uat && isPastDue(task.uatDate)) {
+      return { overdue: true, field: "uatDate" };
+    }
+    if (isPastDue(task.prdDate)) {
+      return { overdue: true, field: "prdDate" };
+    }
+    return { overdue: false, field: null };
+  }
+
+  if (hasUat) {
+    if (uat || prd) return { overdue: false, field: null };
+    if (isPastDue(task.uatDate)) {
+      return { overdue: true, field: "uatDate" };
+    }
+    return { overdue: false, field: null };
+  }
+
+  if (hasPrd) {
+    if (prd) return { overdue: false, field: null };
+    if (isPastDue(task.prdDate)) {
+      return { overdue: true, field: "prdDate" };
+    }
+    return { overdue: false, field: null };
+  }
+
+  if (isPastDue(task.endDate)) {
+    return { overdue: true, field: "endDate" };
+  }
+  return { overdue: false, field: null };
+}
+
 export function isTaskOverdue(task: Task) {
-  if (!task.endDate) return false;
-  if (task.status?.name?.toLowerCase() === "done") return false;
-  return new Date(task.endDate) < startOfToday();
+  return getTaskOverdueState(task).overdue;
 }

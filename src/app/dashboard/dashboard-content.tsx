@@ -16,21 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import type { Project, Status, Task } from "@/lib/types";
-import { formatDateTime } from "@/lib/utils";
-
-function startOfToday() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
+import { formatDateTime, isTaskOverdue } from "@/lib/utils";
 
 function isTerminalStatus(name: string) {
   return name.toLowerCase() === "done";
-}
-
-function isOverdue(task: Task) {
-  if (!task.endDate || isTerminalStatus(task.status.name)) return false;
-  return new Date(task.endDate) < startOfToday();
 }
 
 export default function DashboardPageContent() {
@@ -65,7 +54,7 @@ export default function DashboardPageContent() {
     loadData();
   }, [loadData]);
 
-  const overdueTasks = useMemo(() => tasks.filter(isOverdue), [tasks]);
+  const overdueTasks = useMemo(() => tasks.filter(isTaskOverdue), [tasks]);
   const doneCount = useMemo(
     () => tasks.filter((task) => isTerminalStatus(task.status.name)).length,
     [tasks],
@@ -87,7 +76,7 @@ export default function DashboardPageContent() {
         return {
           project,
           total: projectTasks.length,
-          overdue: projectTasks.filter(isOverdue).length,
+          overdue: projectTasks.filter(isTaskOverdue).length,
           done: projectTasks.filter((task) =>
             isTerminalStatus(task.status.name),
           ).length,
