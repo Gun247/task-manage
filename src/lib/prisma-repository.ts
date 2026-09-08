@@ -24,6 +24,7 @@ function serializeTask(
     priority: NonNullable<Awaited<ReturnType<typeof prisma.priority.findUnique>>>;
     status: NonNullable<Awaited<ReturnType<typeof prisma.status.findUnique>>>;
     assignee: Awaited<ReturnType<typeof prisma.teamMember.findUnique>>;
+    owner?: Awaited<ReturnType<typeof prisma.teamMember.findUnique>>;
     statusHistory?: Array<{
       id: string;
       taskId: string;
@@ -78,6 +79,7 @@ function serializeTask(
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
     assigneeId: assignee?.id ?? null,
+    ownerId: task.owner?.id ?? task.ownerId ?? null,
     taskType: taskTypes[0],
     taskTypes,
     project: {
@@ -89,6 +91,7 @@ function serializeTask(
     status: task.status,
     assignee,
     assignees,
+    owner: task.owner ?? null,
     statusHistory: (task.statusHistory ?? [])
       .slice()
       .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime())
@@ -125,6 +128,7 @@ const taskInclude = {
   priority: true,
   status: true,
   assignee: true,
+  owner: true,
   statusHistory: { orderBy: { changedAt: "asc" as const } },
   subtasks: {
     orderBy: { sortOrder: "asc" as const },
@@ -454,11 +458,20 @@ export async function listTeamMembers() {
   });
 }
 
-export async function createTeamMember(data: { nickname: string; color?: string }) {
+export async function createTeamMember(data: {
+  name?: string;
+  nickname: string;
+  email?: string;
+  employeeId?: string;
+  color?: string;
+}) {
   const maxOrder = await prisma.teamMember.aggregate({ _max: { sortOrder: true } });
   return prisma.teamMember.create({
     data: {
+      name: data.name?.trim() ?? "",
       nickname: data.nickname,
+      email: data.email?.trim() ?? "",
+      employeeId: data.employeeId?.trim() ?? "",
       color: data.color ?? "#3B82F6",
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
@@ -467,7 +480,15 @@ export async function createTeamMember(data: { nickname: string; color?: string 
 
 export async function updateTeamMember(
   id: string,
-  data: Partial<{ nickname: string; color: string; isActive: boolean; sortOrder: number }>,
+  data: Partial<{
+    name: string;
+    nickname: string;
+    email: string;
+    employeeId: string;
+    color: string;
+    isActive: boolean;
+    sortOrder: number;
+  }>,
 ) {
   return prisma.teamMember.update({ where: { id }, data });
 }
@@ -477,6 +498,10 @@ export async function deleteTeamMember(id: string) {
   await prisma.task.updateMany({
     where: { assigneeId: id },
     data: { assigneeId: null },
+  });
+  await prisma.task.updateMany({
+    where: { ownerId: id },
+    data: { ownerId: null },
   });
   await prisma.teamMember.delete({ where: { id } });
 }
@@ -601,6 +626,7 @@ export async function createTask(data: {
   statusId: string;
   assigneeId?: string | null;
   assigneeIds?: string[] | null;
+  ownerId?: string | null;
   subtasks?: Array<string | { name?: string; assigneeIds?: string[] }> | null;
   sortOrder?: number;
 }) {
@@ -639,6 +665,7 @@ export async function createTask(data: {
       priorityId: data.priorityId,
       statusId: data.statusId,
       assigneeId: assigneeIds[0] ?? null,
+      ownerId: data.ownerId || null,
       sortOrder: data.sortOrder ?? 0,
       statusHistory: {
         create: {
@@ -698,6 +725,7 @@ export async function updateTask(
     statusId: string;
     assigneeId: string | null;
     assigneeIds: string[] | null;
+    ownerId: string | null;
     sortOrder: number;
   }>,
 ) {
@@ -750,6 +778,9 @@ export async function updateTask(
         : data.assigneeId !== undefined
           ? { assigneeId: data.assigneeId }
           : {}),
+      ...(data.ownerId !== undefined
+        ? { ownerId: data.ownerId || null }
+        : {}),
       ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
     },
   });

@@ -36,7 +36,10 @@ export interface TaskTypeOption {
 
 export interface TeamMember {
   id: string;
+  name: string;
   nickname: string;
+  email: string;
+  employeeId: string;
   color: string;
   isActive: boolean;
   sortOrder: number;
@@ -81,12 +84,14 @@ export interface Task {
   statusId: string;
   /** @deprecated use assignees — kept as first assignee for compatibility */
   assigneeId: string | null;
+  ownerId: string | null;
   project: Project;
   priority: Priority;
   status: Status;
   /** @deprecated use assignees */
   assignee: TeamMember | null;
   assignees: TeamMember[];
+  owner: TeamMember | null;
   statusHistory: StatusHistoryEntry[];
   subtasks: Subtask[];
   createdAt: string;

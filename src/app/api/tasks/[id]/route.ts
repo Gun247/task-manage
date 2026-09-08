@@ -42,6 +42,9 @@ export async function PATCH(request: Request, context: RouteContext) {
               : [],
           }
         : {}),
+      ...(body.ownerId !== undefined
+        ? { ownerId: body.ownerId ? body.ownerId : null }
+        : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
     });
 

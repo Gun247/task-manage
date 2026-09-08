@@ -58,6 +58,7 @@ const emptyForm = {
   priorityId: "",
   statusId: "",
   assigneeIds: [] as string[],
+  ownerId: "",
 };
 
 export function TaskFormDialog({
@@ -112,6 +113,7 @@ export function TaskFormDialog({
             : task.assigneeId
               ? [task.assigneeId]
               : [],
+        ownerId: task.ownerId ?? task.owner?.id ?? "",
       });
       setSubtasks(
         (task.subtasks ?? []).map((item) => ({
@@ -184,6 +186,7 @@ export function TaskFormDialog({
       endDate: form.endDate || null,
       uatDate: form.uatDate || null,
       prdDate: form.prdDate || null,
+      ownerId: form.ownerId || null,
     };
 
     const response = await fetch(task ? `/api/tasks/${task.id}` : "/api/tasks", {
@@ -340,6 +343,29 @@ export function TaskFormDialog({
                     {status.name}
                   </option>
                 ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="owner">ผู้ดูแล</Label>
+              <Select
+                id="owner"
+                value={form.ownerId}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    ownerId: event.target.value,
+                  }))
+                }
+              >
+                <option value="">— ไม่ระบุ —</option>
+                {teamMembers
+                  .filter((member) => member.isActive)
+                  .map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.nickname}
+                      {member.name ? ` (${member.name})` : ""}
+                    </option>
+                  ))}
               </Select>
             </div>
             <div className="md:col-span-2">

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "TeamMember" ADD COLUMN "name" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "TeamMember" ADD COLUMN "email" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "TeamMember" ADD COLUMN "employeeId" TEXT NOT NULL DEFAULT '';

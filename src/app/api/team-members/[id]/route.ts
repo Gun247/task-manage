@@ -9,7 +9,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     const body = await request.json();
 
     const member = await updateTeamMember(id, {
-      ...(body.nickname !== undefined ? { nickname: body.nickname } : {}),
+      ...(body.name !== undefined ? { name: String(body.name).trim() } : {}),
+      ...(body.nickname !== undefined
+        ? { nickname: String(body.nickname).trim() }
+        : {}),
+      ...(body.email !== undefined ? { email: String(body.email).trim() } : {}),
+      ...(body.employeeId !== undefined
+        ? { employeeId: String(body.employeeId).trim() }
+        : {}),
       ...(body.color !== undefined ? { color: body.color } : {}),
       ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),

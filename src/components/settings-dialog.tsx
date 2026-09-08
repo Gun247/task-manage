@@ -34,7 +34,15 @@ import {
   getStatusDescription,
   isDefaultStatusName,
 } from "@/lib/default-statuses";
-import { Check, GripVertical, Pencil, Trash2, X } from "lucide-react";
+import {
+  Check,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+  UserRound,
+  X,
+} from "lucide-react";
 
 const COLOR_OPTIONS = [
   "#EF4444",
@@ -55,6 +63,13 @@ interface SettingsDialogProps {
   priorities: Priority[];
   taskTypes: TaskTypeOption[];
   onChanged: () => void;
+}
+
+function memberInitials(nickname: string) {
+  const parts = nickname.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
 function SortableStatusRow({
@@ -87,7 +102,7 @@ function SortableStatusRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-2",
+        "flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5",
         isDragging && "z-10 border-primary/40 shadow-md",
       )}
     >
@@ -102,7 +117,7 @@ function SortableStatusRow({
           <GripVertical className="h-4 w-4" />
         </button>
         <span
-          className="h-4 w-4 shrink-0 rounded-full"
+          className="h-3.5 w-3.5 shrink-0 rounded-full"
           style={{ backgroundColor: status.color }}
         />
         <div className="min-w-0">
@@ -140,6 +155,25 @@ function SortableStatusRow({
   );
 }
 
+function Field({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <Label htmlFor={id} className="mb-1 text-xs text-slate-500">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -150,10 +184,16 @@ export function SettingsDialog({
   onChanged,
 }: SettingsDialogProps) {
   const [orderedStatuses, setOrderedStatuses] = useState(statuses);
+  const [activeTab, setActiveTab] = useState("status");
   const [newStatusName, setNewStatusName] = useState("");
   const [newStatusColor, setNewStatusColor] = useState<string>(COLOR_OPTIONS[3]);
-  const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberColor, setNewMemberColor] = useState<string>(COLOR_OPTIONS[2]);
+  const [memberForm, setMemberForm] = useState({
+    name: "",
+    nickname: "",
+    email: "",
+    employeeId: "",
+    color: COLOR_OPTIONS[2] as string,
+  });
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeColor, setNewTypeColor] = useState<string>(COLOR_OPTIONS[3]);
   const [addingStatus, setAddingStatus] = useState(false);
@@ -162,8 +202,6 @@ export function SettingsDialog({
   const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-  const [editMemberName, setEditMemberName] = useState("");
-  const [editMemberColor, setEditMemberColor] = useState<string>(COLOR_OPTIONS[2]);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
@@ -172,9 +210,25 @@ export function SettingsDialog({
     setOrderedStatuses(statuses);
   }, [statuses]);
 
+  useEffect(() => {
+    if (!open) {
+      setEditingMemberId(null);
+      setMemberForm({
+        name: "",
+        nickname: "",
+        email: "",
+        employeeId: "",
+        color: COLOR_OPTIONS[2],
+      });
+      setActiveTab("status");
+    }
+  }, [open]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
+
+  const isEditingMember = Boolean(editingMemberId);
 
   async function addStatus() {
     if (!newStatusName.trim()) return;
@@ -210,7 +264,9 @@ export function SettingsDialog({
   }
 
   async function persistStatusOrder(previous: Status[], next: Status[]) {
-    const previousOrder = new Map(previous.map((status) => [status.id, status.sortOrder]));
+    const previousOrder = new Map(
+      previous.map((status) => [status.id, status.sortOrder]),
+    );
     setReordering(true);
     await Promise.all(
       next.map((status, index) =>
@@ -236,30 +292,77 @@ export function SettingsDialog({
     if (oldIndex < 0 || newIndex < 0) return;
 
     const previous = orderedStatuses;
-    const next = arrayMove(previous, oldIndex, newIndex).map((status, index) => ({
-      ...status,
-      sortOrder: index,
-    }));
+    const next = arrayMove(previous, oldIndex, newIndex).map(
+      (status, index) => ({
+        ...status,
+        sortOrder: index,
+      }),
+    );
     setOrderedStatuses(next);
     await persistStatusOrder(previous, next);
   }
 
-  async function addMember() {
-    if (!newMemberName.trim()) return;
-    const color = normalizeHex(newMemberColor);
-    if (!color) return;
+  function resetMemberForm() {
+    setEditingMemberId(null);
+    setMemberForm({
+      name: "",
+      nickname: "",
+      email: "",
+      employeeId: "",
+      color: COLOR_OPTIONS[2],
+    });
+  }
+
+  function startEditMember(member: TeamMember) {
+    setEditingMemberId(member.id);
+    setMemberForm({
+      name: member.name ?? "",
+      nickname: member.nickname,
+      email: member.email ?? "",
+      employeeId: member.employeeId ?? "",
+      color: member.color,
+    });
+  }
+
+  async function submitMember() {
+    const nickname = memberForm.nickname.trim();
+    const color = normalizeHex(memberForm.color);
+    if (!nickname || !color) return;
+
+    const payload = {
+      name: memberForm.name.trim(),
+      nickname,
+      email: memberForm.email.trim(),
+      employeeId: memberForm.employeeId.trim(),
+      color,
+    };
+
+    if (editingMemberId) {
+      setSavingMemberId(editingMemberId);
+      const response = await fetch(`/api/team-members/${editingMemberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSavingMemberId(null);
+      if (response.ok) {
+        resetMemberForm();
+        onChanged();
+      }
+      return;
+    }
+
     setAddingMember(true);
-    await fetch("/api/team-members", {
+    const response = await fetch("/api/team-members", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nickname: newMemberName.trim(),
-        color,
-      }),
+      body: JSON.stringify(payload),
     });
-    setNewMemberName("");
     setAddingMember(false);
-    onChanged();
+    if (response.ok) {
+      resetMemberForm();
+      onChanged();
+    }
   }
 
   async function deleteMember(member: TeamMember) {
@@ -267,40 +370,9 @@ export function SettingsDialog({
     await fetch(`/api/team-members/${member.id}`, { method: "DELETE" });
     setDeletingMemberId(null);
     if (editingMemberId === member.id) {
-      setEditingMemberId(null);
+      resetMemberForm();
     }
     onChanged();
-  }
-
-  function startEditMember(member: TeamMember) {
-    setEditingMemberId(member.id);
-    setEditMemberName(member.nickname);
-    setEditMemberColor(member.color);
-  }
-
-  function cancelEditMember() {
-    setEditingMemberId(null);
-    setEditMemberName("");
-    setEditMemberColor(COLOR_OPTIONS[2]);
-  }
-
-  async function saveMember(member: TeamMember) {
-    const nickname = editMemberName.trim();
-    const color = normalizeHex(editMemberColor);
-    if (!nickname || !color) return;
-
-    setSavingMemberId(member.id);
-    const response = await fetch(`/api/team-members/${member.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname, color }),
-    });
-    setSavingMemberId(null);
-
-    if (response.ok) {
-      cancelEditMember();
-      onChanged();
-    }
   }
 
   async function addType() {
@@ -331,58 +403,75 @@ export function SettingsDialog({
     if (response.ok) onChanged();
   }
 
+  const memberBusy = addingMember || savingMemberId !== null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
+      <DialogContent className="flex h-[min(90vh,720px)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-6 py-4 pr-12">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             จัดการสถานะ ทีม Task Type และ priority ของโปรเจกต์
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="status">
-          <TabsList>
-            <TabsTrigger value="status">สถานะ</TabsTrigger>
-            <TabsTrigger value="team">ทีม</TabsTrigger>
-            <TabsTrigger value="type">Type</TabsTrigger>
-            <TabsTrigger value="priority">Priority</TabsTrigger>
-          </TabsList>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            if (value !== "team") resetMemberForm();
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="shrink-0 px-6 pt-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="status">สถานะ</TabsTrigger>
+              <TabsTrigger value="team">ทีม</TabsTrigger>
+              <TabsTrigger value="type">Type</TabsTrigger>
+              <TabsTrigger value="priority">Priority</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="status" className="space-y-4">
-            <p className="text-xs text-slate-500">
-              สถานะเริ่มต้น 5 รายการจะมีเสมอ และลบไม่ได้ — ลากไอคอน{" "}
-              <GripVertical className="inline h-3.5 w-3.5 align-text-bottom" />{" "}
-              เพื่อเรียงลำดับ (ใช้ใน Kanban และฟอร์ม)
-              {reordering ? " — กำลังบันทึก..." : null}
-            </p>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleStatusDragEnd}
-            >
-              <SortableContext
-                items={orderedStatuses.map((status) => status.id)}
-                strategy={verticalListSortingStrategy}
+          <TabsContent
+            value="status"
+            className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
+          >
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
+              <p className="text-xs text-slate-500">
+                สถานะเริ่มต้น 5 รายการจะมีเสมอ และลบไม่ได้ — ลากไอคอน{" "}
+                <GripVertical className="inline h-3.5 w-3.5 align-text-bottom" />{" "}
+                เพื่อเรียงลำดับ
+                {reordering ? " — กำลังบันทึก..." : null}
+              </p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleStatusDragEnd}
               >
-                <div className="space-y-2">
-                  {orderedStatuses.map((status) => (
-                    <SortableStatusRow
-                      key={status.id}
-                      status={status}
-                      deleting={deletingStatusId === status.id}
-                      onDelete={() => deleteStatus(status)}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-
-            <div className="rounded-lg border border-dashed border-slate-300 p-4">
-              <Label>เพิ่มสถานะใหม่</Label>
-              <div className="mt-2 space-y-3">
+                <SortableContext
+                  items={orderedStatuses.map((status) => status.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {orderedStatuses.map((status) => (
+                      <SortableStatusRow
+                        key={status.id}
+                        status={status}
+                        deleting={deletingStatusId === status.id}
+                        onDelete={() => deleteStatus(status)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+              <p className="mb-2 text-sm font-medium text-slate-800">
+                เพิ่มสถานะใหม่
+              </p>
+              <div className="space-y-3">
                 <Input
-                  className="w-full"
+                  className="w-full bg-white"
                   placeholder="ชื่อสถานะ"
                   value={newStatusName}
                   onChange={(event) => setNewStatusName(event.target.value)}
@@ -402,7 +491,11 @@ export function SettingsDialog({
                     !normalizeHex(newStatusColor)
                   }
                 >
-                  <LoadingButtonContent loading={addingStatus} loadingText="กำลังเพิ่ม...">
+                  <LoadingButtonContent
+                    loading={addingStatus}
+                    loadingText="กำลังเพิ่ม..."
+                  >
+                    <Plus className="h-4 w-4" />
                     เพิ่ม
                   </LoadingButtonContent>
                 </Button>
@@ -410,205 +503,280 @@ export function SettingsDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="team" className="space-y-4">
-            <div className="space-y-2">
-              {teamMembers.length === 0 && (
-                <p className="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">
-                  ยังไม่มีสมาชิกทีม — เพิ่มชื่อเล่นเพื่อ assign task ได้
-                </p>
-              )}
-              {teamMembers.map((member) => {
-                const isEditing = editingMemberId === member.id;
+          <TabsContent
+            value="team"
+            className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
+          >
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4">
+              {teamMembers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+                  <UserRound className="mb-2 h-8 w-8 text-slate-300" />
+                  <p className="text-sm font-medium text-slate-700">
+                    ยังไม่มีสมาชิกทีม
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    กรอกฟอร์มด้านล่างเพื่อเพิ่มและ assign task ได้
+                  </p>
+                </div>
+              ) : (
+                teamMembers.map((member) => {
+                  const selected = editingMemberId === member.id;
+                  const secondary = [member.name, member.employeeId, member.email]
+                    .map((value) => value?.trim())
+                    .filter(Boolean)
+                    .join(" · ");
 
-                if (isEditing) {
                   return (
                     <div
                       key={member.id}
-                      className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3"
+                      className={cn(
+                        "flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 transition",
+                        selected
+                          ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                          : "border-slate-200 bg-white hover:border-slate-300",
+                      )}
                     >
-                      <Input
-                        className="w-full"
-                        placeholder="ชื่อเล่น"
-                        value={editMemberName}
-                        onChange={(event) =>
-                          setEditMemberName(event.target.value)
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void saveMember(member);
-                          }
-                          if (event.key === "Escape") {
-                            cancelEditMember();
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <ColorTray
-                        label="สีสมาชิก"
-                        value={editMemberColor}
-                        onChange={(color) => setEditMemberColor(color)}
-                        options={COLOR_OPTIONS}
-                      />
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                          style={{ backgroundColor: member.color }}
+                        >
+                          {memberInitials(member.nickname)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-800">
+                            {member.nickname}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {secondary || "ยังไม่มีรายละเอียดเพิ่มเติม"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-0.5">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={cancelEditMember}
-                          disabled={savingMemberId === member.id}
+                          onClick={() => startEditMember(member)}
+                          disabled={
+                            deletingMemberId === member.id || memberBusy
+                          }
+                          aria-label={`แก้ไข ${member.nickname}`}
                         >
-                          <X className="h-4 w-4" />
-                          ยกเลิก
+                          <Pencil className="h-4 w-4 text-slate-500" />
                         </Button>
                         <Button
                           type="button"
+                          variant="ghost"
                           size="sm"
-                          onClick={() => saveMember(member)}
-                          disabled={
-                            savingMemberId === member.id ||
-                            !editMemberName.trim() ||
-                            !normalizeHex(editMemberColor)
-                          }
+                          disabled={deletingMemberId === member.id}
+                          onClick={() => deleteMember(member)}
+                          aria-label={`ลบ ${member.nickname}`}
                         >
                           <LoadingButtonContent
-                            loading={savingMemberId === member.id}
-                            loadingText="กำลังบันทึก..."
+                            loading={deletingMemberId === member.id}
+                            loadingText=""
                           >
-                            <Check className="h-4 w-4" />
-                            บันทึก
+                            <Trash2 className="h-4 w-4 text-red-500" />
                           </LoadingButtonContent>
                         </Button>
                       </div>
                     </div>
                   );
-                }
-
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="h-4 w-4 rounded-full"
-                        style={{ backgroundColor: member.color }}
-                      />
-                      <span className="text-sm font-medium text-slate-800">
-                        {member.nickname}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => startEditMember(member)}
-                        disabled={
-                          deletingMemberId === member.id ||
-                          savingMemberId !== null
-                        }
-                      >
-                        <Pencil className="h-4 w-4 text-slate-500" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={deletingMemberId === member.id}
-                        onClick={() => deleteMember(member)}
-                      >
-                        <LoadingButtonContent
-                          loading={deletingMemberId === member.id}
-                          loadingText=""
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </LoadingButtonContent>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+                })
+              )}
             </div>
 
-            <div className="rounded-lg border border-dashed border-slate-300 p-4">
-              <Label>เพิ่มสมาชิกทีม</Label>
-              <div className="mt-2 space-y-3">
-                <Input
-                  className="w-full"
-                  placeholder="ชื่อเล่น"
-                  value={newMemberName}
-                  onChange={(event) => setNewMemberName(event.target.value)}
-                />
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    {isEditingMember ? "แก้ไขสมาชิก" : "เพิ่มสมาชิกทีม"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {isEditingMember
+                      ? "แก้ข้อมูลแล้วกดบันทึก — รายการด้านบนจะไฮไลต์สมาชิกที่กำลังแก้"
+                      : "ชื่อเล่นจำเป็น ใช้แสดงตอน assign task"}
+                  </p>
+                </div>
+                {isEditingMember ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetMemberForm}
+                    disabled={memberBusy}
+                  >
+                    <X className="h-4 w-4" />
+                    ยกเลิก
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <Field id="member-name" label="ชื่อ">
+                  <Input
+                    id="member-name"
+                    className="h-9 bg-white"
+                    placeholder="ชื่อ-นามสกุล"
+                    value={memberForm.name}
+                    onChange={(event) =>
+                      setMemberForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field id="member-nickname" label="ชื่อเล่น *">
+                  <Input
+                    id="member-nickname"
+                    className="h-9 bg-white"
+                    placeholder="ชื่อเล่น"
+                    value={memberForm.nickname}
+                    onChange={(event) =>
+                      setMemberForm((current) => ({
+                        ...current,
+                        nickname: event.target.value,
+                      }))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void submitMember();
+                      }
+                      if (event.key === "Escape" && isEditingMember) {
+                        resetMemberForm();
+                      }
+                    }}
+                  />
+                </Field>
+                <Field id="member-email" label="เมล">
+                  <Input
+                    id="member-email"
+                    type="email"
+                    className="h-9 bg-white"
+                    placeholder="name@example.com"
+                    value={memberForm.email}
+                    onChange={(event) =>
+                      setMemberForm((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field id="member-employee" label="รหัสพนักงาน">
+                  <Input
+                    id="member-employee"
+                    className="h-9 bg-white"
+                    placeholder="รหัสพนักงาน"
+                    value={memberForm.employeeId}
+                    onChange={(event) =>
+                      setMemberForm((current) => ({
+                        ...current,
+                        employeeId: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </div>
+
+              <div className="mt-3">
                 <ColorTray
                   label="สีสมาชิก"
-                  value={newMemberColor}
-                  onChange={(color) => setNewMemberColor(color)}
+                  value={memberForm.color}
+                  onChange={(color) =>
+                    setMemberForm((current) => ({ ...current, color }))
+                  }
                   options={COLOR_OPTIONS}
                 />
+              </div>
+
+              <div className="mt-3 flex justify-end">
                 <Button
                   type="button"
-                  onClick={addMember}
+                  onClick={submitMember}
                   disabled={
-                    addingMember ||
-                    !newMemberName.trim() ||
-                    !normalizeHex(newMemberColor)
+                    memberBusy ||
+                    !memberForm.nickname.trim() ||
+                    !normalizeHex(memberForm.color)
                   }
                 >
-                  <LoadingButtonContent loading={addingMember} loadingText="กำลังเพิ่ม...">
-                    เพิ่ม
+                  <LoadingButtonContent
+                    loading={memberBusy}
+                    loadingText={
+                      isEditingMember ? "กำลังบันทึก..." : "กำลังเพิ่ม..."
+                    }
+                  >
+                    {isEditingMember ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        บันทึก
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        เพิ่มสมาชิก
+                      </>
+                    )}
                   </LoadingButtonContent>
                 </Button>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="type" className="space-y-4">
-            <div className="space-y-2">
-              {taskTypes.length === 0 && (
-                <p className="rounded-lg bg-slate-50 px-3 py-4 text-sm text-slate-500">
+          <TabsContent
+            value="type"
+            className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
+          >
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4">
+              {taskTypes.length === 0 ? (
+                <p className="rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
                   ยังไม่มี Task Type — เพิ่มเพื่อเลือกในฟอร์ม task ได้
                 </p>
-              )}
-              {taskTypes.map((type) => (
-                <div
-                  key={type.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-4 w-4 rounded-full"
-                      style={{ backgroundColor: type.color }}
-                    />
-                    <span className="text-sm font-medium text-slate-800">
-                      {type.name}
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={
-                      deletingTypeId === type.id || taskTypes.length <= 1
-                    }
-                    onClick={() => deleteType(type)}
+              ) : (
+                taskTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5"
                   >
-                    <LoadingButtonContent
-                      loading={deletingTypeId === type.id}
-                      loadingText=""
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-3.5 w-3.5 rounded-full"
+                        style={{ backgroundColor: type.color }}
+                      />
+                      <span className="text-sm font-medium text-slate-800">
+                        {type.name}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={
+                        deletingTypeId === type.id || taskTypes.length <= 1
+                      }
+                      onClick={() => deleteType(type)}
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </LoadingButtonContent>
-                  </Button>
-                </div>
-              ))}
+                      <LoadingButtonContent
+                        loading={deletingTypeId === type.id}
+                        loadingText=""
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </LoadingButtonContent>
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
-
-            <div className="rounded-lg border border-dashed border-slate-300 p-4">
-              <Label>เพิ่ม Task Type</Label>
-              <div className="mt-2 space-y-3">
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+              <p className="mb-2 text-sm font-medium text-slate-800">
+                เพิ่ม Task Type
+              </p>
+              <div className="space-y-3">
                 <Input
-                  className="w-full"
+                  className="w-full bg-white"
                   placeholder="เช่น QA, DevOps, Design"
                   value={newTypeName}
                   onChange={(event) => setNewTypeName(event.target.value)}
@@ -628,7 +796,11 @@ export function SettingsDialog({
                     !normalizeHex(newTypeColor)
                   }
                 >
-                  <LoadingButtonContent loading={addingType} loadingText="กำลังเพิ่ม...">
+                  <LoadingButtonContent
+                    loading={addingType}
+                    loadingText="กำลังเพิ่ม..."
+                  >
+                    <Plus className="h-4 w-4" />
                     เพิ่ม
                   </LoadingButtonContent>
                 </Button>
@@ -636,23 +808,29 @@ export function SettingsDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="priority" className="space-y-2">
-            {priorities.map((priority) => (
-              <div
-                key={priority.id}
-                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
-              >
-                <div className="flex items-center gap-3">
+          <TabsContent
+            value="priority"
+            className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
+          >
+            <p className="mb-3 text-xs text-slate-500">
+              Priority ใช้ค่าเริ่มต้นของระบบ (P0 / P1 / P2)
+            </p>
+            <div className="space-y-2">
+              {priorities.map((priority) => (
+                <div
+                  key={priority.id}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                >
                   <span
-                    className="h-4 w-4 rounded-full"
+                    className="h-3.5 w-3.5 rounded-full"
                     style={{ backgroundColor: priority.color }}
                   />
                   <span className="text-sm font-medium text-slate-800">
                     {priority.label}
                   </span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -39,7 +39,7 @@ function parseCellValue(
   key: string,
 ): string | number | boolean | null {
   if (value === undefined || value === null || value === "") {
-    return key === "assigneeId" ? null : "";
+    return key === "assigneeId" || key === "ownerId" ? null : "";
   }
   if (value === "TRUE" || value === true) return true;
   if (value === "FALSE" || value === false) return false;
@@ -79,7 +79,7 @@ export class ExcelTable<T extends RowRecord> {
           record[key] =
             index >= 0
               ? parseCellValue(row[index], key)
-              : key === "assigneeId"
+              : key === "assigneeId" || key === "ownerId"
                 ? null
                 : "";
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { InlineAssigneePicker } from "@/components/assignee-multi-select";
+import { InlineAssigneePicker, AssigneesDisplay } from "@/components/assignee-multi-select";
 import { TaskTypesDisplay } from "@/components/task-type-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
@@ -70,6 +70,9 @@ export function TaskListView({
                 <th className="px-4 py-3 font-medium">Subtasks</th>
                 <th className="whitespace-nowrap px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">เปลี่ยนสถานะล่าสุด</th>
+                <th className="min-w-[9rem] whitespace-nowrap px-4 py-3 font-medium">
+                  ผู้ดูแล
+                </th>
                 <th className="px-4 py-3 font-medium">Assignee</th>
                 <th className="px-4 py-3 font-medium">Start</th>
                 <th className="px-4 py-3 font-medium">End</th>
@@ -142,6 +145,21 @@ export function TaskListView({
                       {formatDateTime(
                         task.statusHistory?.[task.statusHistory.length - 1]
                           ?.changedAt,
+                      )}
+                    </td>
+                    <td className="min-w-[9rem] px-4 py-3">
+                      {task.owner ? (
+                        <div className="flex items-center gap-2">
+                          <AssigneesDisplay
+                            assignees={[task.owner]}
+                            empty=""
+                          />
+                          <span className="truncate text-sm font-medium text-slate-700">
+                            {task.owner.nickname}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

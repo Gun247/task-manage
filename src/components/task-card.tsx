@@ -32,6 +32,14 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
         <Badge color={task.status.color}>{task.status.name}</Badge>
       </div>
       <p className="mb-2 text-sm font-semibold text-slate-900">{task.name}</p>
+      {task.owner ? (
+        <p className="mb-2 text-[11px] text-slate-500">
+          ผู้ดูแล:{" "}
+          <span className="font-medium text-slate-700">
+            {task.owner.nickname}
+          </span>
+        </p>
+      ) : null}
       <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
         <AssigneesDisplay
           assignees={

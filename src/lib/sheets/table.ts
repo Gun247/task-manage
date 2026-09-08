@@ -11,7 +11,7 @@ function toCellValue(value: unknown): string {
 
 function parseCellValue(value: string | undefined, key: string): string | number | boolean | null {
   if (value === undefined || value === "") {
-    return key === "assigneeId" ? null : "";
+    return key === "assigneeId" || key === "ownerId" ? null : "";
   }
   if (value === "TRUE") return true;
   if (value === "FALSE") return false;

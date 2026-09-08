@@ -12,12 +12,12 @@ const SHEETS = {
   Projects: ["id", "name", "description", "color", "sortOrder", "createdAt", "updatedAt"],
   Priorities: ["id", "label", "color", "sortOrder", "createdAt", "updatedAt"],
   Statuses: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
-  TeamMembers: ["id", "nickname", "color", "isActive", "sortOrder", "createdAt", "updatedAt"],
+  TeamMembers: ["id", "name", "nickname", "email", "employeeId", "color", "isActive", "sortOrder", "createdAt", "updatedAt"],
   TaskTypes: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
   Tasks: [
     "id", "name", "description", "remarks", "taskType",
     "startDate", "endDate", "uatDate", "prdDate", "sortOrder", "projectId",
-    "priorityId", "statusId", "assigneeId", "createdAt", "updatedAt",
+    "priorityId", "statusId", "assigneeId", "ownerId", "createdAt", "updatedAt",
   ],
   StatusHistories: [
     "id", "taskId", "fromStatusId", "fromStatusName",

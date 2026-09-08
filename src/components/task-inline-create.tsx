@@ -45,6 +45,7 @@ const emptyForm = {
   priorityId: "",
   statusId: "",
   assigneeIds: [] as string[],
+  ownerId: "",
 };
 
 export function TaskInlineCreate({
@@ -157,6 +158,7 @@ export function TaskInlineCreate({
       endDate: form.endDate || null,
       uatDate: form.uatDate || null,
       prdDate: form.prdDate || null,
+      ownerId: form.ownerId || null,
     };
 
     const response = await fetch("/api/tasks", {
@@ -268,6 +270,27 @@ export function TaskInlineCreate({
             }
             className="bg-white"
           />
+
+          <Select
+            value={form.ownerId}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                ownerId: event.target.value,
+              }))
+            }
+            className={cn(fieldSelectClass, "bg-white")}
+            aria-label="ผู้ดูแล"
+          >
+            <option value="">ผู้ดูแล: ไม่ระบุ</option>
+            {teamMembers
+              .filter((member) => member.isActive)
+              .map((member) => (
+                <option key={member.id} value={member.id}>
+                  ผู้ดูแล: {member.nickname}
+                </option>
+              ))}
+          </Select>
 
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:max-w-4xl">
             <DateInput

@@ -45,7 +45,10 @@ export type SheetStatus = {
 
 export type SheetTeamMember = {
   id: string;
+  name: string;
   nickname: string;
+  email: string;
+  employeeId: string;
   color: string;
   isActive: boolean;
   sortOrder: number;
@@ -77,6 +80,7 @@ export type SheetTask = {
   priorityId: string;
   statusId: string;
   assigneeId: string | null;
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -151,7 +155,10 @@ const statusesTable = new SheetTable<SheetStatus>("Statuses", [
 
 const teamMembersTable = new SheetTable<SheetTeamMember>("TeamMembers", [
   "id",
+  "name",
   "nickname",
+  "email",
+  "employeeId",
   "color",
   "isActive",
   "sortOrder",
@@ -183,6 +190,7 @@ const tasksTable = new SheetTable<SheetTask>("Tasks", [
   "priorityId",
   "statusId",
   "assigneeId",
+  "ownerId",
   "createdAt",
   "updatedAt",
 ]);
@@ -243,7 +251,10 @@ function serializeSubtask(
   entry: SheetSubtask,
   assignees: Array<{
     id: string;
+    name: string;
     nickname: string;
+    email: string;
+    employeeId: string;
     color: string;
     isActive: boolean;
     sortOrder: number;
@@ -286,7 +297,10 @@ function subtasksForTask(
         .filter(Boolean)
         .map((member) => ({
           id: member!.id,
+          name: member!.name ?? "",
           nickname: member!.nickname,
+          email: member!.email ?? "",
+          employeeId: member!.employeeId ?? "",
           color: member!.color,
           isActive: Boolean(member!.isActive),
           sortOrder: Number(member!.sortOrder) || 0,
@@ -447,6 +461,8 @@ async function hydrateTask(
 
   const assignees = assigneesForTask(assignments, members, task);
   const assignee = assignees[0] ?? null;
+  const owner =
+    members.find((member) => member.id === task.ownerId) ?? null;
   const taskTypes = parseTaskTypes(task.taskType);
 
   return {
@@ -456,6 +472,7 @@ async function hydrateTask(
     uatDate: task.uatDate || null,
     prdDate: task.prdDate || null,
     assigneeId: assignee?.id ?? null,
+    ownerId: owner?.id ?? null,
     taskType: taskTypes[0],
     taskTypes,
     project,
@@ -463,6 +480,7 @@ async function hydrateTask(
     status,
     assignee,
     assignees,
+    owner,
     statusHistory: historyForTask(histories, task.id),
     subtasks: subtasksForTask(subtasks, task.id, subtaskAssignments, members),
   };
@@ -648,11 +666,20 @@ export async function listTeamMembers() {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-export async function createTeamMember(data: { nickname: string; color?: string }) {
+export async function createTeamMember(data: {
+  name?: string;
+  nickname: string;
+  email?: string;
+  employeeId?: string;
+  color?: string;
+}) {
   const sortOrder = (await teamMembersTable.maxOf("sortOrder")) + 1;
   return teamMembersTable.create({
     id: createId(),
+    name: data.name?.trim() ?? "",
     nickname: data.nickname,
+    email: data.email?.trim() ?? "",
+    employeeId: data.employeeId?.trim() ?? "",
     color: data.color ?? "#3B82F6",
     isActive: true,
     sortOrder,
@@ -661,7 +688,18 @@ export async function createTeamMember(data: { nickname: string; color?: string 
 
 export async function updateTeamMember(
   id: string,
-  data: Partial<Pick<SheetTeamMember, "nickname" | "color" | "isActive" | "sortOrder">>,
+  data: Partial<
+    Pick<
+      SheetTeamMember,
+      | "name"
+      | "nickname"
+      | "email"
+      | "employeeId"
+      | "color"
+      | "isActive"
+      | "sortOrder"
+    >
+  >,
 ) {
   return teamMembersTable.update(id, data);
 }
@@ -669,6 +707,7 @@ export async function updateTeamMember(
 export async function deleteTeamMember(id: string) {
   await Promise.all([
     tasksTable.updateMany((task) => task.assigneeId === id, { assigneeId: null }),
+    tasksTable.updateMany((task) => task.ownerId === id, { ownerId: null }),
     taskAssigneesTable.deleteWhere((entry) => entry.teamMemberId === id),
   ]);
   await teamMembersTable.delete(id);
@@ -825,6 +864,7 @@ export async function createTask(data: {
   statusId: string;
   assigneeId?: string | null;
   assigneeIds?: string[] | null;
+  ownerId?: string | null;
   subtasks?: Array<string | { name?: string; assigneeIds?: string[] }> | null;
   sortOrder?: number;
 }) {
@@ -865,6 +905,7 @@ export async function createTask(data: {
     priorityId: data.priorityId,
     statusId: data.statusId,
     assigneeId: assigneeIds[0] ?? null,
+    ownerId: data.ownerId || null,
   });
 
   await syncTaskAssignees(task.id, assigneeIds);
@@ -922,6 +963,7 @@ export async function updateTask(
     statusId: string;
     assigneeId: string | null;
     assigneeIds: string[] | null;
+    ownerId: string | null;
     sortOrder: number;
   }>,
 ) {
@@ -945,6 +987,7 @@ export async function updateTask(
   if (data.priorityId !== undefined) payload.priorityId = data.priorityId;
   if (data.statusId !== undefined) payload.statusId = data.statusId;
   if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder;
+  if (data.ownerId !== undefined) payload.ownerId = data.ownerId || null;
 
   const assigneeIds = normalizeAssigneeIds(data);
   if (assigneeIds) {
