@@ -48,17 +48,18 @@ function isPastDue(value: string | null | undefined) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return false;
   parsed.setHours(0, 0, 0, 0);
-  return parsed < startOfToday();
+  // Due today counts as overdue until the matching status is reached.
+  return parsed <= startOfToday();
 }
 
 export type TaskOverdueField = "endDate" | "uatDate" | "prdDate";
 
 /**
- * Overdue rules:
+ * Overdue rules (due today or earlier, until the matching status is reached):
  * - No Timeline UAT and no Timeline PRD → use End date; Done is complete
  * - Has Timeline UAT only → use UAT date; UAT / PRD / Done are complete
  * - Has both UAT and PRD → PRD takes priority; PRD / Done are complete
- *   (UAT is not enough). If still before UAT, a passed UAT date is also overdue.
+ *   (UAT is not enough). If still before UAT, a due/passed UAT date is also overdue.
  * - Has Timeline PRD only → use PRD date; PRD / Done are complete
  */
 export function getTaskOverdueState(task: Task): {
