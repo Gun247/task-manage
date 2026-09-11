@@ -44,6 +44,36 @@ export function isDefaultStatusName(name: string) {
   return DEFAULT_STATUS_NAME_SET.has(name);
 }
 
+export function getReservedStatusNameError(
+  name: string,
+  currentName?: string,
+) {
+  const trimmed = name.trim();
+  if (!trimmed) return "กรุณากรอกชื่อสถานะ";
+  if (isDefaultStatusName(trimmed) && trimmed !== currentName) {
+    return `ไม่สามารถใช้ชื่อสถานะเริ่มต้น "${trimmed}" ได้`;
+  }
+  return null;
+}
+
+export function getStatusUpdateError(
+  existingName: string,
+  data: { name?: string; color?: string },
+) {
+  if (isDefaultStatusName(existingName)) {
+    const renaming =
+      data.name !== undefined && data.name.trim() !== existingName;
+    if (renaming || data.color !== undefined) {
+      return `ไม่สามารถแก้ไขสถานะเริ่มต้น "${existingName}" ได้`;
+    }
+    return null;
+  }
+  if (data.name !== undefined) {
+    return getReservedStatusNameError(data.name, existingName);
+  }
+  return null;
+}
+
 export function getStatusDescription(name: string) {
   return (
     DEFAULT_STATUSES.find((status) => status.name === name)?.description ?? null

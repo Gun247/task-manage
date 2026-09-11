@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
+  getReservedStatusNameError,
   getStatusDescription,
   isDefaultStatusName,
 } from "@/lib/default-statuses";
@@ -75,11 +76,17 @@ function memberInitials(nickname: string) {
 function SortableStatusRow({
   status,
   deleting,
+  editing,
+  busy,
   onDelete,
+  onEdit,
 }: {
   status: Status;
   deleting: boolean;
+  editing: boolean;
+  busy: boolean;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const {
     attributes,
@@ -102,7 +109,10 @@ function SortableStatusRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5",
+        "flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2.5",
+        editing
+          ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+          : "border-slate-200 bg-white",
         isDragging && "z-10 border-primary/40 shadow-md",
       )}
     >
@@ -137,19 +147,34 @@ function SortableStatusRow({
         </div>
       </div>
       {isDefault ? (
-        <span className="shrink-0 px-2 text-[10px] text-slate-400">ลบไม่ได้</span>
+        <span className="shrink-0 px-2 text-[10px] text-slate-400">
+          แก้ไขไม่ได้
+        </span>
       ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={deleting}
-          onClick={onDelete}
-        >
-          <LoadingButtonContent loading={deleting} loadingText="">
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </LoadingButtonContent>
-        </Button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onEdit}
+            disabled={deleting || busy}
+            aria-label={`แก้ไข ${status.name}`}
+          >
+            <Pencil className="h-4 w-4 text-slate-500" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={deleting || busy}
+            onClick={onDelete}
+            aria-label={`ลบ ${status.name}`}
+          >
+            <LoadingButtonContent loading={deleting} loadingText="">
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </LoadingButtonContent>
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -197,6 +222,8 @@ export function SettingsDialog({
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeColor, setNewTypeColor] = useState<string>(COLOR_OPTIONS[3]);
   const [addingStatus, setAddingStatus] = useState(false);
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [savingStatusId, setSavingStatusId] = useState<string | null>(null);
   const [addingMember, setAddingMember] = useState(false);
   const [addingType, setAddingType] = useState(false);
   const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
@@ -220,6 +247,9 @@ export function SettingsDialog({
         employeeId: "",
         color: COLOR_OPTIONS[2],
       });
+      setEditingStatusId(null);
+      setNewStatusName("");
+      setNewStatusColor(COLOR_OPTIONS[3]);
       setActiveTab("status");
     }
   }, [open]);
@@ -229,19 +259,59 @@ export function SettingsDialog({
   );
 
   const isEditingMember = Boolean(editingMemberId);
+  const isEditingStatus = Boolean(editingStatusId);
+  const statusBusy = addingStatus || savingStatusId !== null;
+  const editingStatus = orderedStatuses.find(
+    (status) => status.id === editingStatusId,
+  );
+  const statusNameError = newStatusName.trim()
+    ? getReservedStatusNameError(newStatusName, editingStatus?.name)
+    : null;
 
-  async function addStatus() {
-    if (!newStatusName.trim()) return;
+  function resetStatusForm() {
+    setEditingStatusId(null);
+    setNewStatusName("");
+    setNewStatusColor(COLOR_OPTIONS[3]);
+  }
+
+  function startEditStatus(status: Status) {
+    if (isDefaultStatusName(status.name)) return;
+    setEditingStatusId(status.id);
+    setNewStatusName(status.name);
+    setNewStatusColor(status.color);
+  }
+
+  async function submitStatus() {
+    const name = newStatusName.trim();
     const color = normalizeHex(newStatusColor);
-    if (!color) return;
+    if (!name || !color || statusNameError) return;
+
+    if (editingStatusId) {
+      const existing = orderedStatuses.find((item) => item.id === editingStatusId);
+      if (!existing || isDefaultStatusName(existing.name)) return;
+
+      setSavingStatusId(editingStatusId);
+      const response = await fetch(`/api/statuses/${editingStatusId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, color }),
+      });
+      setSavingStatusId(null);
+      if (response.ok) {
+        resetStatusForm();
+        onChanged();
+      }
+      return;
+    }
+
     setAddingStatus(true);
     await fetch("/api/statuses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newStatusName.trim(), color }),
+      body: JSON.stringify({ name, color }),
     });
-    setNewStatusName("");
     setAddingStatus(false);
+    resetStatusForm();
     onChanged();
   }
 
@@ -260,7 +330,12 @@ export function SettingsDialog({
     });
     setDeletingStatusId(null);
 
-    if (response.ok) onChanged();
+    if (response.ok) {
+      if (editingStatusId === status.id) {
+        resetStatusForm();
+      }
+      onChanged();
+    }
   }
 
   async function persistStatusOrder(previous: Status[], next: Status[]) {
@@ -420,6 +495,7 @@ export function SettingsDialog({
           onValueChange={(value) => {
             setActiveTab(value);
             if (value !== "team") resetMemberForm();
+            if (value !== "status") resetStatusForm();
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
@@ -438,7 +514,8 @@ export function SettingsDialog({
           >
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
               <p className="text-xs text-slate-500">
-                สถานะเริ่มต้น 5 รายการจะมีเสมอ และลบไม่ได้ — ลากไอคอน{" "}
+                สถานะเริ่มต้นแก้และลบไม่ได้ — สถานะที่เพิ่มเองแก้ชื่อกับสีได้
+                ลากไอคอน{" "}
                 <GripVertical className="inline h-3.5 w-3.5 align-text-bottom" />{" "}
                 เพื่อเรียงลำดับ
                 {reordering ? " — กำลังบันทึก..." : null}
@@ -458,7 +535,10 @@ export function SettingsDialog({
                         key={status.id}
                         status={status}
                         deleting={deletingStatusId === status.id}
+                        editing={editingStatusId === status.id}
+                        busy={statusBusy}
                         onDelete={() => deleteStatus(status)}
+                        onEdit={() => startEditStatus(status)}
                       />
                     ))}
                   </div>
@@ -466,16 +546,42 @@ export function SettingsDialog({
               </DndContext>
             </div>
             <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
-              <p className="mb-2 text-sm font-medium text-slate-800">
-                เพิ่มสถานะใหม่
-              </p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-800">
+                  {isEditingStatus ? "แก้ไขสถานะ" : "เพิ่มสถานะใหม่"}
+                </p>
+                {isEditingStatus ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetStatusForm}
+                    disabled={statusBusy}
+                  >
+                    <X className="h-4 w-4" />
+                    ยกเลิก
+                  </Button>
+                ) : null}
+              </div>
               <div className="space-y-3">
                 <Input
                   className="w-full bg-white"
                   placeholder="ชื่อสถานะ"
                   value={newStatusName}
                   onChange={(event) => setNewStatusName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void submitStatus();
+                    }
+                    if (event.key === "Escape" && isEditingStatus) {
+                      resetStatusForm();
+                    }
+                  }}
                 />
+                {statusNameError ? (
+                  <p className="text-xs text-red-600">{statusNameError}</p>
+                ) : null}
                 <ColorTray
                   label="สีสถานะ"
                   value={newStatusColor}
@@ -484,19 +590,31 @@ export function SettingsDialog({
                 />
                 <Button
                   type="button"
-                  onClick={addStatus}
+                  onClick={submitStatus}
                   disabled={
-                    addingStatus ||
+                    statusBusy ||
+                    Boolean(statusNameError) ||
                     !newStatusName.trim() ||
                     !normalizeHex(newStatusColor)
                   }
                 >
                   <LoadingButtonContent
-                    loading={addingStatus}
-                    loadingText="กำลังเพิ่ม..."
+                    loading={statusBusy}
+                    loadingText={
+                      isEditingStatus ? "กำลังบันทึก..." : "กำลังเพิ่ม..."
+                    }
                   >
-                    <Plus className="h-4 w-4" />
-                    เพิ่ม
+                    {isEditingStatus ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        บันทึก
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        เพิ่ม
+                      </>
+                    )}
                   </LoadingButtonContent>
                 </Button>
               </div>

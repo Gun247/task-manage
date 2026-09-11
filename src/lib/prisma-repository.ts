@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import {
   DEFAULT_STATUSES,
   DONE_STATUS_NAME,
+  getReservedStatusNameError,
+  getStatusUpdateError,
   isDefaultStatusName,
   PRD_STATUS_NAME,
   shouldAutoPromotePrdToDone,
@@ -401,6 +403,8 @@ export async function listStatuses() {
 }
 
 export async function createStatus(data: { name: string; color?: string }) {
+  const reserved = getReservedStatusNameError(data.name);
+  if (reserved) throw new Error(reserved);
   const maxOrder = await prisma.status.aggregate({ _max: { sortOrder: true } });
   return prisma.status.create({
     data: {
@@ -418,13 +422,8 @@ export async function updateStatus(
   const existing = await prisma.status.findUnique({ where: { id } });
   if (!existing) throw new Error(`Status not found: ${id}`);
 
-  if (
-    isDefaultStatusName(existing.name) &&
-    data.name !== undefined &&
-    data.name !== existing.name
-  ) {
-    throw new Error(`ไม่สามารถเปลี่ยนชื่อสถานะเริ่มต้น "${existing.name}" ได้`);
-  }
+  const protectedError = getStatusUpdateError(existing.name, data);
+  if (protectedError) throw new Error(protectedError);
 
   return prisma.status.update({ where: { id }, data });
 }
