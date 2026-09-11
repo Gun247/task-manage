@@ -7,6 +7,7 @@ import { Settings, Plus, Search, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input, Select } from "@/components/ui/input";
 import { TaskListView } from "@/components/task-list-view";
 import { TaskKanbanView } from "@/components/task-kanban-view";
@@ -27,12 +28,14 @@ import type {
   Project,
   Status,
   Task,
+  TaskDateFilterField,
   TaskFilters,
+  TagOption,
   TaskTypeOption,
   TeamMember,
   ViewMode,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, taskMatchesDateFilter } from "@/lib/utils";
 
 const views: { id: ViewMode; label: string }[] = [
   { id: "list", label: "รายการ" },
@@ -52,12 +55,16 @@ export function TasksPageContent() {
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
   const [view, setView] = useState<ViewMode>("list");
   const [filters, setFilters] = useState<TaskFilters>({
     search: "",
     priorityId: "",
     assigneeId: "",
     taskType: "",
+    tag: "",
+    date: "",
+    dateField: "",
   });
   const [sortMode, setSortMode] = useState<TaskSortMode>("default");
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -102,12 +109,14 @@ export function TasksPageContent() {
         prioritiesData,
         membersData,
         taskTypesData,
+        tagsData,
       ] = await Promise.all([
           fetchJsonArray<Project>("/api/projects"),
           fetchJsonArray<Status>("/api/statuses"),
           fetchJsonArray<Priority>("/api/priorities"),
           fetchJsonArray<TeamMember>("/api/team-members"),
           fetchJsonArray<TaskTypeOption>("/api/task-types"),
+          fetchJsonArray<TagOption>("/api/tags"),
         ]);
 
       setProjects(projectsData);
@@ -115,6 +124,7 @@ export function TasksPageContent() {
       setPriorities(prioritiesData);
       setTeamMembers(membersData);
       setTaskTypes(taskTypesData);
+      setTags(tagsData);
       return projectsData;
     } catch (err) {
       setProjects([]);
@@ -122,6 +132,7 @@ export function TasksPageContent() {
       setPriorities([]);
       setTeamMembers([]);
       setTaskTypes([]);
+      setTags([]);
       setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
       return [] as Project[];
     } finally {
@@ -186,11 +197,20 @@ export function TasksPageContent() {
       ) {
         return false;
       }
+      if (filters.tag && !(task.tags ?? []).includes(filters.tag)) {
+        return false;
+      }
+      if (
+        view === "list" &&
+        !taskMatchesDateFilter(task, filters.date, filters.dateField)
+      ) {
+        return false;
+      }
       return true;
     });
 
     return sortTasks(filtered, sortMode, statuses);
-  }, [tasks, filters, sortMode, statuses]);
+  }, [tasks, filters, sortMode, statuses, view]);
 
   async function handleStatusChange(taskId: string, statusId: string) {
     const changedAt = new Date().toISOString();
@@ -289,7 +309,12 @@ export function TasksPageContent() {
 
   return (
     <AppShell>
-      <div className="border-b border-slate-200 bg-white">
+      <div
+        className={cn(
+          view === "kanban" && "flex h-full min-h-0 flex-col overflow-hidden",
+        )}
+      >
+      <div className="shrink-0 border-b border-slate-200 bg-white">
         <div className="w-full px-4 py-3 lg:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
@@ -425,6 +450,55 @@ export function TasksPageContent() {
               ))}
             </Select>
             <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-36"
+              value={filters.tag}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  tag: event.target.value,
+                }))
+              }
+            >
+              <option value="">Tag</option>
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.name}>
+                  {tag.name}
+                </option>
+              ))}
+            </Select>
+            {view === "list" ? (
+              <>
+                <Select
+                  className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
+                  value={filters.dateField}
+                  onChange={(event) =>
+                    setFilters((current) => ({
+                      ...current,
+                      dateField: event.target.value as TaskDateFilterField,
+                    }))
+                  }
+                >
+                  <option value="">ทุกวันที่</option>
+                  <option value="startDate">Start</option>
+                  <option value="endDate">End</option>
+                  <option value="uatDate">Timeline UAT</option>
+                  <option value="prdDate">Timeline PRD</option>
+                </Select>
+                <DateInput
+                  compact
+                  aria-label="กรองวันที่"
+                  className="h-9 w-full sm:w-40"
+                  value={filters.date}
+                  onChange={(event) =>
+                    setFilters((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                />
+              </>
+            ) : null}
+            <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-auto sm:min-w-[11rem]"
               value={sortMode}
               onChange={(event) =>
@@ -441,7 +515,13 @@ export function TasksPageContent() {
         </div>
       </div>
 
-      <main className="relative w-full px-4 py-6 lg:px-6">
+      <main
+        className={cn(
+          "relative w-full px-4 py-6 lg:px-6",
+          view === "kanban" &&
+            "flex min-h-0 flex-1 flex-col overflow-hidden py-4",
+        )}
+      >
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
             {error}
@@ -467,8 +547,18 @@ export function TasksPageContent() {
             </div>
           </div>
         ) : (
-          <div className="relative min-h-[280px] space-y-4">
-            <TaskDashboardBar tasks={tasks} statuses={statuses} />
+          <div
+            className={cn(
+              "relative min-h-[280px] space-y-4",
+              view === "kanban" && "flex min-h-0 flex-1 flex-col",
+            )}
+          >
+            <TaskDashboardBar
+              tasks={tasks}
+              statuses={statuses}
+              tags={tags}
+              className={view === "kanban" ? "shrink-0" : undefined}
+            />
             {tasksLoading ? (
               <LoadingOverlay label="กำลังโหลด task..." />
             ) : null}
@@ -479,6 +569,7 @@ export function TasksPageContent() {
                 priorities={priorities}
                 teamMembers={teamMembers}
                 taskTypes={taskTypes}
+                tags={tags}
                 projectId={selectedProjectId}
                 onEditTask={openEditTask}
                 onTaskUpdated={handleTaskUpdated}
@@ -486,23 +577,28 @@ export function TasksPageContent() {
                 focusCreateTrigger={focusCreateTrigger}
               />
             ) : view === "kanban" ? (
-              <TaskKanbanView
-                tasks={filteredTasks}
-                statuses={statuses}
-                onStatusChange={handleStatusChange}
-                onEditTask={openEditTask}
-                onStartCreate={openCreateTask}
-              />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <TaskKanbanView
+                  tasks={filteredTasks}
+                  statuses={statuses}
+                  tags={tags}
+                  onStatusChange={handleStatusChange}
+                  onEditTask={openEditTask}
+                  onStartCreate={openCreateTask}
+                />
+              </div>
             ) : (
               <TaskCalendarView
                 tasks={filteredTasks}
                 taskTypes={taskTypes}
+                tags={tags}
                 onEditTask={openEditTask}
               />
             )}
           </div>
         )}
       </main>
+      </div>
 
       <ProjectFormDialog
         open={projectDialogOpen}
@@ -524,6 +620,7 @@ export function TasksPageContent() {
         priorities={priorities}
         teamMembers={teamMembers}
         taskTypes={taskTypes}
+        tags={tags}
         projectId={selectedProjectId}
         defaultStatusId={createDefaultStatusId}
         onSaved={handleSaved}
@@ -536,6 +633,7 @@ export function TasksPageContent() {
         teamMembers={teamMembers}
         priorities={priorities}
         taskTypes={taskTypes}
+        tags={tags}
         onChanged={async () => {
           await loadData();
           await handleSaved();

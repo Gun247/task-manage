@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
+  CalendarRange,
   ChevronLeft,
   ClipboardList,
   FolderKanban,
@@ -37,6 +38,13 @@ const navItems = [
       pathname === "/projects" || pathname.startsWith("/tasks"),
   },
   {
+    id: "timeline",
+    label: "สรุป Timeline",
+    description: "UAT / PRD รายวัน",
+    icon: CalendarRange,
+    match: (pathname: string) => pathname.startsWith("/timeline"),
+  },
+  {
     id: "history",
     label: "ประวัติ Task",
     description: "ไทม์ไลน์เปลี่ยนสถานะ",
@@ -67,6 +75,9 @@ function resolveHref(
   }
   if (id === "history") {
     return projectId ? `/history?project=${projectId}` : "/history";
+  }
+  if (id === "timeline") {
+    return projectId ? `/timeline?project=${projectId}` : "/timeline";
   }
   return "/projects/manage";
 }
@@ -308,7 +319,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
+    <div className="flex h-svh overflow-hidden bg-[#F8FAFC]">
       <div className="relative z-40 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0">
         <Suspense
           fallback={
@@ -346,8 +357,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
           <button
             type="button"
             className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
@@ -362,7 +373,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
         </div>
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

@@ -1,29 +1,37 @@
 "use client";
 
 import { AssigneesDisplay } from "@/components/assignee-multi-select";
+import { TagsDisplay } from "@/components/tag-multi-select";
 import { Badge } from "@/components/ui/badge";
-import type { Task } from "@/lib/types";
-import { cn, formatDate, formatDateTime, getTaskOverdueState } from "@/lib/utils";
-import { Calendar, CheckSquare, Clock3, GripVertical } from "lucide-react";
+import type { TagOption, Task } from "@/lib/types";
+import {
+  cn,
+  formatDate,
+  formatDateTime,
+  getTaskOverdueState,
+} from "@/lib/utils";
+import { CheckSquare, Clock3, GripVertical } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
+  tags?: TagOption[];
   draggable?: boolean;
   onClick?: () => void;
 }
 
-export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
+const TASK_DATES = [
+  { key: "startDate", label: "Start" },
+  { key: "endDate", label: "End" },
+  { key: "uatDate", label: "UAT" },
+  { key: "prdDate", label: "PRD" },
+] as const;
+
+export function TaskCard({ task, tags = [], draggable = false, onClick }: TaskCardProps) {
   const { overdue, field: overdueField } = getTaskOverdueState(task);
   const lastStatusChange =
     task.statusHistory?.[task.statusHistory.length - 1]?.changedAt;
   const subtasks = task.subtasks ?? [];
   const doneCount = subtasks.filter((item) => item.isDone).length;
-  const displayDate =
-    overdueField === "uatDate"
-      ? task.uatDate
-      : overdueField === "prdDate"
-        ? task.prdDate
-        : task.endDate;
 
   return (
     <button
@@ -62,6 +70,11 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
           </span>
         ) : null}
       </div>
+      {(task.tags?.length ?? 0) > 0 ? (
+        <div className="mb-2">
+          <TagsDisplay tags={task.tags} options={tags} empty="" />
+        </div>
+      ) : null}
       {task.owner ? (
         <p
           className={cn(
@@ -95,15 +108,40 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
                 : []
           }
         />
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1",
-            overdue ? "font-semibold text-red-600" : "",
-          )}
-        >
-          <Calendar className="h-3 w-3" />
-          {formatDate(displayDate)}
-        </span>
+      </div>
+      <div
+        className={cn(
+          "mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]",
+          overdue ? "text-red-700/80" : "text-slate-500",
+        )}
+      >
+        {TASK_DATES.map((item) => {
+          const isOverdueDate = overdueField === item.key;
+          return (
+            <div key={item.key} className="flex min-w-0 items-baseline gap-1">
+              <span
+                className={cn(
+                  "shrink-0 font-medium",
+                  isOverdueDate ? "text-red-600" : "text-slate-400",
+                )}
+              >
+                {item.label}
+              </span>
+              <span
+                className={cn(
+                  "truncate",
+                  isOverdueDate
+                    ? "font-semibold text-red-600"
+                    : overdue
+                      ? "text-red-700/80"
+                      : "text-slate-600",
+                )}
+              >
+                {formatDate(task[item.key])}
+              </span>
+            </div>
+          );
+        })}
       </div>
       {subtasks.length > 0 ? (
         <div

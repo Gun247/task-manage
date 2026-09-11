@@ -17,12 +17,14 @@ import {
 } from "@/components/pending-subtasks-editor";
 import { SubtaskAssigneePicker } from "@/components/subtask-assignee-picker";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import type {
   Priority,
   Status,
   Subtask,
+  TagOption,
   Task,
   TaskType,
   TaskTypeOption,
@@ -40,6 +42,7 @@ interface TaskFormDialogProps {
   priorities: Priority[];
   teamMembers: TeamMember[];
   taskTypes: TaskTypeOption[];
+  tags?: TagOption[];
   projectId?: string;
   defaultStatusId?: string;
   onSaved: () => void;
@@ -51,6 +54,7 @@ const emptyForm = {
   remarks: "",
   taskType: "Back End" as TaskType,
   taskTypes: ["Back End"] as TaskType[],
+  tags: [] as string[],
   startDate: "",
   endDate: "",
   uatDate: "",
@@ -69,6 +73,7 @@ export function TaskFormDialog({
   priorities,
   teamMembers,
   taskTypes,
+  tags: tagOptions = [],
   projectId,
   defaultStatusId,
   onSaved,
@@ -101,6 +106,7 @@ export function TaskFormDialog({
           task.taskTypes?.length > 0
             ? task.taskTypes
             : parseTaskTypes(task.taskType),
+        tags: task.tags ?? [],
         startDate: task.startDate ? task.startDate.slice(0, 10) : "",
         endDate: task.endDate ? task.endDate.slice(0, 10) : "",
         uatDate: task.uatDate ? task.uatDate.slice(0, 10) : "",
@@ -181,6 +187,7 @@ export function TaskFormDialog({
       projectId: task?.projectId ?? projectId,
       assigneeIds: form.assigneeIds,
       taskTypes: form.taskTypes,
+      tags: form.tags,
       ...(createSubtasks ? { subtasks: createSubtasks } : {}),
       startDate: form.startDate || null,
       endDate: form.endDate || null,
@@ -388,6 +395,22 @@ export function TaskFormDialog({
                     ...current,
                     taskTypes: selected,
                     taskType: selected[0] ?? taskTypes[0]?.name ?? "Back End",
+                  }))
+                }
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Tag</Label>
+              <p className="mb-1.5 text-xs text-slate-500">
+                ใช้ติดตามงานที่ยังต้องตาม เช่น บัค ปรับเพิ่ม หรือวิธีการเพิ่มเติม — ไม่เปลี่ยนสถานะ
+              </p>
+              <TagMultiSelect
+                options={tagOptions}
+                value={form.tags}
+                onChange={(selected) =>
+                  setForm((current) => ({
+                    ...current,
+                    tags: selected,
                   }))
                 }
               />

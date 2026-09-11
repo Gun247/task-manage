@@ -11,6 +11,54 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function isSameCalendarDate(
+  value: Date | string | null | undefined,
+  dateKey: string,
+) {
+  if (!value || !dateKey) return false;
+  const parsed = new Date(
+    typeof value === "string" ? value : value.getTime(),
+  );
+  if (Number.isNaN(parsed.getTime())) return false;
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  if (!year || !month || !day) return false;
+
+  const target = new Date(year, month - 1, day);
+  parsed.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  return parsed.getTime() === target.getTime();
+}
+
+export function calendarDateKey(value: Date | string | null | undefined) {
+  if (!value) return null;
+  const parsed = new Date(
+    typeof value === "string" ? value : value.getTime(),
+  );
+  if (Number.isNaN(parsed.getTime())) return null;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const TASK_DATE_FIELDS = [
+  "startDate",
+  "endDate",
+  "uatDate",
+  "prdDate",
+] as const;
+
+export function taskMatchesDateFilter(
+  task: Task,
+  dateKey: string,
+  field?: "" | (typeof TASK_DATE_FIELDS)[number],
+) {
+  if (!dateKey) return true;
+  const fields = field ? [field] : TASK_DATE_FIELDS;
+  return fields.some((key) => isSameCalendarDate(task[key], dateKey));
+}
+
 export function formatDate(date: Date | string | null | undefined) {
   if (!date) return "-";
   const value = typeof date === "string" ? new Date(date) : date;

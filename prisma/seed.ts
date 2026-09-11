@@ -56,6 +56,20 @@ async function main() {
       create: status,
     });
   }
+
+  const tags = [
+    { name: "บัค", color: "#EF4444", sortOrder: 0 },
+    { name: "ปรับเพิ่ม", color: "#F97316", sortOrder: 1 },
+    { name: "วิธีการเพิ่มเติม", color: "#8B5CF6", sortOrder: 2 },
+  ];
+
+  for (const tag of tags) {
+    await prisma.tagOption.upsert({
+      where: { name: tag.name },
+      update: { color: tag.color, sortOrder: tag.sortOrder },
+      create: tag,
+    });
+  }
 }
 
 main()

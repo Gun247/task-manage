@@ -7,6 +7,7 @@ import {
   type PendingSubtask,
 } from "@/components/pending-subtasks-editor";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { LoadingButtonContent } from "@/components/ui/loading";
 import type {
   Priority,
   Status,
+  TagOption,
   TaskType,
   TaskTypeOption,
   TeamMember,
@@ -26,6 +28,7 @@ interface TaskInlineCreateProps {
   priorities: Priority[];
   teamMembers: TeamMember[];
   taskTypes: TaskTypeOption[];
+  tags: TagOption[];
   projectId: string;
   defaultStatusId?: string;
   onSaved: () => void;
@@ -38,6 +41,7 @@ const emptyForm = {
   remarks: "",
   taskType: "Back End" as TaskType,
   taskTypes: ["Back End"] as TaskType[],
+  tags: [] as string[],
   startDate: "",
   endDate: "",
   uatDate: "",
@@ -53,6 +57,7 @@ export function TaskInlineCreate({
   priorities,
   teamMembers,
   taskTypes,
+  tags: tagOptions,
   projectId,
   defaultStatusId,
   onSaved,
@@ -153,6 +158,7 @@ export function TaskInlineCreate({
       name: form.name.trim(),
       assigneeIds: form.assigneeIds,
       taskTypes: form.taskTypes,
+      tags: form.tags,
       subtasks,
       startDate: form.startDate || null,
       endDate: form.endDate || null,
@@ -257,6 +263,18 @@ export function TaskInlineCreate({
                 ...current,
                 taskTypes: selected,
                 taskType: selected[0] ?? taskTypes[0]?.name ?? "Back End",
+              }))
+            }
+            className="bg-white"
+          />
+
+          <TagMultiSelect
+            options={tagOptions}
+            value={form.tags}
+            onChange={(selected) =>
+              setForm((current) => ({
+                ...current,
+                tags: selected,
               }))
             }
             className="bg-white"

@@ -28,13 +28,14 @@ import { ColorTray, normalizeHex } from "@/components/ui/color-tray";
 import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
+import type { Priority, Status, TagOption, TaskTypeOption, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   getReservedStatusNameError,
   getStatusDescription,
   isDefaultStatusName,
 } from "@/lib/default-statuses";
+import { getTagDescription } from "@/lib/tags";
 import {
   Check,
   GripVertical,
@@ -63,6 +64,7 @@ interface SettingsDialogProps {
   teamMembers: TeamMember[];
   priorities: Priority[];
   taskTypes: TaskTypeOption[];
+  tags: TagOption[];
   onChanged: () => void;
 }
 
@@ -206,6 +208,7 @@ export function SettingsDialog({
   teamMembers,
   priorities,
   taskTypes,
+  tags,
   onChanged,
 }: SettingsDialogProps) {
   const [orderedStatuses, setOrderedStatuses] = useState(statuses);
@@ -221,16 +224,20 @@ export function SettingsDialog({
   });
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeColor, setNewTypeColor] = useState<string>(COLOR_OPTIONS[3]);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState<string>(COLOR_OPTIONS[0]);
   const [addingStatus, setAddingStatus] = useState(false);
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [savingStatusId, setSavingStatusId] = useState<string | null>(null);
   const [addingMember, setAddingMember] = useState(false);
   const [addingType, setAddingType] = useState(false);
+  const [addingTag, setAddingTag] = useState(false);
   const [deletingStatusId, setDeletingStatusId] = useState<string | null>(null);
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
@@ -478,6 +485,33 @@ export function SettingsDialog({
     if (response.ok) onChanged();
   }
 
+  async function addTag() {
+    if (!newTagName.trim()) return;
+    const color = normalizeHex(newTagColor);
+    if (!color) return;
+    setAddingTag(true);
+    await fetch("/api/tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newTagName.trim(),
+        color,
+      }),
+    });
+    setNewTagName("");
+    setAddingTag(false);
+    onChanged();
+  }
+
+  async function deleteTag(tag: TagOption) {
+    setDeletingTagId(tag.id);
+    const response = await fetch(`/api/tags/${tag.id}`, {
+      method: "DELETE",
+    });
+    setDeletingTagId(null);
+    if (response.ok) onChanged();
+  }
+
   const memberBusy = addingMember || savingMemberId !== null;
 
   return (
@@ -486,7 +520,7 @@ export function SettingsDialog({
         <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-6 py-4 pr-12">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            จัดการสถานะ ทีม Task Type และ priority ของโปรเจกต์
+            จัดการสถานะ ทีม Task Type Tag และ priority ของโปรเจกต์
           </DialogDescription>
         </DialogHeader>
 
@@ -500,11 +534,22 @@ export function SettingsDialog({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="shrink-0 px-6 pt-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="status">สถานะ</TabsTrigger>
-              <TabsTrigger value="team">ทีม</TabsTrigger>
-              <TabsTrigger value="type">Type</TabsTrigger>
-              <TabsTrigger value="priority">Priority</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="status" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+                สถานะ
+              </TabsTrigger>
+              <TabsTrigger value="team" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+                ทีม
+              </TabsTrigger>
+              <TabsTrigger value="type" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+                Type
+              </TabsTrigger>
+              <TabsTrigger value="tag" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+                Tag
+              </TabsTrigger>
+              <TabsTrigger value="priority" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+                Priority
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -916,6 +961,105 @@ export function SettingsDialog({
                 >
                   <LoadingButtonContent
                     loading={addingType}
+                    loadingText="กำลังเพิ่ม..."
+                  >
+                    <Plus className="h-4 w-4" />
+                    เพิ่ม
+                  </LoadingButtonContent>
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="tag"
+            className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
+          >
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4">
+              <p className="text-xs text-slate-500">
+                Tag ไม่ผูกกับสถานะ — ใช้ติดงานที่ยังต้องตาม เช่น UAT ที่เจอบัค ต้องปรับเพิ่ม หรือมีวิธีการเพิ่มเติม
+              </p>
+              {tags.length === 0 ? (
+                <p className="rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
+                  ยังไม่มี Tag — เพิ่มเพื่อเลือกในฟอร์ม task ได้
+                </p>
+              ) : (
+                tags.map((tag) => {
+                  const description = getTagDescription(tag.name);
+                  return (
+                    <div
+                      key={tag.id}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-slate-800">
+                            {tag.name}
+                          </span>
+                          {description ? (
+                            <p className="truncate text-xs text-slate-500">
+                              {description}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={deletingTagId === tag.id}
+                        onClick={() => deleteTag(tag)}
+                      >
+                        <LoadingButtonContent
+                          loading={deletingTagId === tag.id}
+                          loadingText=""
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </LoadingButtonContent>
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+              <p className="mb-2 text-sm font-medium text-slate-800">
+                เพิ่ม Tag
+              </p>
+              <div className="space-y-3">
+                <Input
+                  className="w-full bg-white"
+                  placeholder="เช่น รอข้อมูล, ต้องรีวิว"
+                  value={newTagName}
+                  onChange={(event) => setNewTagName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void addTag();
+                    }
+                  }}
+                />
+                <ColorTray
+                  label="สี Tag"
+                  value={newTagColor}
+                  onChange={(color) => setNewTagColor(color)}
+                  options={COLOR_OPTIONS}
+                />
+                <Button
+                  type="button"
+                  onClick={addTag}
+                  disabled={
+                    addingTag ||
+                    !newTagName.trim() ||
+                    !normalizeHex(newTagColor)
+                  }
+                >
+                  <LoadingButtonContent
+                    loading={addingTag}
                     loadingText="กำลังเพิ่ม..."
                   >
                     <Plus className="h-4 w-4" />

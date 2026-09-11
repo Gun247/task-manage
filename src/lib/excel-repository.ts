@@ -15,6 +15,13 @@ import {
   rewriteTaskTypeList,
   serializeTaskTypes,
 } from "./task-types";
+import {
+  DEFAULT_TAGS,
+  normalizeTags,
+  parseTags,
+  rewriteTagList,
+  serializeTags,
+} from "./tags";
 
 export type ExcelProject = {
   id: string;
@@ -66,12 +73,22 @@ export type ExcelTaskTypeOption = {
   updatedAt: string;
 };
 
+export type ExcelTagOption = {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ExcelTask = {
   id: string;
   name: string;
   description: string;
   remarks: string;
   taskType: string;
+  tags: string;
   startDate: string;
   endDate: string;
   uatDate: string;
@@ -176,12 +193,22 @@ const taskTypesTable = new ExcelTable<ExcelTaskTypeOption>("TaskTypes", [
   "updatedAt",
 ]);
 
+const tagsTable = new ExcelTable<ExcelTagOption>("Tags", [
+  "id",
+  "name",
+  "color",
+  "sortOrder",
+  "createdAt",
+  "updatedAt",
+]);
+
 const tasksTable = new ExcelTable<ExcelTask>("Tasks", [
   "id",
   "name",
   "description",
   "remarks",
   "taskType",
+  "tags",
   "startDate",
   "endDate",
   "uatDate",
@@ -465,6 +492,7 @@ async function hydrateTask(
   const owner =
     members.find((member) => member.id === task.ownerId) ?? null;
   const taskTypes = parseTaskTypes(task.taskType);
+  const tags = parseTags(task.tags);
 
   return {
     ...task,
@@ -476,6 +504,7 @@ async function hydrateTask(
     ownerId: owner?.id ?? null,
     taskType: taskTypes[0],
     taskTypes,
+    tags,
     project,
     priority,
     status,
@@ -800,6 +829,92 @@ export async function getDefaultTaskType() {
   return taskTypesTable.findFirst({ key: "sortOrder", direction: "asc" });
 }
 
+async function ensureDefaultTags() {
+  const existing = await tagsTable.getAll();
+  if (existing.length > 0) return;
+  for (const tag of DEFAULT_TAGS) {
+    await tagsTable.create({
+      id: createId(),
+      name: tag.name,
+      color: tag.color,
+      sortOrder: tag.sortOrder,
+    });
+  }
+}
+
+export async function listTags() {
+  await ensureDefaultTags();
+  const tags = await tagsTable.getAll();
+  return tags.sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+export async function createTag(data: { name: string; color?: string }) {
+  const name = data.name.trim();
+  if (!name) throw new Error("Tag name is required");
+  const existing = await tagsTable.getAll();
+  if (existing.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
+    throw new Error("Tag already exists");
+  }
+  const sortOrder = (await tagsTable.maxOf("sortOrder")) + 1;
+  return tagsTable.create({
+    id: createId(),
+    name,
+    color: data.color ?? "#F97316",
+    sortOrder,
+  });
+}
+
+export async function updateTag(
+  id: string,
+  data: Partial<Pick<ExcelTagOption, "name" | "color" | "sortOrder">>,
+) {
+  const existing = await tagsTable.findById(id);
+  if (!existing) throw new Error(`Tag not found: ${id}`);
+
+  const payload: Partial<ExcelTagOption> = {};
+  if (data.color !== undefined) payload.color = data.color;
+  if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder;
+  if (data.name !== undefined) {
+    const name = data.name.trim();
+    if (!name) throw new Error("Tag name is required");
+    const all = await tagsTable.getAll();
+    if (
+      all.some(
+        (item) =>
+          item.id !== id && item.name.toLowerCase() === name.toLowerCase(),
+      )
+    ) {
+      throw new Error("Tag already exists");
+    }
+    payload.name = name;
+    if (name !== existing.name) {
+      const tasks = await tasksTable.getAll();
+      for (const task of tasks) {
+        const next = rewriteTagList(task.tags, existing.name, name);
+        if (next !== task.tags) {
+          await tasksTable.update(task.id, { tags: next });
+        }
+      }
+    }
+  }
+
+  return tagsTable.update(id, payload);
+}
+
+export async function deleteTag(id: string) {
+  const existing = await tagsTable.findById(id);
+  if (!existing) throw new Error(`Tag not found: ${id}`);
+
+  const tasks = await tasksTable.getAll();
+  for (const task of tasks) {
+    const next = rewriteTagList(task.tags, existing.name, null);
+    if (next !== task.tags) {
+      await tasksTable.update(task.id, { tags: next });
+    }
+  }
+  await tagsTable.delete(id);
+}
+
 export async function listTasks(projectId?: string | null) {
   await promotePrdTasksToDone();
   const [tasks, histories, subtasks, assignments, members, subtaskAssignments] =
@@ -852,6 +967,7 @@ export async function createTask(data: {
   remarks?: string;
   taskType?: string;
   taskTypes?: string[] | null;
+  tags?: string[] | null;
   startDate?: string | null;
   endDate?: string | null;
   uatDate?: string | null;
@@ -875,6 +991,7 @@ export async function createTask(data: {
     (data.assigneeId ? [data.assigneeId] : []);
   const taskTypes =
     normalizeTaskTypes(data) ?? parseTaskTypes(data.taskType ?? "Back End");
+  const tags = normalizeTags(data) ?? [];
   const pendingSubtasks = (data.subtasks ?? [])
     .map((item) => {
       if (typeof item === "string") {
@@ -893,6 +1010,7 @@ export async function createTask(data: {
     description: data.description ?? "",
     remarks: data.remarks ?? "",
     taskType: serializeTaskTypes(taskTypes),
+    tags: serializeTags(tags),
     startDate: data.startDate ?? "",
     endDate: data.endDate ?? "",
     uatDate: data.uatDate ?? "",
@@ -952,6 +1070,7 @@ export async function updateTask(
     remarks: string;
     taskType: string;
     taskTypes: string[] | null;
+    tags: string[] | null;
     startDate: string | null;
     endDate: string | null;
     uatDate: string | null;
@@ -976,6 +1095,10 @@ export async function updateTask(
   const taskTypes = normalizeTaskTypes(data);
   if (taskTypes) {
     payload.taskType = serializeTaskTypes(taskTypes);
+  }
+  const tags = normalizeTags(data);
+  if (tags) {
+    payload.tags = serializeTags(tags);
   }
   if (data.startDate !== undefined) payload.startDate = data.startDate ?? "";
   if (data.endDate !== undefined) payload.endDate = data.endDate ?? "";
@@ -1121,6 +1244,7 @@ export async function ensureSheetStructure() {
     statusesTable.ensureHeader(),
     teamMembersTable.ensureHeader(),
     taskTypesTable.ensureHeader(),
+    tagsTable.ensureHeader(),
     tasksTable.ensureHeader(),
     statusHistoriesTable.ensureHeader(),
     subtasksTable.ensureHeader(),
@@ -1173,4 +1297,6 @@ export async function seedDefaultData() {
       }
     }
   }
+
+  await ensureDefaultTags();
 }

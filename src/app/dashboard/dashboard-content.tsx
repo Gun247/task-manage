@@ -10,13 +10,16 @@ import {
   History,
   LayoutDashboard,
   ListTodo,
+  Tag,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
-import type { Project, Status, Task } from "@/lib/types";
+import { isFollowUpTaggedTask } from "@/lib/tags";
+import type { Project, Status, TagOption, Task } from "@/lib/types";
 import { formatDateTime, isTaskOverdue } from "@/lib/utils";
+import { TagsDisplay } from "@/components/tag-multi-select";
 
 function isTerminalStatus(name: string) {
   return name.toLowerCase() === "done";
@@ -26,24 +29,28 @@ export default function DashboardPageContent() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
       setError(null);
-      const [tasksData, projectsData, statusesData] = await Promise.all([
+      const [tasksData, projectsData, statusesData, tagsData] = await Promise.all([
         fetchJsonArray<Task>("/api/tasks"),
         fetchJsonArray<Project>("/api/projects"),
         fetchJsonArray<Status>("/api/statuses"),
+        fetchJsonArray<TagOption>("/api/tags"),
       ]);
       setTasks(tasksData);
       setProjects(projectsData);
       setStatuses(statusesData);
+      setTags(tagsData);
     } catch (err) {
       setTasks([]);
       setProjects([]);
       setStatuses([]);
+      setTags([]);
       setError(err instanceof Error ? err.message : "โหลด dashboard ไม่สำเร็จ");
     } finally {
       setLoading(false);
@@ -55,6 +62,10 @@ export default function DashboardPageContent() {
   }, [loadData]);
 
   const overdueTasks = useMemo(() => tasks.filter(isTaskOverdue), [tasks]);
+  const taggedFollowUps = useMemo(
+    () => tasks.filter(isFollowUpTaggedTask),
+    [tasks],
+  );
   const doneCount = useMemo(
     () => tasks.filter((task) => isTerminalStatus(task.status.name)).length,
     [tasks],
@@ -301,6 +312,44 @@ export default function DashboardPageContent() {
                 </div>
               )}
             </section>
+
+            {taggedFollowUps.length > 0 ? (
+              <section className="rounded-2xl border border-orange-200 bg-orange-50/50 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-orange-600" />
+                  <h2 className="text-sm font-semibold text-orange-800">
+                    งานที่ต้องตาม (มี Tag)
+                  </h2>
+                  <span className="text-xs text-orange-700/70">
+                    {taggedFollowUps.length} รายการ
+                  </span>
+                </div>
+                <ul className="space-y-2">
+                  {taggedFollowUps.slice(0, 8).map((task) => (
+                    <li key={task.id}>
+                      <Link
+                        href={`/tasks?project=${task.projectId}`}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2.5 text-sm transition hover:shadow-sm"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium text-slate-800">
+                            {task.name}
+                          </span>
+                          <span className="mt-1 block">
+                            <TagsDisplay
+                              tags={task.tags}
+                              options={tags}
+                              empty=""
+                            />
+                          </span>
+                        </span>
+                        <Badge color={task.status.color}>{task.status.name}</Badge>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             {overdueTasks.length > 0 ? (
               <section className="rounded-2xl border border-red-200 bg-red-50/50 p-4">

@@ -14,13 +14,16 @@ import {
 } from "date-fns";
 import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
-import type { Task, TaskTypeOption } from "@/lib/types";
+import { AssigneesDisplay } from "@/components/assignee-multi-select";
+import { TagsDisplay } from "@/components/tag-multi-select";
+import type { TagOption, Task, TaskTypeOption } from "@/lib/types";
 import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TaskCalendarViewProps {
   tasks: Task[];
   taskTypes?: TaskTypeOption[];
+  tags?: TagOption[];
   onEditTask: (task: Task) => void;
 }
 
@@ -53,6 +56,37 @@ function taskTypeLabel(task: Task, taskTypes: TaskTypeOption[]) {
       return option?.name ?? name;
     })
     .join(", ");
+}
+
+function taskAssigneeList(task: Task) {
+  if (task.assignees?.length) return task.assignees;
+  if (task.assignee) return [task.assignee];
+  return [];
+}
+
+function taskAssigneeLabel(task: Task) {
+  const names = taskAssigneeList(task)
+    .map((member) => member.nickname)
+    .filter(Boolean);
+  return names.length > 0 ? names.join(", ") : "ยังไม่ระบุ";
+}
+
+function TaskAssigneeLine({
+  task,
+  className,
+}: {
+  task: Task;
+  className?: string;
+}) {
+  const assignees = taskAssigneeList(task);
+  return (
+    <div className={`flex min-w-0 items-center gap-1.5 ${className ?? ""}`}>
+      {assignees.length > 0 ? (
+        <AssigneesDisplay assignees={assignees} empty="" max={3} />
+      ) : null}
+      <span className="min-w-0 truncate">{taskAssigneeLabel(task)}</span>
+    </div>
+  );
 }
 
 function formatTaskSummaryLine(task: Task, index: number) {
@@ -108,6 +142,7 @@ function buildTimelineSummaryText(
 export function TaskCalendarView({
   tasks,
   taskTypes = [],
+  tags = [],
   onEditTask,
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -136,6 +171,10 @@ export function TaskCalendarView({
     () => tasks.filter((task) => isDateOnDay(task.prdDate, selectedDate)),
     [tasks, selectedDate],
   );
+
+  const selectedDayLabel = isSameDay(selectedDate, new Date())
+    ? "วันนี้"
+    : format(selectedDate, "d MMM", { locale: th });
 
   function getTasksOnDay(day: Date) {
     return tasks.filter((task) => taskAppearsOnDay(task, day));
@@ -317,15 +356,19 @@ export function TaskCalendarView({
         </div>
       </div>
 
-      <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-primary">
-          {format(selectedDate, "d MMMM yyyy", { locale: th })}
-        </h3>
-        <p className="mt-1 text-sm text-slate-500">
-          Task วันนี้ ({tasksForDay.length})
-        </p>
+      <div className="lg:relative lg:h-full lg:min-h-0">
+        <aside className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:absolute lg:inset-0 lg:overflow-hidden">
+          <div className="shrink-0 px-5 pt-5">
+            <h3 className="text-base font-semibold text-primary">
+              {format(selectedDate, "d MMMM yyyy", { locale: th })}
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Task วันนี้ ({tasksForDay.length})
+            </p>
+          </div>
 
-        <div className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-5">
+            <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
               สรุป Timeline วันนี้
@@ -440,6 +483,10 @@ export function TaskCalendarView({
                 <Badge color={task.status.color}>{task.status.name}</Badge>
               </div>
               <p className="text-sm font-semibold text-slate-900">{task.name}</p>
+              <TaskAssigneeLine
+                task={task}
+                className="mt-1.5 text-xs text-slate-600"
+              />
               {task.description ? (
                 <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-600">
                   {task.description}
@@ -448,25 +495,32 @@ export function TaskCalendarView({
               <p className="mt-1 text-xs text-slate-500">
                 {taskTypeLabel(task, taskTypes)}
               </p>
+              {(task.tags?.length ?? 0) > 0 ? (
+                <div className="mt-1.5">
+                  <TagsDisplay tags={task.tags} options={tags} empty="" />
+                </div>
+              ) : null}
               {(isDateOnDay(task.uatDate, selectedDate) ||
                 isDateOnDay(task.prdDate, selectedDate)) && (
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
                   {isDateOnDay(task.uatDate, selectedDate) ? (
                     <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
-                      UAT วันนี้
+                      UAT {selectedDayLabel}
                     </span>
                   ) : null}
                   {isDateOnDay(task.prdDate, selectedDate) ? (
                     <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800">
-                      PRD วันนี้
+                      PRD {selectedDayLabel}
                     </span>
                   ) : null}
                 </div>
               )}
             </button>
           ))}
-        </div>
-      </aside>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

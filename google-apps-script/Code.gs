@@ -14,8 +14,9 @@ const SHEETS = {
   Statuses: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
   TeamMembers: ["id", "name", "nickname", "email", "employeeId", "color", "isActive", "sortOrder", "createdAt", "updatedAt"],
   TaskTypes: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
+  Tags: ["id", "name", "color", "sortOrder", "createdAt", "updatedAt"],
   Tasks: [
-    "id", "name", "description", "remarks", "taskType",
+    "id", "name", "description", "remarks", "taskType", "tags",
     "startDate", "endDate", "uatDate", "prdDate", "sortOrder", "projectId",
     "priorityId", "statusId", "assigneeId", "ownerId", "createdAt", "updatedAt",
   ],
@@ -149,6 +150,17 @@ function seedDefaults() {
       if (match) {
         updateRow("TaskTypes", match.id, { color: t.color });
       }
+    });
+  }
+  var tagDefaults = [
+    { name: "บัค", color: "#EF4444", sortOrder: 0 },
+    { name: "ปรับเพิ่ม", color: "#F97316", sortOrder: 1 },
+    { name: "วิธีการเพิ่มเติม", color: "#8B5CF6", sortOrder: 2 },
+  ];
+  var existingTags = getAll("Tags");
+  if (existingTags.length === 0) {
+    tagDefaults.forEach(function(t) {
+      createRow("Tags", Object.assign({ id: Utilities.getUuid() }, t));
     });
   }
   return { success: true };

@@ -55,6 +55,15 @@ model TaskTypeOption {
   updatedAt DateTime @updatedAt
 }
 
+model TagOption {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Project {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -72,6 +81,7 @@ model Task {
   description String          @default("")
   remarks     String          @default("")
   taskType    String          @default("Back End")
+  tags        String          @default("")
   startDate   DateTime?
   endDate     DateTime?
   uatDate     DateTime?

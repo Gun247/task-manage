@@ -2,9 +2,10 @@
 
 import { InlineAssigneePicker, AssigneesDisplay } from "@/components/assignee-multi-select";
 import { TaskTypesDisplay } from "@/components/task-type-multi-select";
+import { TagsDisplay } from "@/components/tag-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { TaskInlineCreate } from "@/components/task-inline-create";
-import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
+import type { Priority, Status, TagOption, Task, TaskTypeOption, TeamMember } from "@/lib/types";
 import {
   cn,
   formatDate,
@@ -19,6 +20,7 @@ interface TaskListViewProps {
   priorities: Priority[];
   teamMembers: TeamMember[];
   taskTypes: TaskTypeOption[];
+  tags: TagOption[];
   projectId: string;
   onEditTask: (task: Task) => void;
   onTaskUpdated: (task: Task) => void;
@@ -32,6 +34,7 @@ export function TaskListView({
   priorities,
   teamMembers,
   taskTypes,
+  tags: tagOptions,
   projectId,
   onEditTask,
   onTaskUpdated,
@@ -45,6 +48,7 @@ export function TaskListView({
         priorities={priorities}
         teamMembers={teamMembers}
         taskTypes={taskTypes}
+        tags={tagOptions}
         projectId={projectId}
         onSaved={onSaved}
         focusTrigger={focusCreateTrigger}
@@ -79,6 +83,7 @@ export function TaskListView({
                 <th className="px-4 py-3 font-medium">Timeline UAT</th>
                 <th className="px-4 py-3 font-medium">Timeline PRD</th>
                 <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Tag</th>
               </tr>
             </thead>
             <tbody>
@@ -220,6 +225,9 @@ export function TaskListView({
                               : []
                         }
                       />
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      <TagsDisplay tags={task.tags} options={tagOptions} />
                     </td>
                   </tr>
                 );

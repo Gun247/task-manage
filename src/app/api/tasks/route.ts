@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       remarks: body.remarks,
       taskType: body.taskType,
       taskTypes: Array.isArray(body.taskTypes) ? body.taskTypes : undefined,
+      tags: Array.isArray(body.tags) ? body.tags : undefined,
       startDate: body.startDate ?? null,
       endDate: body.endDate ?? null,
       uatDate: body.uatDate ?? null,

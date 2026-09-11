@@ -18,6 +18,11 @@ export async function PATCH(request: Request, context: RouteContext) {
             taskTypes: Array.isArray(body.taskTypes) ? body.taskTypes : [],
           }
         : {}),
+      ...(body.tags !== undefined
+        ? {
+            tags: Array.isArray(body.tags) ? body.tags : [],
+          }
+        : {}),
       ...(body.startDate !== undefined
         ? { startDate: body.startDate ? body.startDate : null }
         : {}),

@@ -15,6 +15,13 @@ import {
   rewriteTaskTypeList,
   serializeTaskTypes,
 } from "@/lib/task-types";
+import {
+  DEFAULT_TAGS,
+  normalizeTags,
+  parseTags,
+  rewriteTagList,
+  serializeTags,
+} from "@/lib/tags";
 
 function toIso(value: Date | null | undefined) {
   return value ? value.toISOString() : null;
@@ -71,6 +78,7 @@ function serializeTask(
         : [];
   const assignee = assignees[0] ?? null;
   const taskTypes = parseTaskTypes(task.taskType);
+  const tags = parseTags(task.tags);
 
   return {
     ...task,
@@ -84,6 +92,7 @@ function serializeTask(
     ownerId: task.owner?.id ?? task.ownerId ?? null,
     taskType: taskTypes[0],
     taskTypes,
+    tags,
     project: {
       ...task.project,
       createdAt: task.project.createdAt.toISOString(),
@@ -600,6 +609,91 @@ export async function getDefaultTaskType() {
   return prisma.taskTypeOption.findFirst({ orderBy: { sortOrder: "asc" } });
 }
 
+async function ensureDefaultTags() {
+  const count = await prisma.tagOption.count();
+  if (count > 0) return;
+  for (const tag of DEFAULT_TAGS) {
+    await prisma.tagOption.create({
+      data: {
+        name: tag.name,
+        color: tag.color,
+        sortOrder: tag.sortOrder,
+      },
+    });
+  }
+}
+
+export async function listTags() {
+  await ensureDefaultTags();
+  return prisma.tagOption.findMany({ orderBy: { sortOrder: "asc" } });
+}
+
+export async function createTag(data: { name: string; color?: string }) {
+  const name = data.name.trim();
+  if (!name) throw new Error("Tag name is required");
+  const maxOrder = await prisma.tagOption.aggregate({
+    _max: { sortOrder: true },
+  });
+  return prisma.tagOption.create({
+    data: {
+      name,
+      color: data.color ?? "#F97316",
+      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+    },
+  });
+}
+
+export async function updateTag(
+  id: string,
+  data: Partial<{ name: string; color: string; sortOrder: number }>,
+) {
+  const existing = await prisma.tagOption.findUnique({ where: { id } });
+  if (!existing) throw new Error(`Tag not found: ${id}`);
+
+  if (data.name !== undefined) {
+    const name = data.name.trim();
+    if (!name) throw new Error("Tag name is required");
+    if (name !== existing.name) {
+      const tasks = await prisma.task.findMany();
+      for (const task of tasks) {
+        const next = rewriteTagList(task.tags, existing.name, name);
+        if (next !== task.tags) {
+          await prisma.task.update({
+            where: { id: task.id },
+            data: { tags: next },
+          });
+        }
+      }
+    }
+  }
+
+  return prisma.tagOption.update({
+    where: { id },
+    data: {
+      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.color !== undefined ? { color: data.color } : {}),
+      ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
+    },
+  });
+}
+
+export async function deleteTag(id: string) {
+  const existing = await prisma.tagOption.findUnique({ where: { id } });
+  if (!existing) throw new Error(`Tag not found: ${id}`);
+
+  const tasks = await prisma.task.findMany();
+  for (const task of tasks) {
+    const next = rewriteTagList(task.tags, existing.name, null);
+    if (next !== task.tags) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { tags: next },
+      });
+    }
+  }
+  await prisma.tagOption.delete({ where: { id } });
+}
+
 export async function listTasks(projectId?: string | null) {
   await promotePrdTasksToDone();
   const tasks = await prisma.task.findMany({
@@ -616,6 +710,7 @@ export async function createTask(data: {
   remarks?: string;
   taskType?: string;
   taskTypes?: string[] | null;
+  tags?: string[] | null;
   startDate?: string | null;
   endDate?: string | null;
   uatDate?: string | null;
@@ -638,6 +733,7 @@ export async function createTask(data: {
     (data.assigneeId ? [data.assigneeId] : []);
   const taskTypes =
     normalizeTaskTypes(data) ?? parseTaskTypes(data.taskType ?? "Back End");
+  const tags = normalizeTags(data) ?? [];
   const pendingSubtasks = (data.subtasks ?? [])
     .map((item) => {
       if (typeof item === "string") {
@@ -656,6 +752,7 @@ export async function createTask(data: {
       description: data.description ?? "",
       remarks: data.remarks ?? "",
       taskType: serializeTaskTypes(taskTypes),
+      tags: serializeTags(tags),
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
       uatDate: data.uatDate ? new Date(data.uatDate) : null,
@@ -716,6 +813,7 @@ export async function updateTask(
     remarks: string;
     taskType: string;
     taskTypes: string[] | null;
+    tags: string[] | null;
     startDate: string | null;
     endDate: string | null;
     uatDate: string | null;
@@ -750,6 +848,7 @@ export async function updateTask(
 
   const assigneeIds = normalizeAssigneeIds(data);
   const taskTypes = normalizeTaskTypes(data);
+  const tags = normalizeTags(data);
 
   await prisma.task.update({
     where: { id },
@@ -758,6 +857,7 @@ export async function updateTask(
       ...(data.description !== undefined ? { description: data.description } : {}),
       ...(data.remarks !== undefined ? { remarks: data.remarks } : {}),
       ...(taskTypes ? { taskType: serializeTaskTypes(taskTypes) } : {}),
+      ...(tags ? { tags: serializeTags(tags) } : {}),
       ...(data.startDate !== undefined
         ? { startDate: data.startDate ? new Date(data.startDate) : null }
         : {}),
@@ -945,6 +1045,8 @@ export async function seedDefaultData() {
       },
     });
   }
+
+  await ensureDefaultTags();
 
   return defaultProject;
 }

@@ -119,6 +119,28 @@ export async function getDefaultTaskType() {
   return resolveBackend().getDefaultTaskType();
 }
 
+export async function listTags() {
+  return resolveBackend().listTags();
+}
+
+export async function createTag(
+  ...args: Parameters<typeof sheetsRepo.createTag>
+) {
+  return resolveBackend().createTag(...args);
+}
+
+export async function updateTag(
+  ...args: Parameters<typeof sheetsRepo.updateTag>
+) {
+  return resolveBackend().updateTag(...args);
+}
+
+export async function deleteTag(
+  ...args: Parameters<typeof sheetsRepo.deleteTag>
+) {
+  return resolveBackend().deleteTag(...args);
+}
+
 export async function listTasks(
   ...args: Parameters<typeof sheetsRepo.listTasks>
 ) {
