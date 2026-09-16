@@ -1,9 +1,9 @@
 "use client";
 
 import { AssigneesDisplay } from "@/components/assignee-multi-select";
-import { TagsDisplay } from "@/components/tag-multi-select";
 import { Badge } from "@/components/ui/badge";
-import type { TagOption, Task } from "@/lib/types";
+import { taskSourceLabel } from "@/lib/task-source";
+import type { Task } from "@/lib/types";
 import {
   cn,
   formatDate,
@@ -14,7 +14,6 @@ import { CheckSquare, Clock3, GripVertical } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
-  tags?: TagOption[];
   draggable?: boolean;
   onClick?: () => void;
 }
@@ -26,12 +25,13 @@ const TASK_DATES = [
   { key: "prdDate", label: "PRD" },
 ] as const;
 
-export function TaskCard({ task, tags = [], draggable = false, onClick }: TaskCardProps) {
+export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
   const { overdue, field: overdueField } = getTaskOverdueState(task);
   const lastStatusChange =
     task.statusHistory?.[task.statusHistory.length - 1]?.changedAt;
   const subtasks = task.subtasks ?? [];
   const doneCount = subtasks.filter((item) => item.isDone).length;
+  const sourceLabel = taskSourceLabel(task.source);
 
   return (
     <button
@@ -69,12 +69,15 @@ export function TaskCard({ task, tags = [], draggable = false, onClick }: TaskCa
             เกินกำหนด
           </span>
         ) : null}
+        {sourceLabel ? (
+          <span
+            className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700"
+            title="นำเข้าจาก Google Sheet"
+          >
+            {sourceLabel}
+          </span>
+        ) : null}
       </div>
-      {(task.tags?.length ?? 0) > 0 ? (
-        <div className="mb-2">
-          <TagsDisplay tags={task.tags} options={tags} empty="" />
-        </div>
-      ) : null}
       {task.owner ? (
         <p
           className={cn(

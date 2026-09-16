@@ -119,32 +119,16 @@ export async function getDefaultTaskType() {
   return resolveBackend().getDefaultTaskType();
 }
 
-export async function listTags() {
-  return resolveBackend().listTags();
-}
-
-export async function createTag(
-  ...args: Parameters<typeof sheetsRepo.createTag>
-) {
-  return resolveBackend().createTag(...args);
-}
-
-export async function updateTag(
-  ...args: Parameters<typeof sheetsRepo.updateTag>
-) {
-  return resolveBackend().updateTag(...args);
-}
-
-export async function deleteTag(
-  ...args: Parameters<typeof sheetsRepo.deleteTag>
-) {
-  return resolveBackend().deleteTag(...args);
-}
-
 export async function listTasks(
   ...args: Parameters<typeof sheetsRepo.listTasks>
 ) {
   return resolveBackend().listTasks(...args);
+}
+
+export async function listTimelineTasks(
+  ...args: Parameters<typeof sheetsRepo.listTimelineTasks>
+) {
+  return resolveBackend().listTimelineTasks(...args);
 }
 
 export async function createTask(
@@ -157,6 +141,24 @@ export async function updateTask(
   ...args: Parameters<typeof sheetsRepo.updateTask>
 ) {
   return resolveBackend().updateTask(...args);
+}
+
+export async function markTasksSource(
+  ...args: Parameters<typeof sheetsRepo.markTasksSource>
+) {
+  return resolveBackend().markTasksSource(...args);
+}
+
+export async function bulkUpdateTasks(
+  ...args: Parameters<typeof sheetsRepo.bulkUpdateTasks>
+) {
+  return resolveBackend().bulkUpdateTasks(...args);
+}
+
+export async function bulkDeleteTasks(
+  ...args: Parameters<typeof sheetsRepo.bulkDeleteTasks>
+) {
+  return resolveBackend().bulkDeleteTasks(...args);
 }
 
 export async function deleteTask(

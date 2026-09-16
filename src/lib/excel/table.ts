@@ -171,6 +171,34 @@ export class ExcelTable<T extends RowRecord> {
     });
   }
 
+  async createMany(
+    items: Array<
+      Omit<T, "createdAt" | "updatedAt"> & Partial<Pick<T, "createdAt" | "updatedAt">>
+    >,
+  ): Promise<number> {
+    if (items.length === 0) return 0;
+    await this.ensureHeader();
+    const now = new Date().toISOString();
+    const records = items.map(
+      (data) =>
+        ({
+          ...data,
+          createdAt: String(data.createdAt ?? now),
+          updatedAt: String(data.updatedAt ?? now),
+        }) as unknown as T,
+    );
+
+    return withExcelLock(() => {
+      const workbook = readWorkbook();
+      const sheet = workbook.Sheets[this.sheetName];
+      const rows = sheet ? this.rowsFromSheet(sheet) : [];
+      rows.push(...records);
+      this.writeRows(workbook, rows);
+      writeWorkbook(workbook);
+      return records.length;
+    });
+  }
+
   async update(id: string, data: Partial<T>): Promise<T> {
     return withExcelLock(() => {
       const workbook = readWorkbook();
@@ -191,6 +219,38 @@ export class ExcelTable<T extends RowRecord> {
       this.writeRows(workbook, rows);
       writeWorkbook(workbook);
       return updated;
+    });
+  }
+
+  /** Apply per-row patches in a single workbook write. */
+  async patchMany(
+    getPatch: (row: T) => Partial<T> | null | undefined,
+  ): Promise<number> {
+    await this.ensureHeader();
+    return withExcelLock(() => {
+      const workbook = readWorkbook();
+      const sheet = workbook.Sheets[this.sheetName];
+      const rows = sheet ? this.rowsFromSheet(sheet) : [];
+      const now = new Date().toISOString();
+      let changed = 0;
+
+      for (let index = 0; index < rows.length; index++) {
+        const patch = getPatch(rows[index]);
+        if (!patch || Object.keys(patch).length === 0) continue;
+        rows[index] = {
+          ...rows[index],
+          ...patch,
+          id: rows[index].id,
+          updatedAt: now,
+        } as T;
+        changed += 1;
+      }
+
+      if (changed > 0) {
+        this.writeRows(workbook, rows);
+        writeWorkbook(workbook);
+      }
+      return changed;
     });
   }
 

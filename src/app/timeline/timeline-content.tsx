@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarRange } from "lucide-react";
+import { CalendarRange, FolderKanban, ListFilter, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { TimelineSummaryView } from "@/components/timeline-summary-view";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { LoadingCard } from "@/components/ui/loading";
-import { fetchJsonArray } from "@/lib/fetch-json";
+import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
+import { fetchJson, fetchJsonArray } from "@/lib/fetch-json";
 import {
   buildTimelineDayGroups,
   filterTimelineGroups,
@@ -20,11 +20,11 @@ import type {
   Priority,
   Project,
   Status,
-  TagOption,
   Task,
   TaskTypeOption,
   TeamMember,
 } from "@/lib/types";
+import { useAfterPaint } from "@/lib/use-after-paint";
 import { cn } from "@/lib/utils";
 
 const RANGE_OPTIONS: { value: TimelineRangeFilter; label: string }[] = [
@@ -39,10 +39,24 @@ const KIND_OPTIONS: { value: TimelineKindFilter; label: string }[] = [
   { value: "prd", label: "เฉพาะ PRD" },
 ];
 
+function StatValue({
+  loading,
+  value,
+}: {
+  loading: boolean;
+  value: number;
+}) {
+  if (loading) {
+    return <p className="mt-1 text-lg font-semibold text-slate-300">—</p>;
+  }
+  return <p className="mt-1 text-lg font-semibold text-slate-900">{value}</p>;
+}
+
 export default function TimelinePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectFromUrl = searchParams.get("project") ?? "";
+  const pageReady = useAfterPaint();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -50,8 +64,10 @@ export default function TimelinePageContent() {
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([]);
-  const [tags, setTags] = useState<TagOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [editorLoading, setEditorLoading] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [projectFilter, setProjectFilter] = useState(projectFromUrl);
@@ -59,50 +75,104 @@ export default function TimelinePageContent() {
   const [kind, setKind] = useState<TimelineKindFilter>("all");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    setProjectFilter(projectFromUrl);
+  }, [projectFromUrl]);
+
+  useEffect(() => {
+    if (!pageReady) return;
+
+    const controller = new AbortController();
+
+    async function loadProjects() {
+      setProjectsLoading(true);
+      try {
+        setError(null);
+        const projectsData = await fetchJsonArray<Project>("/api/projects", {
+          signal: controller.signal,
+        });
+        setProjects(projectsData);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setProjects([]);
+        setError(
+          err instanceof Error ? err.message : "โหลดสรุป Timeline ไม่สำเร็จ",
+        );
+      } finally {
+        if (!controller.signal.aborted) setProjectsLoading(false);
+      }
+    }
+
+    void loadProjects();
+    return () => controller.abort();
+  }, [pageReady]);
+
+  useEffect(() => {
+    if (!pageReady) return;
+
+    const controller = new AbortController();
+
+    async function loadTasks() {
+      setTasksLoading(true);
+      try {
+        setError(null);
+        const params = new URLSearchParams();
+        if (projectFilter) params.set("projectId", projectFilter);
+        const query = params.toString();
+        const tasksData = await fetchJsonArray<Task>(
+          query ? `/api/timeline/tasks?${query}` : "/api/timeline/tasks",
+          { signal: controller.signal },
+        );
+        setTasks(tasksData);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setTasks([]);
+        setError(
+          err instanceof Error ? err.message : "โหลดสรุป Timeline ไม่สำเร็จ",
+        );
+      } finally {
+        if (!controller.signal.aborted) setTasksLoading(false);
+      }
+    }
+
+    void loadTasks();
+    return () => controller.abort();
+  }, [pageReady, projectFilter]);
+
+  const reloadTasks = useCallback(async () => {
+    setTasksLoading(true);
     try {
       setError(null);
-      const [
-        tasksData,
-        projectsData,
-        statusesData,
-        prioritiesData,
-        membersData,
-        taskTypesData,
-        tagsData,
-      ] = await Promise.all([
-        fetchJsonArray<Task>("/api/tasks"),
-        fetchJsonArray<Project>("/api/projects"),
+      const params = new URLSearchParams();
+      if (projectFilter) params.set("projectId", projectFilter);
+      const query = params.toString();
+      const tasksData = await fetchJsonArray<Task>(
+        query ? `/api/timeline/tasks?${query}` : "/api/timeline/tasks",
+      );
+      setTasks(tasksData);
+    } catch (err) {
+      setTasks([]);
+      setError(err instanceof Error ? err.message : "โหลดสรุป Timeline ไม่สำเร็จ");
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [projectFilter]);
+
+  const ensureEditorData = useCallback(async () => {
+    if (editorReady) return;
+    const [statusesData, prioritiesData, membersData, taskTypesData] =
+      await Promise.all([
         fetchJsonArray<Status>("/api/statuses"),
         fetchJsonArray<Priority>("/api/priorities"),
         fetchJsonArray<TeamMember>("/api/team-members"),
         fetchJsonArray<TaskTypeOption>("/api/task-types"),
-        fetchJsonArray<TagOption>("/api/tags"),
       ]);
-      setTasks(tasksData);
-      setProjects(projectsData);
-      setStatuses(statusesData);
-      setPriorities(prioritiesData);
-      setTeamMembers(membersData);
-      setTaskTypes(taskTypesData);
-      setTags(tagsData);
-    } catch (err) {
-      setTasks([]);
-      setProjects([]);
-      setTags([]);
-      setError(err instanceof Error ? err.message : "โหลดสรุป Timeline ไม่สำเร็จ");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    setProjectFilter(projectFromUrl);
-  }, [projectFromUrl]);
+    setStatuses(statusesData);
+    setPriorities(prioritiesData);
+    setTeamMembers(membersData);
+    setTaskTypes(taskTypesData);
+    setEditorReady(true);
+  }, [editorReady]);
 
   function handleProjectFilterChange(value: string) {
     setProjectFilter(value);
@@ -116,7 +186,6 @@ export default function TimelinePageContent() {
   const scopedTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
     return tasks.filter((task) => {
-      if (projectFilter && task.projectId !== projectFilter) return false;
       if (!query) return true;
       const assigneeNames = (task.assignees?.length
         ? task.assignees
@@ -132,7 +201,7 @@ export default function TimelinePageContent() {
         assigneeNames.toLowerCase().includes(query)
       );
     });
-  }, [tasks, projectFilter, search]);
+  }, [tasks, search]);
 
   const groups = useMemo(
     () =>
@@ -146,6 +215,21 @@ export default function TimelinePageContent() {
   const dayCount = groups.length;
   const uatCount = groups.reduce((sum, group) => sum + group.uatTasks.length, 0);
   const prdCount = groups.reduce((sum, group) => sum + group.prdTasks.length, 0);
+  const statsLoading = !pageReady || (tasksLoading && tasks.length === 0);
+
+  async function openTask(task: Task) {
+    setEditorLoading(true);
+    setError(null);
+    try {
+      await ensureEditorData();
+      const fullTask = await fetchJson<Task>(`/api/tasks/${task.id}`);
+      setEditingTask(fullTask);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "โหลด task ไม่สำเร็จ");
+    } finally {
+      setEditorLoading(false);
+    }
+  }
 
   return (
     <AppShell>
@@ -163,25 +247,51 @@ export default function TimelinePageContent() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <Input
-              className="h-9 w-full max-w-xs py-0 text-sm leading-9"
-              placeholder="ค้นหา task, รายละเอียด, DEV..."
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-44"
-              value={projectFilter}
-              onChange={(event) => handleProjectFilterChange(event.target.value)}
-            >
-              <option value="">ทุกโปรเจกต์</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </Select>
+          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                className="h-9 w-full max-w-xs py-0 text-sm leading-9"
+                placeholder="ค้นหา task, รายละเอียด, DEV..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <Select
+                className="h-9 w-full py-0 text-sm leading-9 sm:w-52"
+                value={projectFilter}
+                onChange={(event) => handleProjectFilterChange(event.target.value)}
+                disabled={projectsLoading && projects.length === 0}
+              >
+                <option value="">ทุกโปรเจกต์</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                  <CalendarRange className="h-3.5 w-3.5" />
+                  วันใน timeline
+                </p>
+                <StatValue loading={statsLoading} value={dayCount} />
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                  <ListFilter className="h-3.5 w-3.5" />
+                  UAT
+                </p>
+                <StatValue loading={statsLoading} value={uatCount} />
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <p className="flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                  <Zap className="h-3.5 w-3.5" />
+                  PRD
+                </p>
+                <StatValue loading={statsLoading} value={prdCount} />
+              </div>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -219,9 +329,10 @@ export default function TimelinePageContent() {
                 </button>
               ))}
             </div>
-            {!loading && !error ? (
+            {!statsLoading && !error ? (
               <p className="text-xs text-slate-500">
-                {dayCount} วัน · UAT {uatCount} · PRD {prdCount}
+                <FolderKanban className="mr-1 inline h-3.5 w-3.5" />
+                {tasks.length} task ที่มี timeline
               </p>
             ) : null}
           </div>
@@ -233,19 +344,29 @@ export default function TimelinePageContent() {
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
             {error}
             <div className="mt-3">
-              <Button type="button" variant="outline" onClick={() => void loadData()}>
+              <Button type="button" variant="outline" onClick={() => void reloadTasks()}>
                 ลองอีกครั้ง
               </Button>
             </div>
           </div>
-        ) : loading ? (
-          <LoadingCard />
+        ) : statsLoading ? (
+          <LoadingCard label="กำลังโหลด timeline..." />
         ) : (
-          <TimelineSummaryView
-            groups={groups}
-            tags={tags}
-            onTaskClick={(task) => setEditingTask(task)}
-          />
+          <div className="relative">
+            {tasksLoading || editorLoading ? (
+              <LoadingOverlay
+                label={
+                  editorLoading
+                    ? "กำลังโหลดรายละเอียด task..."
+                    : "กำลังอัปเดต timeline..."
+                }
+              />
+            ) : null}
+            <TimelineSummaryView
+              groups={groups}
+              onTaskClick={(task) => void openTask(task)}
+            />
+          </div>
         )}
       </main>
 
@@ -259,11 +380,10 @@ export default function TimelinePageContent() {
         priorities={priorities}
         teamMembers={teamMembers}
         taskTypes={taskTypes}
-        tags={tags}
         projectId={editingTask?.projectId}
         onSaved={() => {
           setEditingTask(null);
-          void loadData();
+          void reloadTasks();
         }}
       />
     </AppShell>

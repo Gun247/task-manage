@@ -17,20 +17,19 @@ import {
 } from "@/components/pending-subtasks-editor";
 import { SubtaskAssigneePicker } from "@/components/subtask-assignee-picker";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
-import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import type {
   Priority,
   Status,
   Subtask,
-  TagOption,
   Task,
   TaskType,
   TaskTypeOption,
   TeamMember,
 } from "@/lib/types";
 import { parseTaskTypes } from "@/lib/task-types";
+import { taskSourceLabel } from "@/lib/task-source";
 import { cn, formatDateTime } from "@/lib/utils";
 import { CheckSquare, History, Plus, Trash2 } from "lucide-react";
 
@@ -42,7 +41,6 @@ interface TaskFormDialogProps {
   priorities: Priority[];
   teamMembers: TeamMember[];
   taskTypes: TaskTypeOption[];
-  tags?: TagOption[];
   projectId?: string;
   defaultStatusId?: string;
   onSaved: () => void;
@@ -54,7 +52,6 @@ const emptyForm = {
   remarks: "",
   taskType: "Back End" as TaskType,
   taskTypes: ["Back End"] as TaskType[],
-  tags: [] as string[],
   startDate: "",
   endDate: "",
   uatDate: "",
@@ -73,7 +70,6 @@ export function TaskFormDialog({
   priorities,
   teamMembers,
   taskTypes,
-  tags: tagOptions = [],
   projectId,
   defaultStatusId,
   onSaved,
@@ -106,7 +102,6 @@ export function TaskFormDialog({
           task.taskTypes?.length > 0
             ? task.taskTypes
             : parseTaskTypes(task.taskType),
-        tags: task.tags ?? [],
         startDate: task.startDate ? task.startDate.slice(0, 10) : "",
         endDate: task.endDate ? task.endDate.slice(0, 10) : "",
         uatDate: task.uatDate ? task.uatDate.slice(0, 10) : "",
@@ -187,7 +182,6 @@ export function TaskFormDialog({
       projectId: task?.projectId ?? projectId,
       assigneeIds: form.assigneeIds,
       taskTypes: form.taskTypes,
-      tags: form.tags,
       ...(createSubtasks ? { subtasks: createSubtasks } : {}),
       startDate: form.startDate || null,
       endDate: form.endDate || null,
@@ -294,7 +288,17 @@ export function TaskFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{task ? "แก้ไข Task" : "สร้าง Task ใหม่"}</DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <span>{task ? "แก้ไข Task" : "สร้าง Task ใหม่"}</span>
+            {task && taskSourceLabel(task.source) ? (
+              <span
+                className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700"
+                title="นำเข้าจาก Google Sheet"
+              >
+                {taskSourceLabel(task.source)}
+              </span>
+            ) : null}
+          </DialogTitle>
           <DialogDescription>
             กรอกรายละเอียดงานตามโครงสร้าง FWF Task Tracker
           </DialogDescription>
@@ -395,22 +399,6 @@ export function TaskFormDialog({
                     ...current,
                     taskTypes: selected,
                     taskType: selected[0] ?? taskTypes[0]?.name ?? "Back End",
-                  }))
-                }
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Tag</Label>
-              <p className="mb-1.5 text-xs text-slate-500">
-                ใช้ติดตามงานที่ยังต้องตาม เช่น บัค ปรับเพิ่ม หรือวิธีการเพิ่มเติม — ไม่เปลี่ยนสถานะ
-              </p>
-              <TagMultiSelect
-                options={tagOptions}
-                value={form.tags}
-                onChange={(selected) =>
-                  setForm((current) => ({
-                    ...current,
-                    tags: selected,
                   }))
                 }
               />

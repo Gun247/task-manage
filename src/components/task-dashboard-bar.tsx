@@ -1,9 +1,8 @@
 "use client";
 
-import type { Status, TagOption, Task } from "@/lib/types";
+import type { Status, Task } from "@/lib/types";
 import { cn, isTaskOverdue } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, ListTodo, Tag } from "lucide-react";
-import { isFollowUpTaggedTask } from "@/lib/tags";
+import { AlertTriangle, CheckCircle2, ListTodo } from "lucide-react";
 
 function isTerminalStatus(name: string) {
   return name.toLowerCase() === "done";
@@ -12,28 +11,19 @@ function isTerminalStatus(name: string) {
 export function TaskDashboardBar({
   tasks,
   statuses,
-  tags = [],
   className,
 }: {
   tasks: Task[];
   statuses: Status[];
-  tags?: TagOption[];
   className?: string;
 }) {
   const total = tasks.length;
   const overdue = tasks.filter(isTaskOverdue).length;
   const done = tasks.filter((task) => isTerminalStatus(task.status.name)).length;
-  const tagged = tasks.filter(isFollowUpTaggedTask).length;
   const byStatus = statuses.map((status) => ({
     status,
     count: tasks.filter((task) => task.statusId === status.id).length,
   }));
-  const byTag = tags
-    .map((tag) => ({
-      tag,
-      count: tasks.filter((task) => (task.tags ?? []).includes(tag.name)).length,
-    }))
-    .filter((item) => item.count > 0);
 
   return (
     <div
@@ -101,40 +91,6 @@ export function TaskDashboardBar({
           </div>
         </div>
 
-        <div
-          className={cn(
-            "flex min-w-[7.5rem] flex-1 items-center gap-3 rounded-xl px-3 py-2.5 sm:min-w-[9rem]",
-            tagged > 0 ? "bg-orange-50" : "bg-slate-50",
-          )}
-        >
-          <span
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-lg text-white",
-              tagged > 0 ? "bg-orange-500" : "bg-slate-400",
-            )}
-          >
-            <Tag className="h-4 w-4" />
-          </span>
-          <div>
-            <p
-              className={cn(
-                "text-[11px] font-medium tracking-wide uppercase",
-                tagged > 0 ? "text-orange-700/70" : "text-slate-500",
-              )}
-            >
-              ต้องตาม
-            </p>
-            <p
-              className={cn(
-                "text-xl font-bold",
-                tagged > 0 ? "text-orange-700" : "text-slate-700",
-              )}
-            >
-              {tagged}
-            </p>
-          </div>
-        </div>
-
         <div className="flex min-w-0 flex-[2] flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5">
           {byStatus.map(({ status, count }) => (
             <div
@@ -146,19 +102,6 @@ export function TaskDashboardBar({
                 style={{ backgroundColor: status.color }}
               />
               <span className="text-slate-600">{status.name}</span>
-              <span className="font-semibold text-slate-900">{count}</span>
-            </div>
-          ))}
-          {byTag.map(({ tag, count }) => (
-            <div
-              key={tag.id}
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-sm shadow-sm"
-            >
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: tag.color }}
-              />
-              <span className="text-slate-600">{tag.name}</span>
               <span className="font-semibold text-slate-900">{count}</span>
             </div>
           ))}

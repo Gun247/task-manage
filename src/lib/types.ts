@@ -34,13 +34,6 @@ export interface TaskTypeOption {
   sortOrder: number;
 }
 
-export interface TagOption {
-  id: string;
-  name: string;
-  color: string;
-  sortOrder: number;
-}
-
 export interface TeamMember {
   id: string;
   name: string;
@@ -78,10 +71,11 @@ export interface Task {
   name: string;
   description: string;
   remarks: string;
+  /** Origin marker — e.g. "plan-uat" when imported from Google Sheet. Empty = manual. */
+  source: string;
   /** @deprecated use taskTypes — kept as first type for compatibility */
   taskType: TaskType;
   taskTypes: TaskType[];
-  tags: string[];
   startDate: string | null;
   endDate: string | null;
   uatDate: string | null;
@@ -111,7 +105,6 @@ export interface TaskFilters {
   priorityId: string;
   assigneeId: string;
   taskType: string;
-  tag: string;
   date: string;
   dateField: TaskDateFilterField;
 }

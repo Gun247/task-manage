@@ -1,3 +1,4 @@
+import { promotePrdTasksToDoneIfDue } from "@/lib/promote-prd-throttle";
 import { createId, SheetTable } from "./table";
 import { callAppsScript } from "./apps-script-client";
 import {
@@ -16,13 +17,6 @@ import {
   rewriteTaskTypeList,
   serializeTaskTypes,
 } from "../task-types";
-import {
-  DEFAULT_TAGS,
-  normalizeTags,
-  parseTags,
-  rewriteTagList,
-  serializeTags,
-} from "../tags";
 
 export type SheetProject = {
   id: string;
@@ -74,22 +68,13 @@ export type SheetTaskTypeOption = {
   updatedAt: string;
 };
 
-export type SheetTagOption = {
-  id: string;
-  name: string;
-  color: string;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type SheetTask = {
   id: string;
   name: string;
   description: string;
   remarks: string;
+  source: string;
   taskType: string;
-  tags: string;
   startDate: string;
   endDate: string;
   uatDate: string;
@@ -194,22 +179,13 @@ const taskTypesTable = new SheetTable<SheetTaskTypeOption>("TaskTypes", [
   "updatedAt",
 ]);
 
-const tagsTable = new SheetTable<SheetTagOption>("Tags", [
-  "id",
-  "name",
-  "color",
-  "sortOrder",
-  "createdAt",
-  "updatedAt",
-]);
-
 const tasksTable = new SheetTable<SheetTask>("Tasks", [
   "id",
   "name",
   "description",
   "remarks",
+  "source",
   "taskType",
-  "tags",
   "startDate",
   "endDate",
   "uatDate",
@@ -493,10 +469,10 @@ async function hydrateTask(
   const owner =
     members.find((member) => member.id === task.ownerId) ?? null;
   const taskTypes = parseTaskTypes(task.taskType);
-  const tags = parseTags(task.tags);
 
   return {
     ...task,
+    source: task.source || "",
     startDate: task.startDate || null,
     endDate: task.endDate || null,
     uatDate: task.uatDate || null,
@@ -505,7 +481,6 @@ async function hydrateTask(
     ownerId: owner?.id ?? null,
     taskType: taskTypes[0],
     taskTypes,
-    tags,
     project,
     priority,
     status,
@@ -694,6 +669,66 @@ export async function listTeamMembers() {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+export async function listTimelineTasks(projectId?: string | null) {
+  const [tasks, projects, priorities, statuses, assignments, members] =
+    await Promise.all([
+      tasksTable.getAll(),
+      projectsTable.getAll(),
+      prioritiesTable.getAll(),
+      statusesTable.getAll(),
+      taskAssigneesTable.getAll(),
+      teamMembersTable.getAll(),
+    ]);
+
+  const projectById = new Map(projects.map((item) => [item.id, item]));
+  const priorityById = new Map(priorities.map((item) => [item.id, item]));
+  const statusById = new Map(statuses.map((item) => [item.id, item]));
+
+  return tasks
+    .filter((task) => (projectId ? task.projectId === projectId : true))
+    .filter((task) => task.uatDate || task.prdDate)
+    .sort(
+      (a, b) =>
+        a.uatDate.localeCompare(b.uatDate) ||
+        a.prdDate.localeCompare(b.prdDate) ||
+        a.sortOrder - b.sortOrder,
+    )
+    .map((task) => {
+      const project = projectById.get(task.projectId);
+      const priority = priorityById.get(task.priorityId);
+      const status = statusById.get(task.statusId);
+      if (!project || !priority || !status) {
+        throw new Error(`Task ${task.id} has missing relations`);
+      }
+
+      const assignees = assigneesForTask(assignments, members, task);
+      const assignee = assignees[0] ?? null;
+      const owner = members.find((member) => member.id === task.ownerId) ?? null;
+      const taskTypes = parseTaskTypes(task.taskType);
+
+      return {
+        ...task,
+        source: task.source || "",
+        startDate: task.startDate || null,
+        endDate: task.endDate || null,
+        uatDate: task.uatDate || null,
+        prdDate: task.prdDate || null,
+        assigneeId: assignee?.id ?? null,
+        ownerId: owner?.id ?? null,
+        taskType: taskTypes[0],
+        taskTypes,
+        project,
+        priority,
+        status,
+        assignee,
+        assignees,
+        owner,
+        statusHistory: [],
+        subtasks: [],
+      };
+    });
+}
+
 export async function createTeamMember(data: {
   name?: string;
   nickname: string;
@@ -830,94 +865,8 @@ export async function getDefaultTaskType() {
   return taskTypesTable.findFirst({ key: "sortOrder", direction: "asc" });
 }
 
-async function ensureDefaultTags() {
-  const existing = await tagsTable.getAll();
-  if (existing.length > 0) return;
-  for (const tag of DEFAULT_TAGS) {
-    await tagsTable.create({
-      id: createId(),
-      name: tag.name,
-      color: tag.color,
-      sortOrder: tag.sortOrder,
-    });
-  }
-}
-
-export async function listTags() {
-  await ensureDefaultTags();
-  const tags = await tagsTable.getAll();
-  return tags.sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-export async function createTag(data: { name: string; color?: string }) {
-  const name = data.name.trim();
-  if (!name) throw new Error("Tag name is required");
-  const existing = await tagsTable.getAll();
-  if (existing.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
-    throw new Error("Tag already exists");
-  }
-  const sortOrder = (await tagsTable.maxOf("sortOrder")) + 1;
-  return tagsTable.create({
-    id: createId(),
-    name,
-    color: data.color ?? "#F97316",
-    sortOrder,
-  });
-}
-
-export async function updateTag(
-  id: string,
-  data: Partial<Pick<SheetTagOption, "name" | "color" | "sortOrder">>,
-) {
-  const existing = await tagsTable.findById(id);
-  if (!existing) throw new Error(`Tag not found: ${id}`);
-
-  const payload: Partial<SheetTagOption> = {};
-  if (data.color !== undefined) payload.color = data.color;
-  if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder;
-  if (data.name !== undefined) {
-    const name = data.name.trim();
-    if (!name) throw new Error("Tag name is required");
-    const all = await tagsTable.getAll();
-    if (
-      all.some(
-        (item) =>
-          item.id !== id && item.name.toLowerCase() === name.toLowerCase(),
-      )
-    ) {
-      throw new Error("Tag already exists");
-    }
-    payload.name = name;
-    if (name !== existing.name) {
-      const tasks = await tasksTable.getAll();
-      for (const task of tasks) {
-        const next = rewriteTagList(task.tags, existing.name, name);
-        if (next !== task.tags) {
-          await tasksTable.update(task.id, { tags: next });
-        }
-      }
-    }
-  }
-
-  return tagsTable.update(id, payload);
-}
-
-export async function deleteTag(id: string) {
-  const existing = await tagsTable.findById(id);
-  if (!existing) throw new Error(`Tag not found: ${id}`);
-
-  const tasks = await tasksTable.getAll();
-  for (const task of tasks) {
-    const next = rewriteTagList(task.tags, existing.name, null);
-    if (next !== task.tags) {
-      await tasksTable.update(task.id, { tags: next });
-    }
-  }
-  await tagsTable.delete(id);
-}
-
 export async function listTasks(projectId?: string | null) {
-  await promotePrdTasksToDone();
+  await promotePrdTasksToDoneIfDue(promotePrdTasksToDone);
   const [tasks, histories, subtasks, assignments, members, subtaskAssignments] =
     await Promise.all([
       tasksTable.getAll(),
@@ -967,9 +916,9 @@ export async function createTask(data: {
   name: string;
   description?: string;
   remarks?: string;
+  source?: string;
   taskType?: string;
   taskTypes?: string[] | null;
-  tags?: string[] | null;
   startDate?: string | null;
   endDate?: string | null;
   uatDate?: string | null;
@@ -993,7 +942,6 @@ export async function createTask(data: {
     (data.assigneeId ? [data.assigneeId] : []);
   const taskTypes =
     normalizeTaskTypes(data) ?? parseTaskTypes(data.taskType ?? "Back End");
-  const tags = normalizeTags(data) ?? [];
   const pendingSubtasks = (data.subtasks ?? [])
     .map((item) => {
       if (typeof item === "string") {
@@ -1011,8 +959,8 @@ export async function createTask(data: {
     name: data.name,
     description: data.description ?? "",
     remarks: data.remarks ?? "",
+    source: data.source ?? "",
     taskType: serializeTaskTypes(taskTypes),
-    tags: serializeTags(tags),
     startDate: data.startDate ?? "",
     endDate: data.endDate ?? "",
     uatDate: data.uatDate ?? "",
@@ -1070,9 +1018,9 @@ export async function updateTask(
     name: string;
     description: string;
     remarks: string;
+    source: string;
     taskType: string;
     taskTypes: string[] | null;
-    tags: string[] | null;
     startDate: string | null;
     endDate: string | null;
     uatDate: string | null;
@@ -1094,13 +1042,10 @@ export async function updateTask(
   if (data.name !== undefined) payload.name = data.name;
   if (data.description !== undefined) payload.description = data.description;
   if (data.remarks !== undefined) payload.remarks = data.remarks;
+  if (data.source !== undefined) payload.source = data.source;
   const taskTypes = normalizeTaskTypes(data);
   if (taskTypes) {
     payload.taskType = serializeTaskTypes(taskTypes);
-  }
-  const tags = normalizeTags(data);
-  if (tags) {
-    payload.tags = serializeTags(tags);
   }
   if (data.startDate !== undefined) payload.startDate = data.startDate ?? "";
   if (data.endDate !== undefined) payload.endDate = data.endDate ?? "";
@@ -1151,6 +1096,60 @@ export async function updateTask(
     members,
     subtaskAssignments,
   );
+}
+
+export async function markTasksSource(ids: string[], source: string) {
+  if (ids.length === 0) return 0;
+  let marked = 0;
+  for (const id of ids) {
+    await tasksTable.update(id, { source });
+    marked += 1;
+  }
+  return marked;
+}
+
+export async function bulkUpdateTasks(
+  ids: string[],
+  data: {
+    statusId?: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    uatDate?: string | null;
+    prdDate?: string | null;
+  },
+) {
+  if (ids.length === 0) return { updated: 0 };
+
+  let updated = 0;
+  for (const id of ids) {
+    const existing = await tasksTable.findById(id);
+    if (!existing) continue;
+
+    const payload: Parameters<typeof updateTask>[1] = {};
+    if (data.statusId !== undefined) payload.statusId = data.statusId;
+    if (data.startDate !== undefined) payload.startDate = data.startDate;
+    if (data.endDate !== undefined) payload.endDate = data.endDate;
+    if (data.uatDate !== undefined) payload.uatDate = data.uatDate;
+    if (data.prdDate !== undefined) payload.prdDate = data.prdDate;
+
+    if (Object.keys(payload).length === 0) continue;
+    await updateTask(id, payload);
+    updated += 1;
+  }
+
+  return { updated };
+}
+
+export async function bulkDeleteTasks(ids: string[]) {
+  if (ids.length === 0) return { deleted: 0 };
+  let deleted = 0;
+  for (const id of ids) {
+    const existing = await tasksTable.findById(id);
+    if (!existing) continue;
+    await deleteTask(id);
+    deleted += 1;
+  }
+  return { deleted };
 }
 
 export async function deleteTask(id: string) {
@@ -1246,7 +1245,6 @@ export async function ensureSheetStructure() {
     statusesTable.ensureHeader(),
     teamMembersTable.ensureHeader(),
     taskTypesTable.ensureHeader(),
-    tagsTable.ensureHeader(),
     tasksTable.ensureHeader(),
     statusHistoriesTable.ensureHeader(),
     subtasksTable.ensureHeader(),
@@ -1304,6 +1302,4 @@ export async function seedDefaultData() {
       }
     }
   }
-
-  await ensureDefaultTags();
 }

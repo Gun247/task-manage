@@ -126,9 +126,6 @@ function taskCopyLines(task: Task, index: number) {
   }
   lines.push(`   DEV: ${names}`);
   lines.push(`   สถานะ: ${task.status?.name ?? "-"}`);
-  if (task.tags?.length) {
-    lines.push(`   Tag: ${task.tags.join(", ")}`);
-  }
   return lines.join("\n");
 }
 

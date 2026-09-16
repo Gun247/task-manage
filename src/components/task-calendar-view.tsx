@@ -15,15 +15,13 @@ import {
 import { th } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { AssigneesDisplay } from "@/components/assignee-multi-select";
-import { TagsDisplay } from "@/components/tag-multi-select";
-import type { TagOption, Task, TaskTypeOption } from "@/lib/types";
+import type { Task, TaskTypeOption } from "@/lib/types";
 import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TaskCalendarViewProps {
   tasks: Task[];
   taskTypes?: TaskTypeOption[];
-  tags?: TagOption[];
   onEditTask: (task: Task) => void;
 }
 
@@ -142,7 +140,6 @@ function buildTimelineSummaryText(
 export function TaskCalendarView({
   tasks,
   taskTypes = [],
-  tags = [],
   onEditTask,
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -495,11 +492,6 @@ export function TaskCalendarView({
               <p className="mt-1 text-xs text-slate-500">
                 {taskTypeLabel(task, taskTypes)}
               </p>
-              {(task.tags?.length ?? 0) > 0 ? (
-                <div className="mt-1.5">
-                  <TagsDisplay tags={task.tags} options={tags} empty="" />
-                </div>
-              ) : null}
               {(isDateOnDay(task.uatDate, selectedDate) ||
                 isDateOnDay(task.prdDate, selectedDate)) && (
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">

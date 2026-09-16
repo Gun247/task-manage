@@ -1,3 +1,4 @@
+import { promotePrdTasksToDoneIfDue } from "@/lib/promote-prd-throttle";
 import { createId, ExcelTable } from "./excel/table";
 import {
   DEFAULT_STATUSES,
@@ -15,13 +16,6 @@ import {
   rewriteTaskTypeList,
   serializeTaskTypes,
 } from "./task-types";
-import {
-  DEFAULT_TAGS,
-  normalizeTags,
-  parseTags,
-  rewriteTagList,
-  serializeTags,
-} from "./tags";
 
 export type ExcelProject = {
   id: string;
@@ -73,22 +67,13 @@ export type ExcelTaskTypeOption = {
   updatedAt: string;
 };
 
-export type ExcelTagOption = {
-  id: string;
-  name: string;
-  color: string;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type ExcelTask = {
   id: string;
   name: string;
   description: string;
   remarks: string;
+  source: string;
   taskType: string;
-  tags: string;
   startDate: string;
   endDate: string;
   uatDate: string;
@@ -193,22 +178,13 @@ const taskTypesTable = new ExcelTable<ExcelTaskTypeOption>("TaskTypes", [
   "updatedAt",
 ]);
 
-const tagsTable = new ExcelTable<ExcelTagOption>("Tags", [
-  "id",
-  "name",
-  "color",
-  "sortOrder",
-  "createdAt",
-  "updatedAt",
-]);
-
 const tasksTable = new ExcelTable<ExcelTask>("Tasks", [
   "id",
   "name",
   "description",
   "remarks",
+  "source",
   "taskType",
-  "tags",
   "startDate",
   "endDate",
   "uatDate",
@@ -492,10 +468,10 @@ async function hydrateTask(
   const owner =
     members.find((member) => member.id === task.ownerId) ?? null;
   const taskTypes = parseTaskTypes(task.taskType);
-  const tags = parseTags(task.tags);
 
   return {
     ...task,
+    source: task.source || "",
     startDate: task.startDate || null,
     endDate: task.endDate || null,
     uatDate: task.uatDate || null,
@@ -504,7 +480,6 @@ async function hydrateTask(
     ownerId: owner?.id ?? null,
     taskType: taskTypes[0],
     taskTypes,
-    tags,
     project,
     priority,
     status,
@@ -693,6 +668,66 @@ export async function listTeamMembers() {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+export async function listTimelineTasks(projectId?: string | null) {
+  const [tasks, projects, priorities, statuses, assignments, members] =
+    await Promise.all([
+      tasksTable.getAll(),
+      projectsTable.getAll(),
+      prioritiesTable.getAll(),
+      statusesTable.getAll(),
+      taskAssigneesTable.getAll(),
+      teamMembersTable.getAll(),
+    ]);
+
+  const projectById = new Map(projects.map((item) => [item.id, item]));
+  const priorityById = new Map(priorities.map((item) => [item.id, item]));
+  const statusById = new Map(statuses.map((item) => [item.id, item]));
+
+  return tasks
+    .filter((task) => (projectId ? task.projectId === projectId : true))
+    .filter((task) => task.uatDate || task.prdDate)
+    .sort(
+      (a, b) =>
+        a.uatDate.localeCompare(b.uatDate) ||
+        a.prdDate.localeCompare(b.prdDate) ||
+        a.sortOrder - b.sortOrder,
+    )
+    .map((task) => {
+      const project = projectById.get(task.projectId);
+      const priority = priorityById.get(task.priorityId);
+      const status = statusById.get(task.statusId);
+      if (!project || !priority || !status) {
+        throw new Error(`Task ${task.id} has missing relations`);
+      }
+
+      const assignees = assigneesForTask(assignments, members, task);
+      const assignee = assignees[0] ?? null;
+      const owner = members.find((member) => member.id === task.ownerId) ?? null;
+      const taskTypes = parseTaskTypes(task.taskType);
+
+      return {
+        ...task,
+        source: task.source || "",
+        startDate: task.startDate || null,
+        endDate: task.endDate || null,
+        uatDate: task.uatDate || null,
+        prdDate: task.prdDate || null,
+        assigneeId: assignee?.id ?? null,
+        ownerId: owner?.id ?? null,
+        taskType: taskTypes[0],
+        taskTypes,
+        project,
+        priority,
+        status,
+        assignee,
+        assignees,
+        owner,
+        statusHistory: [],
+        subtasks: [],
+      };
+    });
+}
+
 export async function createTeamMember(data: {
   name?: string;
   nickname: string;
@@ -829,94 +864,8 @@ export async function getDefaultTaskType() {
   return taskTypesTable.findFirst({ key: "sortOrder", direction: "asc" });
 }
 
-async function ensureDefaultTags() {
-  const existing = await tagsTable.getAll();
-  if (existing.length > 0) return;
-  for (const tag of DEFAULT_TAGS) {
-    await tagsTable.create({
-      id: createId(),
-      name: tag.name,
-      color: tag.color,
-      sortOrder: tag.sortOrder,
-    });
-  }
-}
-
-export async function listTags() {
-  await ensureDefaultTags();
-  const tags = await tagsTable.getAll();
-  return tags.sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-export async function createTag(data: { name: string; color?: string }) {
-  const name = data.name.trim();
-  if (!name) throw new Error("Tag name is required");
-  const existing = await tagsTable.getAll();
-  if (existing.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
-    throw new Error("Tag already exists");
-  }
-  const sortOrder = (await tagsTable.maxOf("sortOrder")) + 1;
-  return tagsTable.create({
-    id: createId(),
-    name,
-    color: data.color ?? "#F97316",
-    sortOrder,
-  });
-}
-
-export async function updateTag(
-  id: string,
-  data: Partial<Pick<ExcelTagOption, "name" | "color" | "sortOrder">>,
-) {
-  const existing = await tagsTable.findById(id);
-  if (!existing) throw new Error(`Tag not found: ${id}`);
-
-  const payload: Partial<ExcelTagOption> = {};
-  if (data.color !== undefined) payload.color = data.color;
-  if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder;
-  if (data.name !== undefined) {
-    const name = data.name.trim();
-    if (!name) throw new Error("Tag name is required");
-    const all = await tagsTable.getAll();
-    if (
-      all.some(
-        (item) =>
-          item.id !== id && item.name.toLowerCase() === name.toLowerCase(),
-      )
-    ) {
-      throw new Error("Tag already exists");
-    }
-    payload.name = name;
-    if (name !== existing.name) {
-      const tasks = await tasksTable.getAll();
-      for (const task of tasks) {
-        const next = rewriteTagList(task.tags, existing.name, name);
-        if (next !== task.tags) {
-          await tasksTable.update(task.id, { tags: next });
-        }
-      }
-    }
-  }
-
-  return tagsTable.update(id, payload);
-}
-
-export async function deleteTag(id: string) {
-  const existing = await tagsTable.findById(id);
-  if (!existing) throw new Error(`Tag not found: ${id}`);
-
-  const tasks = await tasksTable.getAll();
-  for (const task of tasks) {
-    const next = rewriteTagList(task.tags, existing.name, null);
-    if (next !== task.tags) {
-      await tasksTable.update(task.id, { tags: next });
-    }
-  }
-  await tagsTable.delete(id);
-}
-
 export async function listTasks(projectId?: string | null) {
-  await promotePrdTasksToDone();
+  await promotePrdTasksToDoneIfDue(promotePrdTasksToDone);
   const [tasks, histories, subtasks, assignments, members, subtaskAssignments] =
     await Promise.all([
       tasksTable.getAll(),
@@ -965,9 +914,9 @@ export async function createTask(data: {
   name: string;
   description?: string;
   remarks?: string;
+  source?: string;
   taskType?: string;
   taskTypes?: string[] | null;
-  tags?: string[] | null;
   startDate?: string | null;
   endDate?: string | null;
   uatDate?: string | null;
@@ -991,7 +940,6 @@ export async function createTask(data: {
     (data.assigneeId ? [data.assigneeId] : []);
   const taskTypes =
     normalizeTaskTypes(data) ?? parseTaskTypes(data.taskType ?? "Back End");
-  const tags = normalizeTags(data) ?? [];
   const pendingSubtasks = (data.subtasks ?? [])
     .map((item) => {
       if (typeof item === "string") {
@@ -1009,8 +957,8 @@ export async function createTask(data: {
     name: data.name,
     description: data.description ?? "",
     remarks: data.remarks ?? "",
+    source: data.source ?? "",
     taskType: serializeTaskTypes(taskTypes),
-    tags: serializeTags(tags),
     startDate: data.startDate ?? "",
     endDate: data.endDate ?? "",
     uatDate: data.uatDate ?? "",
@@ -1068,9 +1016,9 @@ export async function updateTask(
     name: string;
     description: string;
     remarks: string;
+    source: string;
     taskType: string;
     taskTypes: string[] | null;
-    tags: string[] | null;
     startDate: string | null;
     endDate: string | null;
     uatDate: string | null;
@@ -1092,13 +1040,10 @@ export async function updateTask(
   if (data.name !== undefined) payload.name = data.name;
   if (data.description !== undefined) payload.description = data.description;
   if (data.remarks !== undefined) payload.remarks = data.remarks;
+  if (data.source !== undefined) payload.source = data.source;
   const taskTypes = normalizeTaskTypes(data);
   if (taskTypes) {
     payload.taskType = serializeTaskTypes(taskTypes);
-  }
-  const tags = normalizeTags(data);
-  if (tags) {
-    payload.tags = serializeTags(tags);
   }
   if (data.startDate !== undefined) payload.startDate = data.startDate ?? "";
   if (data.endDate !== undefined) payload.endDate = data.endDate ?? "";
@@ -1149,6 +1094,101 @@ export async function updateTask(
     members,
     subtaskAssignments,
   );
+}
+
+export async function markTasksSource(ids: string[], source: string) {
+  if (ids.length === 0) return 0;
+  const idSet = new Set(ids);
+  return tasksTable.patchMany((row) =>
+    idSet.has(String(row.id)) ? { source } : null,
+  );
+}
+
+export async function bulkUpdateTasks(
+  ids: string[],
+  data: {
+    statusId?: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    uatDate?: string | null;
+    prdDate?: string | null;
+  },
+) {
+  if (ids.length === 0) return { updated: 0 };
+
+  const idSet = new Set(ids);
+  const tasks = (await tasksTable.getAll()).filter((task) =>
+    idSet.has(String(task.id)),
+  );
+  if (tasks.length === 0) return { updated: 0 };
+
+  let toStatus: ExcelStatus | null = null;
+  if (data.statusId !== undefined) {
+    toStatus = await statusesTable.findById(data.statusId);
+    if (!toStatus) throw new Error("Status not found");
+  }
+
+  const statusById = new Map(
+    (await statusesTable.getAll()).map((status) => [status.id, status]),
+  );
+  const historyRows: Array<Omit<ExcelStatusHistory, "createdAt" | "updatedAt">> =
+    [];
+  const changedAt = new Date().toISOString();
+
+  const updated = await tasksTable.patchMany((row) => {
+    if (!idSet.has(String(row.id))) return null;
+
+    const patch: Partial<ExcelTask> = {};
+    if (data.startDate !== undefined) patch.startDate = data.startDate ?? "";
+    if (data.endDate !== undefined) patch.endDate = data.endDate ?? "";
+    if (data.uatDate !== undefined) patch.uatDate = data.uatDate ?? "";
+    if (data.prdDate !== undefined) patch.prdDate = data.prdDate ?? "";
+
+    if (data.statusId !== undefined && row.statusId !== data.statusId) {
+      patch.statusId = data.statusId;
+      const fromStatus = statusById.get(row.statusId);
+      historyRows.push({
+        id: createId(),
+        taskId: String(row.id),
+        fromStatusId: row.statusId,
+        fromStatusName: fromStatus?.name ?? "",
+        toStatusId: data.statusId,
+        toStatusName: toStatus?.name ?? "",
+        changedAt,
+      });
+    }
+
+    return Object.keys(patch).length > 0 ? patch : null;
+  });
+
+  if (historyRows.length > 0) {
+    await statusHistoriesTable.createMany(historyRows);
+  }
+
+  return { updated };
+}
+
+export async function bulkDeleteTasks(ids: string[]) {
+  if (ids.length === 0) return { deleted: 0 };
+  const idSet = new Set(ids);
+
+  const taskSubtasks = (await subtasksTable.getAll()).filter((entry) =>
+    idSet.has(entry.taskId),
+  );
+  const subtaskIds = new Set(taskSubtasks.map((entry) => entry.id));
+
+  await Promise.all([
+    statusHistoriesTable.deleteWhere((entry) => idSet.has(entry.taskId)),
+    subtaskAssigneesTable.deleteWhere((entry) =>
+      subtaskIds.has(entry.subtaskId),
+    ),
+    subtasksTable.deleteWhere((entry) => idSet.has(entry.taskId)),
+    taskAssigneesTable.deleteWhere((entry) => idSet.has(entry.taskId)),
+  ]);
+  const deleted = await tasksTable.deleteWhere((entry) =>
+    idSet.has(String(entry.id)),
+  );
+  return { deleted };
 }
 
 export async function deleteTask(id: string) {
@@ -1244,7 +1284,6 @@ export async function ensureSheetStructure() {
     statusesTable.ensureHeader(),
     teamMembersTable.ensureHeader(),
     taskTypesTable.ensureHeader(),
-    tagsTable.ensureHeader(),
     tasksTable.ensureHeader(),
     statusHistoriesTable.ensureHeader(),
     subtasksTable.ensureHeader(),
@@ -1297,6 +1336,4 @@ export async function seedDefaultData() {
       }
     }
   }
-
-  await ensureDefaultTags();
 }

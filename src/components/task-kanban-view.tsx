@@ -16,7 +16,7 @@ import { TaskCard } from "@/components/task-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DONE_STATUS_NAME } from "@/lib/default-statuses";
-import type { Status, TagOption, Task } from "@/lib/types";
+import type { Status, Task } from "@/lib/types";
 import { calendarDateKey, cn, formatDate } from "@/lib/utils";
 import { CalendarDays, LayoutGrid, Plus } from "lucide-react";
 
@@ -27,7 +27,6 @@ type DoneViewMode = "dates" | "cards";
 interface TaskKanbanViewProps {
   tasks: Task[];
   statuses: Status[];
-  tags?: TagOption[];
   onStatusChange: (taskId: string, statusId: string) => void;
   onEditTask: (task: Task) => void;
   onStartCreate?: (statusId: string) => void;
@@ -81,11 +80,9 @@ function groupDoneTasksByDate(tasks: Task[]) {
 
 function DraggableTaskCard({
   task,
-  tags,
   onEditTask,
 }: {
   task: Task;
-  tags?: TagOption[];
   onEditTask: (task: Task) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -103,7 +100,7 @@ function DraggableTaskCard({
       {...listeners}
       {...attributes}
     >
-      <TaskCard task={task} tags={tags} draggable onClick={() => onEditTask(task)} />
+      <TaskCard task={task} draggable onClick={() => onEditTask(task)} />
     </div>
   );
 }
@@ -149,7 +146,6 @@ function DraggableDoneRow({
 function KanbanColumn({
   status,
   tasks,
-  tags,
   onStartCreate,
   onEditTask,
   doneView,
@@ -157,7 +153,6 @@ function KanbanColumn({
 }: {
   status: Status;
   tasks: Task[];
-  tags?: TagOption[];
   onStartCreate: (statusId: string) => void;
   onEditTask: (task: Task) => void;
   doneView: DoneViewMode;
@@ -259,7 +254,6 @@ function KanbanColumn({
               <DraggableTaskCard
                 key={task.id}
                 task={task}
-                tags={tags}
                 onEditTask={onEditTask}
               />
             ))}
@@ -271,7 +265,6 @@ function KanbanColumn({
 export function TaskKanbanView({
   tasks,
   statuses,
-  tags = [],
   onStatusChange,
   onEditTask,
   onStartCreate,
@@ -350,7 +343,6 @@ export function TaskKanbanView({
                 key={status.id}
                 status={status}
                 tasks={tasksByStatus.get(status.id) ?? []}
-                tags={tags}
                 onStartCreate={onStartCreate ?? (() => {})}
                 onEditTask={onEditTask}
                 doneView={doneView}
@@ -368,7 +360,7 @@ export function TaskKanbanView({
                   {activeTask.name}
                 </div>
               ) : (
-                <TaskCard task={activeTask} tags={tags} draggable />
+                <TaskCard task={activeTask} draggable />
               )}
             </div>
           ) : null}

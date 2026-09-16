@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, Plus, Search, ChevronRight } from "lucide-react";
+import {
+  Settings,
+  Plus,
+  Search,
+  ChevronRight,
+  Download,
+  LoaderCircle,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { Button } from "@/components/ui/button";
@@ -30,7 +37,6 @@ import type {
   Task,
   TaskDateFilterField,
   TaskFilters,
-  TagOption,
   TaskTypeOption,
   TeamMember,
   ViewMode,
@@ -55,14 +61,12 @@ export function TasksPageContent() {
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([]);
-  const [tags, setTags] = useState<TagOption[]>([]);
   const [view, setView] = useState<ViewMode>("list");
   const [filters, setFilters] = useState<TaskFilters>({
     search: "",
     priorityId: "",
     assigneeId: "",
     taskType: "",
-    tag: "",
     date: "",
     dateField: "",
   });
@@ -77,6 +81,11 @@ export function TasksPageContent() {
   >();
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(false);
+  const [importingPlanUat, setImportingPlanUat] = useState(false);
+  const [importMessage, setImportMessage] = useState<{
+    text: string;
+    tone: "success" | "error";
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadTasks = useCallback(async (projectId: string) => {
@@ -109,14 +118,12 @@ export function TasksPageContent() {
         prioritiesData,
         membersData,
         taskTypesData,
-        tagsData,
       ] = await Promise.all([
           fetchJsonArray<Project>("/api/projects"),
           fetchJsonArray<Status>("/api/statuses"),
           fetchJsonArray<Priority>("/api/priorities"),
           fetchJsonArray<TeamMember>("/api/team-members"),
           fetchJsonArray<TaskTypeOption>("/api/task-types"),
-          fetchJsonArray<TagOption>("/api/tags"),
         ]);
 
       setProjects(projectsData);
@@ -124,7 +131,6 @@ export function TasksPageContent() {
       setPriorities(prioritiesData);
       setTeamMembers(membersData);
       setTaskTypes(taskTypesData);
-      setTags(tagsData);
       return projectsData;
     } catch (err) {
       setProjects([]);
@@ -132,7 +138,6 @@ export function TasksPageContent() {
       setPriorities([]);
       setTeamMembers([]);
       setTaskTypes([]);
-      setTags([]);
       setError(err instanceof Error ? err.message : "โหลดข้อมูลไม่สำเร็จ");
       return [] as Project[];
     } finally {
@@ -195,9 +200,6 @@ export function TasksPageContent() {
           task.taskType === filters.taskType
         )
       ) {
-        return false;
-      }
-      if (filters.tag && !(task.tags ?? []).includes(filters.tag)) {
         return false;
       }
       if (
@@ -298,6 +300,56 @@ export function TasksPageContent() {
     );
   }
 
+  async function handleImportPlanUat() {
+    if (!selectedProjectId || importingPlanUat) return;
+
+    setImportingPlanUat(true);
+    setImportMessage(null);
+
+    try {
+      const response = await fetch("/api/tasks/import-plan-uat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: selectedProjectId }),
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        imported?: number;
+        skipped?: number;
+        sourceCount?: number;
+        markedSource?: number;
+      };
+
+      if (!response.ok) {
+        setImportMessage({
+          tone: "error",
+          text: data.error ?? "ดึงรายการจาก Plan UAT ไม่สำเร็จ",
+        });
+        return;
+      }
+
+      await handleSaved();
+      setImportMessage({
+        tone: "success",
+        text: `เพิ่ม ${(data.imported ?? 0).toLocaleString("th-TH")} รายการใหม่ · ข้าม ${(data.skipped ?? 0).toLocaleString("th-TH")} รายการที่มีอยู่แล้ว (จากทั้งหมด ${(data.sourceCount ?? 0).toLocaleString("th-TH")})${
+          data.markedSource
+            ? ` · ติดป้าย Plan UAT ${data.markedSource.toLocaleString("th-TH")} รายการ`
+            : ""
+        }`,
+      });
+    } catch (err) {
+      setImportMessage({
+        tone: "error",
+        text:
+          err instanceof Error
+            ? err.message
+            : "ดึงรายการจาก Plan UAT ไม่สำเร็จ",
+      });
+    } finally {
+      setImportingPlanUat(false);
+    }
+  }
+
   function handleTaskUpdated(updated: Task) {
     setTasks((current) =>
       current.map((task) => (task.id === updated.id ? updated : task)),
@@ -311,7 +363,8 @@ export function TasksPageContent() {
     <AppShell>
       <div
         className={cn(
-          view === "kanban" && "flex h-full min-h-0 flex-col overflow-hidden",
+          (view === "kanban" || view === "list") &&
+            "flex h-full min-h-0 flex-col overflow-hidden",
         )}
       >
       <div className="shrink-0 border-b border-slate-200 bg-white">
@@ -362,6 +415,23 @@ export function TasksPageContent() {
                 ))}
               </div>
 
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-lg px-3 text-sm"
+                onClick={() => void handleImportPlanUat()}
+                disabled={!selectedProjectId || importingPlanUat}
+                title="ดึงรายการใหม่จากชีท Plan UAT and PRD (ไม่แก้รายการเดิม)"
+              >
+                {importingPlanUat ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {importingPlanUat ? "กำลังดึง..." : "ดึงจาก Plan UAT"}
+                </span>
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -449,23 +519,6 @@ export function TasksPageContent() {
                 </option>
               ))}
             </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-36"
-              value={filters.tag}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  tag: event.target.value,
-                }))
-              }
-            >
-              <option value="">Tag</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.name}>
-                  {tag.name}
-                </option>
-              ))}
-            </Select>
             {view === "list" ? (
               <>
                 <Select
@@ -518,10 +571,29 @@ export function TasksPageContent() {
       <main
         className={cn(
           "relative w-full px-4 py-6 lg:px-6",
-          view === "kanban" &&
+          (view === "kanban" || view === "list") &&
             "flex min-h-0 flex-1 flex-col overflow-hidden py-4",
         )}
       >
+        {importMessage ? (
+          <div
+            className={cn(
+              "mb-4 flex shrink-0 items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm",
+              importMessage.tone === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-amber-200 bg-amber-50 text-amber-900",
+            )}
+          >
+            <p>{importMessage.text}</p>
+            <button
+              type="button"
+              className="shrink-0 text-xs font-medium underline-offset-2 hover:underline"
+              onClick={() => setImportMessage(null)}
+            >
+              ปิด
+            </button>
+          </div>
+        ) : null}
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
             {error}
@@ -550,38 +622,40 @@ export function TasksPageContent() {
           <div
             className={cn(
               "relative min-h-[280px] space-y-4",
-              view === "kanban" && "flex min-h-0 flex-1 flex-col",
+              (view === "kanban" || view === "list") &&
+                "flex min-h-0 flex-1 flex-col",
             )}
           >
             <TaskDashboardBar
               tasks={tasks}
               statuses={statuses}
-              tags={tags}
-              className={view === "kanban" ? "shrink-0" : undefined}
+              className={
+                view === "kanban" || view === "list" ? "shrink-0" : undefined
+              }
             />
             {tasksLoading ? (
               <LoadingOverlay label="กำลังโหลด task..." />
             ) : null}
             {view === "list" ? (
-              <TaskListView
-                tasks={filteredTasks}
-                statuses={statuses}
-                priorities={priorities}
-                teamMembers={teamMembers}
-                taskTypes={taskTypes}
-                tags={tags}
-                projectId={selectedProjectId}
-                onEditTask={openEditTask}
-                onTaskUpdated={handleTaskUpdated}
-                onSaved={handleSaved}
-                focusCreateTrigger={focusCreateTrigger}
-              />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <TaskListView
+                  tasks={filteredTasks}
+                  statuses={statuses}
+                  priorities={priorities}
+                  teamMembers={teamMembers}
+                  taskTypes={taskTypes}
+                  projectId={selectedProjectId}
+                  onEditTask={openEditTask}
+                  onTaskUpdated={handleTaskUpdated}
+                  onSaved={handleSaved}
+                  focusCreateTrigger={focusCreateTrigger}
+                />
+              </div>
             ) : view === "kanban" ? (
               <div className="min-h-0 flex-1 overflow-hidden">
                 <TaskKanbanView
                   tasks={filteredTasks}
                   statuses={statuses}
-                  tags={tags}
                   onStatusChange={handleStatusChange}
                   onEditTask={openEditTask}
                   onStartCreate={openCreateTask}
@@ -591,7 +665,6 @@ export function TasksPageContent() {
               <TaskCalendarView
                 tasks={filteredTasks}
                 taskTypes={taskTypes}
-                tags={tags}
                 onEditTask={openEditTask}
               />
             )}
@@ -620,7 +693,6 @@ export function TasksPageContent() {
         priorities={priorities}
         teamMembers={teamMembers}
         taskTypes={taskTypes}
-        tags={tags}
         projectId={selectedProjectId}
         defaultStatusId={createDefaultStatusId}
         onSaved={handleSaved}
@@ -633,7 +705,6 @@ export function TasksPageContent() {
         teamMembers={teamMembers}
         priorities={priorities}
         taskTypes={taskTypes}
-        tags={tags}
         onChanged={async () => {
           await loadData();
           await handleSaved();

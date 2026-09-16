@@ -10,6 +10,7 @@ import { Input, Select } from "@/components/ui/input";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import type { Project, Status, Task } from "@/lib/types";
+import { useAfterPaint } from "@/lib/use-after-paint";
 import { cn, formatDateTime } from "@/lib/utils";
 
 type HistoryItem = {
@@ -94,47 +95,52 @@ export default function HistoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectFromUrl = searchParams.get("project") ?? "";
+  const pageReady = useAfterPaint();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [projectFilter, setProjectFilter] = useState(projectFromUrl);
   const [statusFilter, setStatusFilter] = useState("");
 
-  const loadData = useCallback(async () => {
-    try {
-      setError(null);
-      const [tasksData, projectsData, statusesData] = await Promise.all([
-        fetchJsonArray<Task>("/api/tasks"),
-        fetchJsonArray<Project>("/api/projects"),
-        fetchJsonArray<Status>("/api/statuses"),
-      ]);
-      setTasks(tasksData);
-      setProjects(projectsData);
-      setStatuses(statusesData);
-    } catch (err) {
-      setTasks([]);
-      setProjects([]);
-      setStatuses([]);
-      setError(err instanceof Error ? err.message : "โหลดประวัติไม่สำเร็จ");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!pageReady) return;
+
+    const controller = new AbortController();
+
+    async function loadData() {
+      setLoading(true);
+      try {
+        setError(null);
+        const taskUrl = projectFromUrl
+          ? `/api/tasks?projectId=${encodeURIComponent(projectFromUrl)}`
+          : "/api/tasks";
+        const [tasksData, projectsData, statusesData] = await Promise.all([
+          fetchJsonArray<Task>(taskUrl, { signal: controller.signal }),
+          fetchJsonArray<Project>("/api/projects", { signal: controller.signal }),
+          fetchJsonArray<Status>("/api/statuses", { signal: controller.signal }),
+        ]);
+        setTasks(tasksData);
+        setProjects(projectsData);
+        setStatuses(statusesData);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setTasks([]);
+        setProjects([]);
+        setStatuses([]);
+        setError(err instanceof Error ? err.message : "โหลดประวัติไม่สำเร็จ");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }
-  }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    setProjectFilter(projectFromUrl);
-  }, [projectFromUrl]);
+    void loadData();
+    return () => controller.abort();
+  }, [pageReady, projectFromUrl]);
 
   function handleProjectFilterChange(value: string) {
-    setProjectFilter(value);
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set("project", value);
     else params.delete("project");
@@ -150,7 +156,7 @@ export default function HistoryPageContent() {
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
     return historyItems.filter((item) => {
-      if (projectFilter && item.projectId !== projectFilter) return false;
+      if (projectFromUrl && item.projectId !== projectFromUrl) return false;
       if (statusFilter && item.toStatusName !== statusFilter) return false;
       if (!query) return true;
       return (
@@ -163,7 +169,7 @@ export default function HistoryPageContent() {
         ))
       );
     });
-  }, [historyItems, projectFilter, statusFilter, search]);
+  }, [historyItems, projectFromUrl, statusFilter, search]);
 
   const grouped = useMemo(() => {
     const groups: { key: string; label: string; items: HistoryItem[] }[] = [];
@@ -208,7 +214,7 @@ export default function HistoryPageContent() {
             </div>
             <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-44"
-              value={projectFilter}
+              value={projectFromUrl}
               onChange={(event) => handleProjectFilterChange(event.target.value)}
             >
               <option value="">ทุกโปรเจกต์</option>

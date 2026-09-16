@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
-import { deleteTask, updateTask } from "@/lib/db";
+import { deleteTask, listTasks, updateTask } from "@/lib/db";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(_request: Request, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const tasks = await listTasks();
+    const task = tasks.find((item) => item.id === id);
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+    return NextResponse.json(task);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to load task" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
@@ -16,11 +33,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.taskTypes !== undefined
         ? {
             taskTypes: Array.isArray(body.taskTypes) ? body.taskTypes : [],
-          }
-        : {}),
-      ...(body.tags !== undefined
-        ? {
-            tags: Array.isArray(body.tags) ? body.tags : [],
           }
         : {}),
       ...(body.startDate !== undefined

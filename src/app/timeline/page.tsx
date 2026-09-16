@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { LoadingPage } from "@/components/ui/loading";
 import TimelinePageContent from "./timeline-content";
+import { TimelinePageFallback } from "./timeline-fallback";
 
 export default function TimelinePage() {
   return (
-    <Suspense fallback={<LoadingPage />}>
+    <Suspense fallback={<TimelinePageFallback />}>
       <TimelinePageContent />
     </Suspense>
   );
