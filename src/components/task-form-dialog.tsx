@@ -76,6 +76,7 @@ export function TaskFormDialog({
 }: TaskFormDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
   const [newSubtaskName, setNewSubtaskName] = useState("");
@@ -162,6 +163,32 @@ export function TaskFormDialog({
       })),
     );
   }, [form.assigneeIds]);
+
+  async function handleDelete() {
+    if (!task || deleting || saving) return;
+    const confirmed = window.confirm(
+      `ลบ task "${task.name}"?\nการลบนี้ย้อนกลับไม่ได้`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        window.alert(data?.error ?? "ลบ task ไม่สำเร็จ");
+        return;
+      }
+      onSaved();
+      onOpenChange(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -650,19 +677,38 @@ export function TaskFormDialog({
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              ยกเลิก
-            </Button>
-            <Button type="submit" disabled={saving}>
-              <LoadingButtonContent loading={saving} loadingText="กำลังบันทึก...">
-                บันทึก
-              </LoadingButtonContent>
-            </Button>
+          <div className="flex items-center justify-between gap-2">
+            {task ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                disabled={saving || deleting}
+                onClick={() => void handleDelete()}
+              >
+                <LoadingButtonContent loading={deleting} loadingText="กำลังลบ...">
+                  <Trash2 className="h-4 w-4" />
+                  ลบ Task
+                </LoadingButtonContent>
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving || deleting}
+                onClick={() => onOpenChange(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button type="submit" disabled={saving || deleting}>
+                <LoadingButtonContent loading={saving} loadingText="กำลังบันทึก...">
+                  บันทึก
+                </LoadingButtonContent>
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

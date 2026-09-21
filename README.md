@@ -52,15 +52,41 @@ npm run dev
 
 เปิดเบราว์เซอร์ที่ [http://localhost:43123](http://localhost:43123)
 
-### ใช้ SQLite (ค่าเริ่มต้น)
+### ใช้ SQLite (แนะนำ — เร็วและจัดการง่าย)
+
+ตั้งค่าใน `.env.local`:
+
+```env
+DATABASE_MODE=sqlite
+DATABASE_URL=file:./dev.db
+```
 
 ```bash
-npx prisma migrate dev
+npm run db:migrate
 npm run db:seed
 npm run dev
 ```
 
-### ใช้ไฟล์ Excel บนเครื่อง
+#### ย้ายข้อมูลจาก Excel เข้า SQLite
+
+ถ้ามีไฟล์ `data/taskDB.xlsx` อยู่แล้ว:
+
+```bash
+npm run db:migrate
+npm run db:import-excel -- --replace
+# ตรวจว่า DATABASE_MODE=sqlite ใน .env.local แล้วรีสตาร์ท
+npm run dev
+```
+
+#### Export กลับเป็น Excel เมื่อต้องการส่งไฟล์
+
+```bash
+npm run db:export-excel
+# ได้ไฟล์ที่ ./data/taskDB-export.xlsx
+# หรือระบุ path: npm run db:export-excel -- ./data/backup.xlsx
+```
+
+### ใช้ไฟล์ Excel บนเครื่อง (ช้ากว่า SQLite)
 
 ตั้งค่าใน `.env.local`:
 

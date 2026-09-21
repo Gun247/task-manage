@@ -125,6 +125,12 @@ export async function listTasks(
   return resolveBackend().listTasks(...args);
 }
 
+export async function getTaskById(
+  ...args: Parameters<typeof sheetsRepo.getTaskById>
+) {
+  return resolveBackend().getTaskById(...args);
+}
+
 export async function listTimelineTasks(
   ...args: Parameters<typeof sheetsRepo.listTimelineTasks>
 ) {

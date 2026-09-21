@@ -912,6 +912,43 @@ export async function listTasks(projectId?: string | null) {
   return hydrated;
 }
 
+export async function getTaskById(id: string) {
+  const task = await tasksTable.findById(id);
+  if (!task) return null;
+
+  const [histories, subtasks, assignments, members, subtaskAssignments] =
+    await Promise.all([
+      statusHistoriesTable.getAll(),
+      subtasksTable.getAll(),
+      taskAssigneesTable.getAll(),
+      teamMembersTable.getAll(),
+      subtaskAssigneesTable.getAll(),
+    ]);
+
+  let nextAssignments = assignments;
+  if (
+    task.assigneeId &&
+    !assignments.some((entry) => entry.taskId === task.id)
+  ) {
+    const created = await taskAssigneesTable.create({
+      id: createId(),
+      taskId: task.id,
+      teamMemberId: task.assigneeId,
+      sortOrder: 0,
+    });
+    nextAssignments = [...assignments, created];
+  }
+
+  return hydrateTask(
+    task,
+    histories,
+    subtasks,
+    nextAssignments,
+    members,
+    subtaskAssignments,
+  );
+}
+
 export async function createTask(data: {
   name: string;
   description?: string;

@@ -280,30 +280,31 @@ export function TaskListView({
           className="z-30 rounded-2xl"
         />
       ) : null}
-      <div className="shrink-0 border-b border-slate-100">
-        <TaskInlineCreate
-          statuses={statuses}
-          priorities={priorities}
-          teamMembers={teamMembers}
-          taskTypes={taskTypes}
-          projectId={projectId}
-          onSaved={onSaved}
-          focusTrigger={focusCreateTrigger}
-        />
-      </div>
 
-      {tasks.length === 0 ? (
-        <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center p-10 text-center">
-          <ClipboardList className="mb-4 h-10 w-10 text-slate-300" />
-          <h3 className="text-base font-semibold text-slate-800">
-            ยังไม่มี task
-          </h3>
-          <p className="mt-2 max-w-md text-sm text-slate-500">
-            พิมพ์ชื่อ task ด้านบนแล้วกด Enter หรือปุ่มสร้างเพื่อเพิ่มงานใหม่
-          </p>
+      <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+        <div className="border-b border-slate-100">
+          <TaskInlineCreate
+            statuses={statuses}
+            priorities={priorities}
+            teamMembers={teamMembers}
+            taskTypes={taskTypes}
+            projectId={projectId}
+            onSaved={onSaved}
+            focusTrigger={focusCreateTrigger}
+          />
         </div>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+
+        {tasks.length === 0 ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center p-10 text-center">
+            <ClipboardList className="mb-4 h-10 w-10 text-slate-300" />
+            <h3 className="text-base font-semibold text-slate-800">
+              ยังไม่มี task
+            </h3>
+            <p className="mt-2 max-w-md text-sm text-slate-500">
+              พิมพ์ชื่อ task ด้านบนแล้วกด Enter หรือปุ่มสร้างเพื่อเพิ่มงานใหม่
+            </p>
+          </div>
+        ) : (
           <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
             <thead className="text-left text-slate-500">
               <tr>
@@ -661,8 +662,8 @@ export function TaskListView({
               })}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
 
       {selectedCount > 0 ? (
         <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">

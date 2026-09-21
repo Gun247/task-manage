@@ -296,7 +296,9 @@ export function TasksPageContent() {
     const nextTasks = Array.isArray(data) ? (data as Task[]) : [];
     setTasks(nextTasks);
     setEditingTask((current) =>
-      current ? (nextTasks.find((task) => task.id === current.id) ?? current) : current,
+      current
+        ? (nextTasks.find((task) => task.id === current.id) ?? null)
+        : current,
     );
   }
 

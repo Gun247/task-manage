@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { deleteTask, listTasks, updateTask } from "@/lib/db";
+import { deleteTask, getTaskById, updateTask } from "@/lib/db";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const tasks = await listTasks();
-    const task = tasks.find((item) => item.id === id);
+    const task = await getTaskById(id);
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }

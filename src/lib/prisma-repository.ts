@@ -612,6 +612,14 @@ export async function listTasks(projectId?: string | null) {
   return tasks.map(serializeTask);
 }
 
+export async function getTaskById(id: string) {
+  const task = await prisma.task.findUnique({
+    where: { id },
+    include: taskInclude,
+  });
+  return task ? serializeTask(task) : null;
+}
+
 const timelineTaskInclude = {
   project: true,
   priority: true,
