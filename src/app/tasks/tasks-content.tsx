@@ -9,7 +9,6 @@ import {
   Search,
   ChevronRight,
   Download,
-  LoaderCircle,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProjectSwitcher } from "@/components/project-switcher";
@@ -20,6 +19,7 @@ import { TaskListView } from "@/components/task-list-view";
 import { TaskKanbanView } from "@/components/task-kanban-view";
 import { TaskCalendarView } from "@/components/task-calendar-view";
 import { TaskDashboardBar } from "@/components/task-dashboard-bar";
+import { PlanUatImportDialog } from "@/components/plan-uat-import-dialog";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
@@ -81,7 +81,7 @@ export function TasksPageContent() {
   >();
   const [loading, setLoading] = useState(true);
   const [tasksLoading, setTasksLoading] = useState(false);
-  const [importingPlanUat, setImportingPlanUat] = useState(false);
+  const [planUatOpen, setPlanUatOpen] = useState(false);
   const [importMessage, setImportMessage] = useState<{
     text: string;
     tone: "success" | "error";
@@ -302,54 +302,9 @@ export function TasksPageContent() {
     );
   }
 
-  async function handleImportPlanUat() {
-    if (!selectedProjectId || importingPlanUat) return;
-
-    setImportingPlanUat(true);
-    setImportMessage(null);
-
-    try {
-      const response = await fetch("/api/tasks/import-plan-uat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: selectedProjectId }),
-      });
-      const data = (await response.json()) as {
-        error?: string;
-        imported?: number;
-        skipped?: number;
-        sourceCount?: number;
-        markedSource?: number;
-      };
-
-      if (!response.ok) {
-        setImportMessage({
-          tone: "error",
-          text: data.error ?? "ดึงรายการจาก Plan UAT ไม่สำเร็จ",
-        });
-        return;
-      }
-
-      await handleSaved();
-      setImportMessage({
-        tone: "success",
-        text: `เพิ่ม ${(data.imported ?? 0).toLocaleString("th-TH")} รายการใหม่ · ข้าม ${(data.skipped ?? 0).toLocaleString("th-TH")} รายการที่มีอยู่แล้ว (จากทั้งหมด ${(data.sourceCount ?? 0).toLocaleString("th-TH")})${
-          data.markedSource
-            ? ` · ติดป้าย Plan UAT ${data.markedSource.toLocaleString("th-TH")} รายการ`
-            : ""
-        }`,
-      });
-    } catch (err) {
-      setImportMessage({
-        tone: "error",
-        text:
-          err instanceof Error
-            ? err.message
-            : "ดึงรายการจาก Plan UAT ไม่สำเร็จ",
-      });
-    } finally {
-      setImportingPlanUat(false);
-    }
+  function handlePlanUatImported(message: string) {
+    setImportMessage({ tone: "success", text: message });
+    void handleSaved();
   }
 
   function handleTaskUpdated(updated: Task) {
@@ -421,18 +376,15 @@ export function TasksPageContent() {
                 type="button"
                 variant="outline"
                 className="h-9 rounded-lg px-3 text-sm"
-                onClick={() => void handleImportPlanUat()}
-                disabled={!selectedProjectId || importingPlanUat}
-                title="ดึงรายการใหม่จากชีท Plan UAT and PRD (ไม่แก้รายการเดิม)"
+                onClick={() => {
+                  setImportMessage(null);
+                  setPlanUatOpen(true);
+                }}
+                disabled={!selectedProjectId}
+                title="เลือกช่วงวันที่ ดูตัวอย่าง และแก้สถานะก่อนนำเข้าจากชีท Plan UAT"
               >
-                {importingPlanUat ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">
-                  {importingPlanUat ? "กำลังดึง..." : "ดึงจาก Plan UAT"}
-                </span>
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">ดึงจาก Plan UAT</span>
               </Button>
               <Button
                 type="button"
@@ -674,6 +626,14 @@ export function TasksPageContent() {
         )}
       </main>
       </div>
+
+      <PlanUatImportDialog
+        open={planUatOpen}
+        onOpenChange={setPlanUatOpen}
+        projectId={selectedProjectId}
+        statuses={statuses}
+        onImported={handlePlanUatImported}
+      />
 
       <ProjectFormDialog
         open={projectDialogOpen}
