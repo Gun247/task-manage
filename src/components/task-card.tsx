@@ -65,13 +65,13 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
           {task.name}
         </p>
         {overdue ? (
-          <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+          <span className="rounded-md bg-red-100 px-1.5 py-0.5 text-micro font-semibold text-red-700">
             เกินกำหนด
           </span>
         ) : null}
         {sourceLabel ? (
           <span
-            className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700"
+            className="rounded-md bg-sky-50 px-1.5 py-0.5 text-micro font-semibold text-sky-700"
             title="นำเข้าจาก Google Sheet"
           >
             {sourceLabel}
@@ -81,7 +81,7 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
       {task.owner ? (
         <p
           className={cn(
-            "mb-2 text-[11px]",
+            "mb-2 text-caption",
             overdue ? "text-red-700/70" : "text-slate-500",
           )}
         >
@@ -114,7 +114,7 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
       </div>
       <div
         className={cn(
-          "mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]",
+          "mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-micro",
           overdue ? "text-red-700/80" : "text-slate-500",
         )}
       >
@@ -149,7 +149,7 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
       {subtasks.length > 0 ? (
         <div
           className={cn(
-            "mt-2 inline-flex items-center gap-1 text-[11px]",
+            "mt-2 inline-flex items-center gap-1 text-caption",
             overdue ? "text-red-700/70" : "text-slate-500",
           )}
         >
@@ -160,7 +160,7 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
       {lastStatusChange ? (
         <div
           className={cn(
-            "mt-2 inline-flex items-center gap-1 text-[11px]",
+            "mt-2 inline-flex items-center gap-1 text-caption",
             overdue ? "text-red-400" : "text-slate-400",
           )}
         >

@@ -20,7 +20,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(
             htmlFor={id}
             className={cn(
               compact &&
-                "mb-1 text-[11px] font-medium tracking-wide text-slate-500 uppercase",
+                "mb-1 text-caption font-medium tracking-wide text-slate-500 uppercase",
             )}
           >
             {label}

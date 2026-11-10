@@ -17,6 +17,7 @@ import {
   Settings2,
   X,
 } from "lucide-react";
+import { ThemePicker } from "@/components/theme-picker";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = "fwf-sidebar-collapsed";
@@ -138,7 +139,7 @@ function SidebarNav({
 
       <nav className={cn("flex-1 space-y-1 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
         {!collapsed ? (
-          <p className="px-2 pb-2 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
+          <p className="px-2 pb-2 text-caption font-semibold tracking-wide text-slate-400 uppercase">
             เมนู
           </p>
         ) : null}
@@ -201,6 +202,15 @@ function SidebarNav({
           </div>
         </div>
       ) : null}
+
+      <div
+        className={cn(
+          "shrink-0 border-t border-slate-200",
+          collapsed ? "p-2" : "p-3",
+        )}
+      >
+        <ThemePicker collapsed={collapsed} />
+      </div>
 
       {onToggleCollapsed ? (
         <div
@@ -319,7 +329,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-svh overflow-hidden bg-[#F8FAFC]">
+    <div className="flex h-svh overflow-hidden bg-canvas">
       <div className="relative z-40 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0">
         <Suspense
           fallback={

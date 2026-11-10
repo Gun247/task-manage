@@ -134,7 +134,7 @@ function DraggableDoneRow({
       >
         <p className="truncate text-xs font-medium text-slate-800">{task.name}</p>
         {task.description?.trim() ? (
-          <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-slate-500">
+          <p className="mt-0.5 line-clamp-2 text-micro leading-relaxed text-slate-500">
             {task.description.trim()}
           </p>
         ) : null}
@@ -234,7 +234,7 @@ function KanbanColumn({
                   className="sticky top-0 z-[1] -mx-1 px-1 py-1 backdrop-blur-sm"
                   style={{ backgroundColor: withAlpha(tint, "2E") }}
                 >
-                  <p className="text-[11px] font-semibold text-slate-500">
+                  <p className="text-caption font-semibold text-slate-500">
                     {formatDoneGroupDate(dateKey)}
                     <span className="ml-1 font-medium text-slate-400">
                       {groupTasks.length}

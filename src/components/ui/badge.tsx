@@ -16,7 +16,9 @@ export function Badge({
         className,
       )}
       style={{
-        backgroundColor: color ? `${color}22` : undefined,
+        backgroundColor: color
+          ? `color-mix(in srgb, ${color} 13%, transparent)`
+          : undefined,
         color: color ?? undefined,
       }}
     >

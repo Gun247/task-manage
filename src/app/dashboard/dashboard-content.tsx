@@ -12,6 +12,7 @@ import {
   ListTodo,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { DashboardHeatmaps } from "@/components/dashboard-heatmaps";
 import { Badge } from "@/components/ui/badge";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
@@ -160,6 +161,12 @@ export default function DashboardPageContent() {
               />
             </div>
 
+            <DashboardHeatmaps
+              tasks={tasks}
+              statuses={statuses}
+              projects={projects}
+            />
+
             <div className="grid gap-6 lg:grid-cols-5">
               <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-3">
                 <div className="mb-4 flex items-center justify-between gap-2">
@@ -290,10 +297,10 @@ export default function DashboardPageContent() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Badge color="#6BB82A">{total} task</Badge>
-                        <Badge color="#16A34A">{done} เสร็จ</Badge>
+                        <Badge color="var(--primary)">{total} task</Badge>
+                        <Badge color="var(--success)">{done} เสร็จ</Badge>
                         {overdue > 0 ? (
-                          <Badge color="#EF4444">{overdue} เกินกำหนด</Badge>
+                          <Badge color="var(--danger)">{overdue} เกินกำหนด</Badge>
                         ) : null}
                       </div>
                     </Link>
@@ -379,7 +386,7 @@ function SummaryCard({
         </span>
         <div>
           <p
-            className={`text-[11px] font-medium tracking-wide uppercase ${tones.label}`}
+            className={`text-caption font-medium tracking-wide uppercase ${tones.label}`}
           >
             {label}
           </p>

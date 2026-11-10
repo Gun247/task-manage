@@ -273,7 +273,7 @@ export default function HistoryPageContent() {
                   {group.items.map((item) => (
                     <li key={item.id} className="relative">
                       <span
-                        className="absolute top-4 -left-[1.4rem] h-2.5 w-2.5 rounded-full ring-4 ring-[#F8FAFC]"
+                        className="absolute top-4 -left-[1.4rem] h-2.5 w-2.5 rounded-full ring-4 ring-canvas"
                         style={{ backgroundColor: item.toStatusColor }}
                       />
                       <Link

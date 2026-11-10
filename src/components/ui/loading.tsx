@@ -91,7 +91,7 @@ export function LoadingPage({
   return (
     <div
       className={cn(
-        "flex min-h-screen items-center justify-center bg-[#F8FAFC]",
+        "flex min-h-screen items-center justify-center bg-canvas",
         className,
       )}
     >

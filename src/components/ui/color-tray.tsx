@@ -106,7 +106,7 @@ export function ColorTray({
             if (next) onChange(next);
           }}
         />
-        <span className="text-[11px] text-slate-400">หรือพิมพ์รหัสสี</span>
+        <span className="text-caption text-slate-400">หรือพิมพ์รหัสสี</span>
       </div>
     </div>
   );

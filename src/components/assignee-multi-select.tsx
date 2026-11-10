@@ -21,7 +21,7 @@ export function AssigneeAvatar({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const sizeClass = size === "sm" ? "h-6 w-6 text-[9px]" : "h-7 w-7 text-[10px]";
+  const sizeClass = size === "sm" ? "h-6 w-6 text-micro" : "h-7 w-7 text-micro";
 
   return (
     <span
@@ -40,7 +40,7 @@ export function AssigneeAvatar({
       </span>
       <span
         role="tooltip"
-        className="pointer-events-none absolute top-full left-1/2 z-[60] mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition-opacity group-hover/avatar:opacity-100"
+        className="pointer-events-none absolute top-full left-1/2 z-[60] mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-micro font-medium text-white opacity-0 shadow-sm transition-opacity group-hover/avatar:opacity-100"
       >
         {member.nickname}
       </span>
@@ -85,12 +85,12 @@ export function AssigneesDisplay({
             .join(", ")}
           className="group/overflow relative -ml-1.5 inline-flex"
         >
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[9px] font-semibold text-slate-600 ring-2 ring-white">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-micro font-semibold text-slate-600 ring-2 ring-white">
             +{overflow}
           </span>
           <span
             role="tooltip"
-            className="pointer-events-none absolute top-full left-1/2 z-[60] mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition-opacity group-hover/overflow:opacity-100"
+            className="pointer-events-none absolute top-full left-1/2 z-[60] mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-micro font-medium text-white opacity-0 shadow-sm transition-opacity group-hover/overflow:opacity-100"
           >
             {list
               .slice(max)
@@ -108,11 +108,14 @@ export function AssigneeMultiSelect({
   value,
   onChange,
   className,
+  compact = false,
 }: {
   members: TeamMember[];
   value: string[];
   onChange: (ids: string[]) => void;
   className?: string;
+  /** Dropdown trigger instead of a tall checkbox list — better for inline forms. */
+  compact?: boolean;
 }) {
   function toggle(id: string) {
     if (value.includes(id)) {
@@ -130,6 +133,38 @@ export function AssigneeMultiSelect({
     );
   }
 
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap gap-1.5 rounded-lg border border-slate-200 bg-white p-1.5",
+          className,
+        )}
+      >
+        {members.map((member) => {
+          const checked = value.includes(member.id);
+          return (
+            <button
+              key={member.id}
+              type="button"
+              onClick={() => toggle(member.id)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium transition",
+                checked
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-transparent bg-slate-50 text-slate-600 hover:bg-slate-100",
+              )}
+            >
+              <AssigneeAvatar member={member} size="sm" />
+              {member.nickname}
+              {checked ? <Check className="h-3 w-3 shrink-0" /> : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -144,14 +179,14 @@ export function AssigneeMultiSelect({
             key={member.id}
             className={cn(
               "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition",
-              checked ? "bg-[#1E3A5F]/08" : "hover:bg-slate-50",
+              checked ? "bg-primary/10" : "hover:bg-slate-50",
             )}
           >
             <input
               type="checkbox"
               checked={checked}
               onChange={() => toggle(member.id)}
-              className="h-4 w-4 rounded border-slate-300 text-[#1E3A5F] focus:ring-[#1E3A5F]/30"
+              className="h-4 w-4 rounded border-slate-300 text-primary accent-primary focus:ring-primary/30"
             />
             <AssigneeAvatar member={member} size="sm" />
             <span className="font-medium text-slate-800">{member.nickname}</span>

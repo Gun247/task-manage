@@ -30,7 +30,7 @@ export function SubtaskAssigneePicker({
 
   if (members.length === 0) {
     return (
-      <p className={cn("text-[11px] text-slate-400", className)}>{emptyHint}</p>
+      <p className={cn("text-caption text-slate-400", className)}>{emptyHint}</p>
     );
   }
 
@@ -46,7 +46,7 @@ export function SubtaskAssigneePicker({
             title={member.nickname}
             onClick={() => toggle(member.id)}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-medium transition",
+              "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-caption font-medium transition",
               checked
                 ? "border-transparent text-white"
                 : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",

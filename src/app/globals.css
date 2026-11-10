@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./themes.css";
 
 :root {
   /* Sky–grass theme (floating island) */
@@ -10,6 +11,10 @@
   --muted: #d6e8f5;
   --surface: #ffffff;
   --border: #b8d4e8;
+  --canvas: #f8fafc;
+  --success: #16a34a;
+  --danger: #ef4444;
+  --warning: #f59e0b;
 }
 
 @theme inline {
@@ -21,6 +26,12 @@
   --color-muted: var(--muted);
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-canvas: var(--canvas);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --text-micro: 0.625rem;
+  --text-caption: 0.6875rem;
   --font-sans: var(--font-noto-sans-thai), var(--font-inter), sans-serif;
 }
 
@@ -39,4 +50,115 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sheet-out {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Paint-select rows: staggered fill when dragging the checkbox column */
+.task-row-paint > td {
+  transition:
+    background-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--paint-delay, 0ms);
+}
+
+body.task-painting {
+  cursor: crosshair;
+  user-select: none;
+}
+
+body.task-painting * {
+  cursor: crosshair !important;
+  user-select: none !important;
+}
+
+body.task-calendar-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.task-calendar-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.task-paint-hint {
+  animation: task-paint-hint-in 0.35s ease both;
+}
+
+@keyframes task-paint-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.task-bulk-bar {
+  animation: task-bulk-bar-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes task-bulk-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel,
+  .sheet-overlay {
+    animation-duration: 1ms !important;
+  }
+
+  .task-row-paint > td {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .task-paint-hint,
+  .task-bulk-bar {
+    animation-duration: 1ms !important;
+  }
 }

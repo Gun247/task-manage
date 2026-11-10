@@ -1,0 +1,1003 @@
+/* Bio-ID palette themes, applied with <html data-theme="…">. Generated from the Bio-ID
+   gateway palette sheet; every theme maps its brand / ok / warn / danger / gray scales onto the
+   app tokens, and the gray scale replaces Tailwind's slate so surfaces tint with the theme. */
+
+/* Cerulean · ฟ้าเซรูเลียน */
+html[data-theme="cerulean"] {
+  --background: #f2f9ff;
+  --foreground: #161e22;
+  --primary: #0061a2;
+  --primary-dark: #0067ab;
+  --accent: #137ece;
+  --muted: #d7ebff;
+  --border: #d8e3ea;
+  --canvas: #f3f9fc;
+  --success: #266741;
+  --danger: #8f3734;
+  --warning: #82510d;
+  --color-slate-50: #f3f9fc;
+  --color-slate-100: #eaf3f7;
+  --color-slate-200: #d8e3ea;
+  --color-slate-300: #bdccd3;
+  --color-slate-400: #99a9b1;
+  --color-slate-500: #76848d;
+  --color-slate-600: #4b5960;
+  --color-slate-700: #3a464c;
+  --color-slate-800: #263035;
+  --color-slate-900: #161e22;
+}
+
+/* Pine · ร่มสน */
+html[data-theme="pine"] {
+  --background: #e5fff4;
+  --foreground: #181e1a;
+  --primary: #295142;
+  --primary-dark: #143b2e;
+  --accent: #1c8f6e;
+  --muted: #acfddd;
+  --border: #dbe4de;
+  --canvas: #f5f9f6;
+  --success: #006662;
+  --danger: #8f3734;
+  --warning: #854f15;
+  --color-slate-50: #f5f9f6;
+  --color-slate-100: #edf3ef;
+  --color-slate-200: #dbe4de;
+  --color-slate-300: #c1ccc4;
+  --color-slate-400: #9eaaa1;
+  --color-slate-500: #7a857d;
+  --color-slate-600: #4f5a52;
+  --color-slate-700: #3e4640;
+  --color-slate-800: #29302b;
+  --color-slate-900: #181e1a;
+}
+
+/* Rose · ชมพูสัญญาณ */
+html[data-theme="rose"] {
+  --background: #fff4fa;
+  --foreground: #211a1d;
+  --primary: #972670;
+  --primary-dark: #8f2b69;
+  --accent: #b6508d;
+  --muted: #ffdeef;
+  --border: #e9dee2;
+  --canvas: #fcf6f8;
+  --success: #266741;
+  --danger: #874300;
+  --warning: #6f5c00;
+  --color-slate-50: #fcf6f8;
+  --color-slate-100: #f7eff2;
+  --color-slate-200: #e9dee2;
+  --color-slate-300: #d3c4ca;
+  --color-slate-400: #b1a1a8;
+  --color-slate-500: #8c7d83;
+  --color-slate-600: #5f5358;
+  --color-slate-700: #4b4045;
+  --color-slate-800: #342b2f;
+  --color-slate-900: #211a1d;
+}
+
+/* Apple · เขียวใบ */
+html[data-theme="apple"] {
+  --background: #f1fde0;
+  --foreground: #1a1e17;
+  --primary: #4c6900;
+  --primary-dark: #516f00;
+  --accent: #678724;
+  --muted: #d9f4b2;
+  --border: #dee3d9;
+  --canvas: #f8f9f3;
+  --success: #006755;
+  --danger: #8f3734;
+  --warning: #884c1e;
+  --color-slate-50: #f8f9f3;
+  --color-slate-100: #eff3eb;
+  --color-slate-200: #dee3d9;
+  --color-slate-300: #c5ccbe;
+  --color-slate-400: #a2a99a;
+  --color-slate-500: #7e8477;
+  --color-slate-600: #53594d;
+  --color-slate-700: #41463b;
+  --color-slate-800: #2b2f27;
+  --color-slate-900: #1a1e17;
+}
+
+/* Persimmon · ลูกพลับ */
+html[data-theme="persimmon"] {
+  --background: #fff5f2;
+  --foreground: #181d22;
+  --primary: #a93e11;
+  --primary-dark: #181e24;
+  --accent: #cb6738;
+  --muted: #ffe1d7;
+  --border: #dbe2e9;
+  --canvas: #f4f8fc;
+  --success: #216744;
+  --danger: #8d364b;
+  --warning: #6f5c00;
+  --color-slate-50: #f4f8fc;
+  --color-slate-100: #ecf2f7;
+  --color-slate-200: #dbe2e9;
+  --color-slate-300: #c1cad3;
+  --color-slate-400: #9da8b1;
+  --color-slate-500: #79838c;
+  --color-slate-600: #4f5860;
+  --color-slate-700: #3d454b;
+  --color-slate-800: #282f34;
+  --color-slate-900: #181d22;
+}
+
+/* Citron · เขียวมะนาว */
+html[data-theme="citron"] {
+  --background: #f8fbdd;
+  --foreground: #1d1d14;
+  --primary: #5c6900;
+  --primary-dark: #192217;
+  --accent: #748400;
+  --muted: #e9efa9;
+  --border: #e3e2d5;
+  --canvas: #f8f8f1;
+  --success: #006755;
+  --danger: #8f3734;
+  --warning: #8a4a26;
+  --color-slate-50: #f8f8f1;
+  --color-slate-100: #f2f2e8;
+  --color-slate-200: #e3e2d5;
+  --color-slate-300: #cbcab9;
+  --color-slate-400: #a8a795;
+  --color-slate-500: #848371;
+  --color-slate-600: #585848;
+  --color-slate-700: #454537;
+  --color-slate-800: #2f2e23;
+  --color-slate-900: #1d1d14;
+}
+
+/* Cobalt · โคบอลต์ */
+html[data-theme="cobalt"] {
+  --background: #f3f9ff;
+  --foreground: #211b14;
+  --primary: #1662b5;
+  --primary-dark: #2a221a;
+  --accent: #1f7dcf;
+  --muted: #d8ebff;
+  --border: #e9e0d5;
+  --canvas: #fbf7f2;
+  --success: #266741;
+  --danger: #8f3736;
+  --warning: #8b492a;
+  --color-slate-50: #fbf7f2;
+  --color-slate-100: #f6f0e9;
+  --color-slate-200: #e9e0d5;
+  --color-slate-300: #d1c7ba;
+  --color-slate-400: #afa496;
+  --color-slate-500: #8a8072;
+  --color-slate-600: #5e5549;
+  --color-slate-700: #4a4238;
+  --color-slate-800: #332d24;
+  --color-slate-900: #211b14;
+}
+
+/* Dusk · ม่วงสนธยา */
+html[data-theme="dusk"] {
+  --background: #fbf5ff;
+  --foreground: #1b1c20;
+  --primary: #7f44a0;
+  --primary-dark: #1e1b26;
+  --accent: #9a5db1;
+  --muted: #f4e0ff;
+  --border: #dee1e7;
+  --canvas: #f8f8fb;
+  --success: #266741;
+  --danger: #8f3738;
+  --warning: #805307;
+  --color-slate-50: #f8f8fb;
+  --color-slate-100: #eff1f5;
+  --color-slate-200: #dee1e7;
+  --color-slate-300: #c5c9d0;
+  --color-slate-400: #a2a6ae;
+  --color-slate-500: #7e8289;
+  --color-slate-600: #53575d;
+  --color-slate-700: #414449;
+  --color-slate-800: #2c2e32;
+  --color-slate-900: #1b1c20;
+}
+
+/* Sakura · ซากุระกลางคืน */
+html[data-theme="sakura"] {
+  --background: #fff5f7;
+  --foreground: #201b19;
+  --primary: #a63866;
+  --primary-dark: #462126;
+  --accent: #c25485;
+  --muted: #ffdfe6;
+  --border: #e6e0dd;
+  --canvas: #faf7f5;
+  --success: #266741;
+  --danger: #8f392a;
+  --warning: #7c5500;
+  --color-slate-50: #faf7f5;
+  --color-slate-100: #f5f0ee;
+  --color-slate-200: #e6e0dd;
+  --color-slate-300: #cfc7c3;
+  --color-slate-400: #ada4a0;
+  --color-slate-500: #88807c;
+  --color-slate-600: #5c5551;
+  --color-slate-700: #49423f;
+  --color-slate-800: #322c2a;
+  --color-slate-900: #201b19;
+}
+
+/* Iris · ม่วงไอริส */
+html[data-theme="iris"] {
+  --background: #f8f7ff;
+  --foreground: #1b1c23;
+  --primary: #5349b8;
+  --primary-dark: #5851ba;
+  --accent: #6e6ad5;
+  --muted: #e4e6ff;
+  --border: #dee1eb;
+  --canvas: #f6f7fc;
+  --success: #266741;
+  --danger: #8f3736;
+  --warning: #81520a;
+  --color-slate-50: #f6f7fc;
+  --color-slate-100: #eff1f8;
+  --color-slate-200: #dee1eb;
+  --color-slate-300: #c5c8d5;
+  --color-slate-400: #a2a5b3;
+  --color-slate-500: #7e818e;
+  --color-slate-600: #535662;
+  --color-slate-700: #41434d;
+  --color-slate-800: #2b2d36;
+  --color-slate-900: #1b1c23;
+}
+
+/* Papaya · ส้มมะละกอ */
+html[data-theme="papaya"] {
+  --background: #fff4f0;
+  --foreground: #251a14;
+  --primary: #983e00;
+  --primary-dark: #983e00;
+  --accent: #006660;
+  --muted: #ffded2;
+  --border: #eddcd1;
+  --canvas: #fef5ef;
+  --success: #136842;
+  --danger: #90314e;
+  --warning: #725b00;
+  --color-slate-50: #fef5ef;
+  --color-slate-100: #faede5;
+  --color-slate-200: #eddcd1;
+  --color-slate-300: #d8c3b5;
+  --color-slate-400: #b5a092;
+  --color-slate-500: #907c6e;
+  --color-slate-600: #625146;
+  --color-slate-700: #4e3f35;
+  --color-slate-800: #382b22;
+  --color-slate-900: #251a14;
+}
+
+/* Dragonfruit · แก้วมังกร */
+html[data-theme="dragonfruit"] {
+  --background: #fff3fb;
+  --foreground: #231920;
+  --primary: #91307f;
+  --primary-dark: #91307f;
+  --accent: #586d00;
+  --muted: #ffd9f3;
+  --border: #ebdae4;
+  --canvas: #fdf4f9;
+  --success: #1b683e;
+  --danger: #933235;
+  --warning: #815200;
+  --color-slate-50: #fdf4f9;
+  --color-slate-100: #f8ecf4;
+  --color-slate-200: #ebdae4;
+  --color-slate-300: #d5c0cd;
+  --color-slate-400: #b29eab;
+  --color-slate-500: #8d7a86;
+  --color-slate-600: #60505a;
+  --color-slate-700: #4c3d47;
+  --color-slate-800: #362a31;
+  --color-slate-900: #231920;
+}
+
+/* Azure · ฟ้าปะการัง */
+html[data-theme="azure"] {
+  --background: #eff8ff;
+  --foreground: #151e24;
+  --primary: #0061a2;
+  --primary-dark: #0061a2;
+  --accent: #af3d34;
+  --muted: #cfebff;
+  --border: #d3e2ec;
+  --canvas: #f0f8fd;
+  --success: #1b683e;
+  --danger: #91314a;
+  --warning: #7c5b00;
+  --color-slate-50: #f0f8fd;
+  --color-slate-100: #e7f2f9;
+  --color-slate-200: #d3e2ec;
+  --color-slate-300: #b7cbd6;
+  --color-slate-400: #94a8b4;
+  --color-slate-500: #71838f;
+  --color-slate-600: #485861;
+  --color-slate-700: #36454d;
+  --color-slate-800: #243037;
+  --color-slate-900: #151e24;
+}
+
+/* Grape · องุ่น */
+html[data-theme="grape"] {
+  --background: #f9f4ff;
+  --foreground: #1e1b24;
+  --primary: #8d389e;
+  --primary-dark: #8d389e;
+  --accent: #8b6000;
+  --muted: #eddfff;
+  --border: #e1ddec;
+  --canvas: #f8f5fd;
+  --success: #1b683e;
+  --danger: #93323c;
+  --warning: #8c4a11;
+  --color-slate-50: #f8f5fd;
+  --color-slate-100: #f1eef9;
+  --color-slate-200: #e1ddec;
+  --color-slate-300: #cac4d7;
+  --color-slate-400: #a7a1b4;
+  --color-slate-500: #827d8f;
+  --color-slate-600: #575262;
+  --color-slate-700: #44404d;
+  --color-slate-800: #2f2c37;
+  --color-slate-900: #1e1b24;
+}
+
+/* Mango · มะม่วง */
+html[data-theme="mango"] {
+  --background: #fff5ea;
+  --foreground: #231b11;
+  --primary: #894d00;
+  --primary-dark: #915100;
+  --accent: #0056aa;
+  --muted: #ffe1bf;
+  --border: #eadece;
+  --canvas: #fcf6ed;
+  --success: #1b683e;
+  --danger: #913147;
+  --warning: #914330;
+  --color-slate-50: #fcf6ed;
+  --color-slate-100: #f8efe3;
+  --color-slate-200: #eadece;
+  --color-slate-300: #d4c5b1;
+  --color-slate-400: #b1a28e;
+  --color-slate-500: #8c7e6a;
+  --color-slate-600: #5f5343;
+  --color-slate-700: #4c4031;
+  --color-slate-800: #352c1f;
+  --color-slate-900: #231b11;
+}
+
+/* Watermelon · แตงโม */
+html[data-theme="watermelon"] {
+  --background: #e3ffee;
+  --foreground: #15201a;
+  --primary: #006940;
+  --primary-dark: #006940;
+  --accent: #a13567;
+  --muted: #a3fdcd;
+  --border: #d4e4db;
+  --canvas: #f1f9f4;
+  --success: #456320;
+  --danger: #933239;
+  --warning: #825100;
+  --color-slate-50: #f1f9f4;
+  --color-slate-100: #e8f4ed;
+  --color-slate-200: #d4e4db;
+  --color-slate-300: #b9cdc1;
+  --color-slate-400: #96aa9f;
+  --color-slate-500: #72867a;
+  --color-slate-600: #4a5a50;
+  --color-slate-700: #38463e;
+  --color-slate-800: #25312a;
+  --color-slate-900: #15201a;
+}
+
+/* Hibiscus · ชบา */
+html[data-theme="hibiscus"] {
+  --background: #fff3f5;
+  --foreground: #26191b;
+  --primary: #9c2047;
+  --primary-dark: #9c2047;
+  --accent: #186a23;
+  --muted: #ffdce2;
+  --border: #eedadd;
+  --canvas: #fff4f5;
+  --success: #00694a;
+  --danger: #92361f;
+  --warning: #7e5400;
+  --color-slate-50: #fff4f5;
+  --color-slate-100: #fbecee;
+  --color-slate-200: #eedadd;
+  --color-slate-300: #d9c0c4;
+  --color-slate-400: #b69da1;
+  --color-slate-500: #91797d;
+  --color-slate-600: #634f52;
+  --color-slate-700: #4f3d40;
+  --color-slate-800: #38292c;
+  --color-slate-900: #26191b;
+}
+
+/* Lagoon · ทะเลสาบ */
+html[data-theme="lagoon"] {
+  --background: #dffff8;
+  --foreground: #13201e;
+  --primary: #006e5e;
+  --primary-dark: #006e5e;
+  --accent: #9f4500;
+  --muted: #8cffe9;
+  --border: #d1e4e1;
+  --canvas: #eff9f8;
+  --success: #37652d;
+  --danger: #923144;
+  --warning: #775800;
+  --color-slate-50: #eff9f8;
+  --color-slate-100: #e5f4f1;
+  --color-slate-200: #d1e4e1;
+  --color-slate-300: #b5cdc9;
+  --color-slate-400: #92aba7;
+  --color-slate-500: #6e8682;
+  --color-slate-600: #465a57;
+  --color-slate-700: #344744;
+  --color-slate-800: #22312f;
+  --color-slate-900: #13201e;
+}
+
+/* Indigo · ครามส้ม */
+html[data-theme="indigo"] {
+  --background: #f4f6ff;
+  --foreground: #1a1d25;
+  --primary: #4249af;
+  --primary-dark: #4249af;
+  --accent: #974c00;
+  --muted: #dfe6ff;
+  --border: #dadfed;
+  --canvas: #f4f7fe;
+  --success: #1b683e;
+  --danger: #923240;
+  --warning: #6f5c00;
+  --color-slate-50: #f4f7fe;
+  --color-slate-100: #ecf0fa;
+  --color-slate-200: #dadfed;
+  --color-slate-300: #c1c7d8;
+  --color-slate-400: #9ea4b5;
+  --color-slate-500: #7a8090;
+  --color-slate-600: #505563;
+  --color-slate-700: #3e424f;
+  --color-slate-800: #2a2e38;
+  --color-slate-900: #1a1d25;
+}
+
+/* Cherry · เชอร์รี่ */
+html[data-theme="cherry"] {
+  --background: #fff4f4;
+  --foreground: #25191a;
+  --primary: #9a2737;
+  --primary-dark: #9a2737;
+  --accent: #008f53;
+  --muted: #ffdcdf;
+  --border: #eddadb;
+  --canvas: #fef4f4;
+  --success: #266739;
+  --danger: #8a3362;
+  --warning: #7c5500;
+  --color-slate-50: #fef4f4;
+  --color-slate-100: #faeced;
+  --color-slate-200: #eddadb;
+  --color-slate-300: #d8c1c2;
+  --color-slate-400: #b69e9f;
+  --color-slate-500: #907a7b;
+  --color-slate-600: #635051;
+  --color-slate-700: #4e3d3e;
+  --color-slate-800: #382a2a;
+  --color-slate-900: #25191a;
+}
+
+/* Signal · แดงดำ */
+html[data-theme="signal"] {
+  --background: #fff5f4;
+  --foreground: #111111;
+  --primary: #ce0001;
+  --primary-dark: #d00100;
+  --accent: #fd0100;
+  --muted: #ffe0db;
+  --border: #d4ccca;
+  --canvas: #ffffff;
+  --success: #0e6944;
+  --danger: #8e3256;
+  --warning: #874d00;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #f1e7e7;
+  --color-slate-200: #d4ccca;
+  --color-slate-300: #b7adac;
+  --color-slate-400: #988d8c;
+  --color-slate-500: #776e6d;
+  --color-slate-600: #565151;
+  --color-slate-700: #403b3b;
+  --color-slate-800: #292728;
+  --color-slate-900: #111111;
+}
+
+/* Crimson · แดงชาด */
+html[data-theme="crimson"] {
+  --background: #fff0f1;
+  --foreground: #1c1c1c;
+  --primary: #cd0132;
+  --primary-dark: #ce0132;
+  --accent: #dc123a;
+  --muted: #ffdfdf;
+  --border: #cfc7c5;
+  --canvas: #f6f6f6;
+  --success: #0d6945;
+  --danger: #8f3155;
+  --warning: #8a4b04;
+  --color-slate-50: #f6f6f6;
+  --color-slate-100: #e9dfde;
+  --color-slate-200: #cfc7c5;
+  --color-slate-300: #b3aba9;
+  --color-slate-400: #998e90;
+  --color-slate-500: #7b7374;
+  --color-slate-600: #5f5758;
+  --color-slate-700: #4b4243;
+  --color-slate-800: #363130;
+  --color-slate-900: #1c1c1c;
+}
+
+/* Serenity · ฟ้าบลัช */
+html[data-theme="serenity"] {
+  --background: #fff4f6;
+  --foreground: #2c2e30;
+  --primary: #485c7f;
+  --primary-dark: #4a5a81;
+  --accent: #956a6a;
+  --muted: #f7cac9;
+  --border: #d0d6db;
+  --canvas: #ffffff;
+  --success: #2b6839;
+  --danger: #933045;
+  --warning: #7d5603;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #e7eff3;
+  --color-slate-200: #d0d6db;
+  --color-slate-300: #b5bbbe;
+  --color-slate-400: #9da0a5;
+  --color-slate-500: #828689;
+  --color-slate-600: #656769;
+  --color-slate-700: #545559;
+  --color-slate-800: #414244;
+  --color-slate-900: #2c2e30;
+}
+
+/* Teal · เขียวทอง */
+html[data-theme="teal"] {
+  --background: #fdf8e8;
+  --foreground: #2a2f2e;
+  --primary: #015d5c;
+  --primary-dark: #005d5e;
+  --accent: #8b6800;
+  --muted: #ffbf00;
+  --border: #ced9d9;
+  --canvas: #feffff;
+  --success: #3e6426;
+  --danger: #8d3354;
+  --warning: #90471f;
+  --color-slate-50: #feffff;
+  --color-slate-100: #e5eff1;
+  --color-slate-200: #ced9d9;
+  --color-slate-300: #b4bdbb;
+  --color-slate-400: #99a3a2;
+  --color-slate-500: #7e8685;
+  --color-slate-600: #606966;
+  --color-slate-700: #505957;
+  --color-slate-800: #3f4645;
+  --color-slate-900: #2a2f2e;
+}
+
+/* Coral · ปะการังหิน */
+html[data-theme="coral"] {
+  --background: #fff2f2;
+  --foreground: #322d2c;
+  --primary: #af231b;
+  --primary-dark: #b0211e;
+  --accent: #2e485a;
+  --muted: #f7cac7;
+  --border: #d5cbca;
+  --canvas: #fff2f0;
+  --success: #22683d;
+  --danger: #8e3355;
+  --warning: #7d5600;
+  --color-slate-50: #fff2f0;
+  --color-slate-100: #ebe0df;
+  --color-slate-200: #d5cbca;
+  --color-slate-300: #bbb0af;
+  --color-slate-400: #a39897;
+  --color-slate-500: #877f7d;
+  --color-slate-600: #675e5f;
+  --color-slate-700: #5b5352;
+  --color-slate-800: #464141;
+  --color-slate-900: #322d2c;
+}
+
+/* Navy · กรมท่าทอง */
+html[data-theme="navy"] {
+  --background: #fff7e7;
+  --foreground: #1e3a5e;
+  --primary: #1f395f;
+  --primary-dark: #1f395f;
+  --accent: #1f3960;
+  --muted: #ffc002;
+  --border: #cacdd3;
+  --canvas: #f6f6f6;
+  --success: #21683d;
+  --danger: #8f3154;
+  --warning: #8e481b;
+  --color-slate-50: #f6f6f6;
+  --color-slate-100: #e0e4e9;
+  --color-slate-200: #cacdd3;
+  --color-slate-300: #b2b3b9;
+  --color-slate-400: #989ba0;
+  --color-slate-500: #7d8185;
+  --color-slate-600: #5f6366;
+  --color-slate-700: #525658;
+  --color-slate-800: #404345;
+  --color-slate-900: #1e3a5e;
+}
+
+/* Sea · เขียวครีม */
+html[data-theme="sea"] {
+  --background: #e8fef0;
+  --foreground: #254653;
+  --primary: #117945;
+  --primary-dark: #177847;
+  --accent: #2e8a56;
+  --muted: #b7fbcc;
+  --border: #d7d0c2;
+  --canvas: #fef8e6;
+  --success: #006851;
+  --danger: #8e3256;
+  --warning: #8e471d;
+  --color-slate-50: #fef8e6;
+  --color-slate-100: #ede6d6;
+  --color-slate-200: #d7d0c2;
+  --color-slate-300: #bcb5a7;
+  --color-slate-400: #a19c91;
+  --color-slate-500: #878277;
+  --color-slate-600: #67635a;
+  --color-slate-700: #59554c;
+  --color-slate-800: #46423b;
+  --color-slate-900: #254653;
+}
+
+/* Iris · ม่วงทอง */
+html[data-theme="iris-gold"] {
+  --background: #fff7e7;
+  --foreground: #2d2d2f;
+  --primary: #5b49bd;
+  --primary-dark: #5a49bd;
+  --accent: #6a5acc;
+  --muted: #fdd268;
+  --border: #d0d1da;
+  --canvas: #f8fafb;
+  --success: #2b6637;
+  --danger: #8e3157;
+  --warning: #8e471d;
+  --color-slate-50: #f8fafb;
+  --color-slate-100: #e6e7f0;
+  --color-slate-200: #d0d1da;
+  --color-slate-300: #b5b7bc;
+  --color-slate-400: #9b9ba4;
+  --color-slate-500: #818289;
+  --color-slate-600: #646467;
+  --color-slate-700: #56565a;
+  --color-slate-800: #414345;
+  --color-slate-900: #2d2d2f;
+}
+
+/* Coral Ink · ส้มหมึก */
+html[data-theme="coral-ink"] {
+  --background: #fff5f4;
+  --foreground: #274555;
+  --primary: #b63e00;
+  --primary-dark: #b63e00;
+  --accent: #264654;
+  --muted: #fee0d3;
+  --border: #dcd3cf;
+  --canvas: #ffffff;
+  --success: #22693d;
+  --danger: #903154;
+  --warning: #7c5702;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #f5e9e5;
+  --color-slate-200: #dcd3cf;
+  --color-slate-300: #c2b9b3;
+  --color-slate-400: #a89e9d;
+  --color-slate-500: #8b8281;
+  --color-slate-600: #6c6562;
+  --color-slate-700: #585654;
+  --color-slate-800: #454342;
+  --color-slate-900: #274555;
+}
+
+/* Steel · น้ำเงินกากี */
+html[data-theme="steel"] {
+  --background: #fcf8d0;
+  --foreground: #1e2937;
+  --primary: #2c689c;
+  --primary-dark: #2d689b;
+  --accent: #4682b2;
+  --muted: #f0e58e;
+  --border: #cfcdb2;
+  --canvas: #f8f6db;
+  --success: #3d6427;
+  --danger: #8f3158;
+  --warning: #8d481e;
+  --color-slate-50: #f8f6db;
+  --color-slate-100: #e7e4ca;
+  --color-slate-200: #cfcdb2;
+  --color-slate-300: #b4b49b;
+  --color-slate-400: #9b9a83;
+  --color-slate-500: #807e6d;
+  --color-slate-600: #636052;
+  --color-slate-700: #525042;
+  --color-slate-800: #403d30;
+  --color-slate-900: #1e2937;
+}
+
+/* Orchid · ม่วงชมพู */
+html[data-theme="orchid"] {
+  --background: #fef4f6;
+  --foreground: #302e2f;
+  --primary: #80007e;
+  --primary-dark: #7f007c;
+  --accent: #81017e;
+  --muted: #feb6c2;
+  --border: #dbd3d8;
+  --canvas: #ffffff;
+  --success: #0f6845;
+  --danger: #8e3254;
+  --warning: #8f461d;
+  --color-slate-50: #ffffff;
+  --color-slate-100: #f1eaf0;
+  --color-slate-200: #dbd3d8;
+  --color-slate-300: #bdbabd;
+  --color-slate-400: #a3a0a4;
+  --color-slate-500: #878487;
+  --color-slate-600: #696569;
+  --color-slate-700: #585558;
+  --color-slate-800: #454246;
+  --color-slate-900: #302e2f;
+}
+
+/* Lagoon · ทะเลทราย */
+html[data-theme="lagoon-sand"] {
+  --background: #fff5dd;
+  --foreground: #244554;
+  --primary: #015b65;
+  --primary-dark: #005c60;
+  --accent: #254653;
+  --muted: #e7c369;
+  --border: #d7cdb5;
+  --canvas: #fff4da;
+  --success: #3d6426;
+  --danger: #8e3257;
+  --warning: #8e471e;
+  --color-slate-50: #fff4da;
+  --color-slate-100: #ede3cb;
+  --color-slate-200: #d7cdb5;
+  --color-slate-300: #bdb49d;
+  --color-slate-400: #a39b88;
+  --color-slate-500: #88806d;
+  --color-slate-600: #676151;
+  --color-slate-700: #5a5444;
+  --color-slate-800: #474334;
+  --color-slate-900: #244554;
+}
+
+/* Mint · แดงมิ้นต์ */
+html[data-theme="mint"] {
+  --background: #fff5f2;
+  --foreground: #1d3557;
+  --primary: #c91330;
+  --primary-dark: #cc1534;
+  --accent: #e73946;
+  --muted: #ffe0dc;
+  --border: #d6ccce;
+  --canvas: #f1faee;
+  --success: #0d6945;
+  --danger: #8f3155;
+  --warning: #894e00;
+  --color-slate-50: #f1faee;
+  --color-slate-100: #ede2e0;
+  --color-slate-200: #d6ccce;
+  --color-slate-300: #bdb3b1;
+  --color-slate-400: #a39996;
+  --color-slate-500: #897d81;
+  --color-slate-600: #676061;
+  --color-slate-700: #5a5353;
+  --color-slate-800: #464140;
+  --color-slate-900: #1d3557;
+}
+
+/* Clay · ดินเผา */
+html[data-theme="clay"] {
+  --background: #fff4ed;
+  --foreground: #254655;
+  --primary: #452001;
+  --primary-dark: #0e2f3c;
+  --accent: #254653;
+  --muted: #ea6d50;
+  --border: #c8cfd2;
+  --canvas: #fff1e9;
+  --success: #22683b;
+  --danger: #8f3256;
+  --warning: #8e471c;
+  --color-slate-50: #fff1e9;
+  --color-slate-100: #dae6ec;
+  --color-slate-200: #c8cfd2;
+  --color-slate-300: #adb5b8;
+  --color-slate-400: #979ca0;
+  --color-slate-500: #7c8184;
+  --color-slate-600: #5e6167;
+  --color-slate-700: #505459;
+  --color-slate-800: #414346;
+  --color-slate-900: #254655;
+}
+
+/* Oasis · โอเอซิส */
+html[data-theme="oasis"] {
+  --background: #fff5df;
+  --foreground: #264555;
+  --primary: #005e56;
+  --primary-dark: #015e57;
+  --accent: #294557;
+  --muted: #e9c569;
+  --border: #d7cdb4;
+  --canvas: #fff4da;
+  --success: #3d6428;
+  --danger: #8d3154;
+  --warning: #8d481c;
+  --color-slate-50: #fff4da;
+  --color-slate-100: #ede3cb;
+  --color-slate-200: #d7cdb4;
+  --color-slate-300: #bdb39d;
+  --color-slate-400: #a39b87;
+  --color-slate-500: #88806d;
+  --color-slate-600: #656150;
+  --color-slate-700: #5a5444;
+  --color-slate-800: #494234;
+  --color-slate-900: #264555;
+}
+
+/* Ember · ถ่านไฟ */
+html[data-theme="ember"] {
+  --background: #fff5ef;
+  --foreground: #322d24;
+  --primary: #740008;
+  --primary-dark: #730008;
+  --accent: #7e3f02;
+  --muted: #f78003;
+  --border: #d7ccb9;
+  --canvas: #fff3e0;
+  --success: #00694a;
+  --danger: #8e3255;
+  --warning: #6e5c02;
+  --color-slate-50: #fff3e0;
+  --color-slate-100: #ede2cf;
+  --color-slate-200: #d7ccb9;
+  --color-slate-300: #bdb2a1;
+  --color-slate-400: #a29989;
+  --color-slate-500: #887f70;
+  --color-slate-600: #695f55;
+  --color-slate-700: #5a5549;
+  --color-slate-800: #494138;
+  --color-slate-900: #322d24;
+}
+
+/* Electric · นีออน */
+html[data-theme="electric"] {
+  --background: #fef5f5;
+  --foreground: #2a2e31;
+  --primary: #001640;
+  --primary-dark: #011540;
+  --accent: #73022f;
+  --muted: #fe0170;
+  --border: #c9cdd5;
+  --canvas: #f0f5ff;
+  --success: #0d6a47;
+  --danger: #923145;
+  --warning: #8e4a12;
+  --color-slate-50: #f0f5ff;
+  --color-slate-100: #dee4eb;
+  --color-slate-200: #c9cdd5;
+  --color-slate-300: #b0b4b9;
+  --color-slate-400: #989ba1;
+  --color-slate-500: #7b8186;
+  --color-slate-600: #5f6166;
+  --color-slate-700: #525658;
+  --color-slate-800: #3f4348;
+  --color-slate-900: #2a2e31;
+}
+
+/* Grove · สวนมะกอก */
+html[data-theme="grove"] {
+  --background: #f0fdd5;
+  --foreground: #28361a;
+  --primary: #616d37;
+  --primary-dark: #616c38;
+  --accent: #626c38;
+  --muted: #e0f0b0;
+  --border: #d4d1b9;
+  --canvas: #fef9e0;
+  --success: #016851;
+  --danger: #8f3155;
+  --warning: #8f461f;
+  --color-slate-50: #fef9e0;
+  --color-slate-100: #ebe9ce;
+  --color-slate-200: #d4d1b9;
+  --color-slate-300: #bab8a0;
+  --color-slate-400: #a29e8a;
+  --color-slate-500: #878371;
+  --color-slate-600: #666454;
+  --color-slate-700: #585646;
+  --color-slate-800: #464337;
+  --color-slate-900: #28361a;
+}
+
+/* Glacier · น้ำแข็งกรมท่า */
+html[data-theme="glacier"] {
+  --background: #f3f9ff;
+  --foreground: #1d3655;
+  --primary: #010b0c;
+  --primary-dark: #000d24;
+  --accent: #00344f;
+  --muted: #4b80a4;
+  --border: #a4cccf;
+  --canvas: #aadadc;
+  --success: #20693b;
+  --danger: #8f3158;
+  --warning: #8f471a;
+  --color-slate-50: #aadadc;
+  --color-slate-100: #b4e1e4;
+  --color-slate-200: #a4cccf;
+  --color-slate-300: #8cb5b7;
+  --color-slate-400: #779da0;
+  --color-slate-500: #638286;
+  --color-slate-600: #415b5c;
+  --color-slate-700: #3a5353;
+  --color-slate-800: #2e4647;
+  --color-slate-900: #1d3655;
+}
+
+/* Petal · กลีบดอก */
+html[data-theme="petal"] {
+  --background: #fdf6f8;
+  --foreground: #2f2d31;
+  --primary: #6c5577;
+  --primary-dark: #6b5577;
+  --accent: #986a7c;
+  --muted: #ffc8dd;
+  --border: #d0cbd1;
+  --canvas: #edf6ff;
+  --success: #0c6a45;
+  --danger: #933339;
+  --warning: #805200;
+  --color-slate-50: #edf6ff;
+  --color-slate-100: #e6e0e8;
+  --color-slate-200: #d0cbd1;
+  --color-slate-300: #b5b3bb;
+  --color-slate-400: #9b9aa0;
+  --color-slate-500: #807e84;
+  --color-slate-600: #636066;
+  --color-slate-700: #555359;
+  --color-slate-800: #434145;
+  --color-slate-900: #2f2d31;
+}

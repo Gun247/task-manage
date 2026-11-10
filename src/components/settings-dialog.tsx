@@ -136,7 +136,7 @@ function SortableStatusRow({
               {status.name}
             </span>
             {isDefault ? (
-              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-micro font-medium text-slate-500">
                 default
               </span>
             ) : null}
@@ -147,7 +147,7 @@ function SortableStatusRow({
         </div>
       </div>
       {isDefault ? (
-        <span className="shrink-0 px-2 text-[10px] text-slate-400">
+        <span className="shrink-0 px-2 text-micro text-slate-400">
           แก้ไขไม่ได้
         </span>
       ) : (

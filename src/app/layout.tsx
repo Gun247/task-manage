@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/lib/themes";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,7 +23,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="th"
       className={`${inter.variable} ${notoSansThai.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

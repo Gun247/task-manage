@@ -104,7 +104,7 @@ const TaskRows = memo(function TaskRows({
     <div className="overflow-x-auto">
       <table className="min-w-full text-left text-sm">
         <thead>
-          <tr className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+          <tr className="text-caption font-semibold tracking-wide text-slate-500 uppercase">
             <th className="w-10 px-3 py-2">No</th>
             <th className="min-w-[9rem] px-3 py-2">Task</th>
             <th className="min-w-[12rem] px-3 py-2">Subject</th>
@@ -213,7 +213,7 @@ const KindSection = memo(function KindSection({
         <div className="flex min-w-0 items-center gap-2">
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide text-white",
+              "rounded-full px-2 py-0.5 text-micro font-bold tracking-wide text-white",
               isUat ? "bg-amber-500" : "bg-emerald-500",
             )}
           >
@@ -229,7 +229,7 @@ const KindSection = memo(function KindSection({
           </h3>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[10px] font-medium",
+              "rounded-full px-2 py-0.5 text-micro font-medium",
               isUat ? "bg-amber-200/80 text-amber-800" : "bg-emerald-200/80 text-emerald-800",
             )}
           >
@@ -240,7 +240,7 @@ const KindSection = memo(function KindSection({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 shrink-0 px-2 text-[11px]"
+          className="h-7 shrink-0 px-2 text-caption"
           onClick={copySection}
         >
           <Copy className="h-3.5 w-3.5" />
@@ -360,7 +360,7 @@ export function TimelineSummaryView({
                 key={group.dateKey}
                 type="button"
                 onClick={() => jumpToDay(group.dateKey)}
-                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-primary/40 hover:bg-white hover:text-primary"
+                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-caption font-medium text-slate-600 transition hover:border-primary/40 hover:bg-white hover:text-primary"
               >
                 {formatDayChip(group.date)}
                 <span className="text-slate-400">

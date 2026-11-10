@@ -307,7 +307,7 @@ export function PlanUatImportDialog({
             <div>
               <label
                 htmlFor="plan-uat-field"
-                className="mb-1 block text-[11px] font-medium tracking-wide text-slate-500 uppercase"
+                className="mb-1 block text-caption font-medium tracking-wide text-slate-500 uppercase"
               >
                 ใช้วันที่
               </label>

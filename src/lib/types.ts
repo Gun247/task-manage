@@ -102,6 +102,7 @@ export interface Task {
 
 export interface TaskFilters {
   search: string;
+  statusId: string;
   priorityId: string;
   assigneeId: string;
   taskType: string;

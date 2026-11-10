@@ -46,7 +46,7 @@ export function TaskTypeMultiSelect({
             className={cn(
               "inline-flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition",
               checked
-                ? "bg-[#1E3A5F]/08 font-medium text-[#1E3A5F]"
+                ? "bg-primary/10 font-medium text-primary-dark"
                 : "text-slate-700 hover:bg-slate-50",
             )}
           >
@@ -54,7 +54,7 @@ export function TaskTypeMultiSelect({
               type="checkbox"
               checked={checked}
               onChange={() => toggle(option.name)}
-              className="h-4 w-4 rounded border-slate-300 text-[#1E3A5F] focus:ring-[#1E3A5F]/30"
+              className="h-4 w-4 rounded border-slate-300 text-primary accent-primary focus:ring-primary/30"
             />
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"

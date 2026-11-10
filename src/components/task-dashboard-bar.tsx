@@ -38,7 +38,7 @@ export function TaskDashboardBar({
             <ListTodo className="h-4 w-4" />
           </span>
           <div>
-            <p className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+            <p className="text-caption font-medium tracking-wide text-slate-500 uppercase">
               ทั้งหมด
             </p>
             <p className="text-xl font-bold text-primary">{total}</p>
@@ -50,7 +50,7 @@ export function TaskDashboardBar({
             <CheckCircle2 className="h-4 w-4" />
           </span>
           <div>
-            <p className="text-[11px] font-medium tracking-wide text-emerald-700/70 uppercase">
+            <p className="text-caption font-medium tracking-wide text-emerald-700/70 uppercase">
               เสร็จแล้ว
             </p>
             <p className="text-xl font-bold text-emerald-700">{done}</p>
@@ -74,7 +74,7 @@ export function TaskDashboardBar({
           <div>
             <p
               className={cn(
-                "text-[11px] font-medium tracking-wide uppercase",
+                "text-caption font-medium tracking-wide uppercase",
                 overdue > 0 ? "text-red-700/70" : "text-slate-500",
               )}
             >

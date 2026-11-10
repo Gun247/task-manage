@@ -64,6 +64,7 @@ export function TasksPageContent() {
   const [view, setView] = useState<ViewMode>("list");
   const [filters, setFilters] = useState<TaskFilters>({
     search: "",
+    statusId: "",
     priorityId: "",
     assigneeId: "",
     taskType: "",
@@ -181,6 +182,9 @@ export function TasksPageContent() {
       ) {
         return false;
       }
+      if (filters.statusId && task.statusId !== filters.statusId) {
+        return false;
+      }
       if (filters.priorityId && task.priorityId !== filters.priorityId) {
         return false;
       }
@@ -215,16 +219,19 @@ export function TasksPageContent() {
   }, [tasks, filters, sortMode, statuses, view]);
 
   async function handleStatusChange(taskId: string, statusId: string) {
+    const previous = tasks.find((task) => task.id === taskId);
+    const nextStatus = statuses.find((item) => item.id === statusId);
+    if (!previous || !nextStatus || previous.statusId === statusId) return;
+
     const changedAt = new Date().toISOString();
+    setImportMessage(null);
     setTasks((current) =>
       current.map((task) => {
         if (task.id !== taskId) return task;
-        const status = statuses.find((item) => item.id === statusId);
-        if (!status || task.statusId === statusId) return task;
         return {
           ...task,
           statusId,
-          status,
+          status: nextStatus,
           statusHistory: [
             ...(task.statusHistory ?? []),
             {
@@ -233,7 +240,7 @@ export function TasksPageContent() {
               fromStatusId: task.statusId,
               fromStatusName: task.status.name,
               toStatusId: statusId,
-              toStatusName: status.name,
+              toStatusName: nextStatus.name,
               changedAt,
             },
           ],
@@ -257,6 +264,10 @@ export function TasksPageContent() {
       );
     } else {
       await loadData();
+      setImportMessage({
+        tone: "error",
+        text: `บันทึกสถานะของ "${previous.name}" ไม่สำเร็จ — คืนค่าเดิมแล้ว`,
+      });
     }
   }
 
@@ -320,7 +331,7 @@ export function TasksPageContent() {
     <AppShell>
       <div
         className={cn(
-          (view === "kanban" || view === "list") &&
+          (view === "kanban" || view === "list" || view === "calendar") &&
             "flex h-full min-h-0 flex-col overflow-hidden",
         )}
       >
@@ -422,6 +433,23 @@ export function TasksPageContent() {
                 }
               />
             </div>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-36"
+              value={filters.statusId}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  statusId: event.target.value,
+                }))
+              }
+            >
+              <option value="">สถานะ</option>
+              {statuses.map((status) => (
+                <option key={status.id} value={status.id}>
+                  {status.name}
+                </option>
+              ))}
+            </Select>
             <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
               value={filters.priorityId}
@@ -525,7 +553,7 @@ export function TasksPageContent() {
       <main
         className={cn(
           "relative w-full px-4 py-6 lg:px-6",
-          (view === "kanban" || view === "list") &&
+          (view === "kanban" || view === "list" || view === "calendar") &&
             "flex min-h-0 flex-1 flex-col overflow-hidden py-4",
         )}
       >
@@ -576,7 +604,7 @@ export function TasksPageContent() {
           <div
             className={cn(
               "relative min-h-[280px] space-y-4",
-              (view === "kanban" || view === "list") &&
+              (view === "kanban" || view === "list" || view === "calendar") &&
                 "flex min-h-0 flex-1 flex-col",
             )}
           >
@@ -584,7 +612,9 @@ export function TasksPageContent() {
               tasks={tasks}
               statuses={statuses}
               className={
-                view === "kanban" || view === "list" ? "shrink-0" : undefined
+                view === "kanban" || view === "list" || view === "calendar"
+                  ? "shrink-0"
+                  : undefined
               }
             />
             {tasksLoading ? (
@@ -600,6 +630,7 @@ export function TasksPageContent() {
                   taskTypes={taskTypes}
                   projectId={selectedProjectId}
                   onEditTask={openEditTask}
+                  onStatusChange={handleStatusChange}
                   onTaskUpdated={handleTaskUpdated}
                   onSaved={handleSaved}
                   focusCreateTrigger={focusCreateTrigger}
@@ -616,11 +647,13 @@ export function TasksPageContent() {
                 />
               </div>
             ) : (
-              <TaskCalendarView
-                tasks={filteredTasks}
-                taskTypes={taskTypes}
-                onEditTask={openEditTask}
-              />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <TaskCalendarView
+                  tasks={filteredTasks}
+                  taskTypes={taskTypes}
+                  onEditTask={openEditTask}
+                />
+              </div>
             )}
           </div>
         )}

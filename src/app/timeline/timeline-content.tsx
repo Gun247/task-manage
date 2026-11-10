@@ -271,21 +271,21 @@ export default function TimelinePageContent() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                <p className="flex items-center gap-1 text-caption font-medium text-slate-500">
                   <CalendarRange className="h-3.5 w-3.5" />
                   วันใน timeline
                 </p>
                 <StatValue loading={statsLoading} value={dayCount} />
               </div>
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                <p className="flex items-center gap-1 text-caption font-medium text-amber-700">
                   <ListFilter className="h-3.5 w-3.5" />
                   UAT
                 </p>
                 <StatValue loading={statsLoading} value={uatCount} />
               </div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
-                <p className="flex items-center gap-1 text-[11px] font-medium text-emerald-700">
+                <p className="flex items-center gap-1 text-caption font-medium text-emerald-700">
                   <Zap className="h-3.5 w-3.5" />
                   PRD
                 </p>
