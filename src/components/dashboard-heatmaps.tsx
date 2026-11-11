@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   eachDayOfInterval,
   endOfDay,
@@ -16,6 +16,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { th } from "date-fns/locale";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 import { Select } from "@/components/ui/input";
 import type { Project, Status, Task, TeamMember } from "@/lib/types";
@@ -182,9 +183,93 @@ function TaskFrequencyHeatmap({
     return day >= safeStart && day <= safeEnd;
   };
 
+  const CELL_MIN_PX = 14;
+  const LABEL_W_PX = 24;
+  const GAP_PX = 4;
+  const weekCols = `1.5rem repeat(${weeks.length}, minmax(${CELL_MIN_PX}px, 1fr))`;
+  const weekdays = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"];
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [windowLabel, setWindowLabel] = useState("");
+  const needsCarousel = weeks.length > 14;
+
+  const updateCarouselState = () => {
+    const node = scrollRef.current;
+    if (!node) return;
+    const maxScroll = Math.max(0, node.scrollWidth - node.clientWidth);
+    const left = node.scrollLeft;
+    setCanScrollLeft(left > 2);
+    setCanScrollRight(left < maxScroll - 2);
+
+    if (!needsCarousel || weeks.length === 0) {
+      setWindowLabel("");
+      return;
+    }
+
+    const contentWidth = Math.max(
+      node.clientWidth,
+      LABEL_W_PX + weeks.length * (CELL_MIN_PX + GAP_PX),
+    );
+    const weekTrack = Math.max(1, contentWidth - LABEL_W_PX);
+    const weekWidth = weekTrack / weeks.length;
+    const startIndex = Math.max(
+      0,
+      Math.min(
+        weeks.length - 1,
+        Math.floor(Math.max(0, left) / weekWidth),
+      ),
+    );
+    const visibleCount = Math.max(
+      1,
+      Math.floor((node.clientWidth - LABEL_W_PX) / weekWidth),
+    );
+    const endIndex = Math.min(weeks.length - 1, startIndex + visibleCount - 1);
+    const startDay = weeks[startIndex]?.[0];
+    const endDay = weeks[endIndex]?.[6] ?? weeks[endIndex]?.[0];
+    if (!startDay || !endDay) {
+      setWindowLabel("");
+      return;
+    }
+    setWindowLabel(
+      `${format(startDay, "d MMM yyyy", { locale: th })} – ${format(endDay, "d MMM yyyy", { locale: th })}`,
+    );
+  };
+
+  const scrollByPage = (direction: -1 | 1) => {
+    const node = scrollRef.current;
+    if (!node) return;
+    const amount = Math.max(node.clientWidth * 0.72, CELL_MIN_PX * 8);
+    node.scrollBy({ left: direction * amount, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollLeft = node.scrollWidth;
+    const frame = requestAnimationFrame(updateCarouselState);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-anchor when range/weeks change
+  }, [rangeStart, rangeEnd, weeks.length, needsCarousel]);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    updateCarouselState();
+    const onScroll = () => updateCarouselState();
+    node.addEventListener("scroll", onScroll, { passive: true });
+    const observer = new ResizeObserver(() => updateCarouselState());
+    observer.observe(node);
+    return () => {
+      node.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weeks.length, needsCarousel]);
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-800">
             ความถี่ Task ตามวัน
@@ -214,46 +299,110 @@ function TaskFrequencyHeatmap({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="inline-block min-w-full">
+      <div className="relative min-h-0 flex-1">
+        {needsCarousel ? (
+          <>
+            <button
+              type="button"
+              aria-label="เลื่อนย้อนหลัง"
+              disabled={!canScrollLeft}
+              onClick={() => scrollByPage(-1)}
+              className={cn(
+                "absolute left-0 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition",
+                canScrollLeft
+                  ? "hover:border-primary/30 hover:text-primary"
+                  : "pointer-events-none opacity-0",
+              )}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="เลื่อนไปข้างหน้า"
+              disabled={!canScrollRight}
+              onClick={() => scrollByPage(1)}
+              className={cn(
+                "absolute right-0 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition",
+                canScrollRight
+                  ? "hover:border-primary/30 hover:text-primary"
+                  : "pointer-events-none opacity-0",
+              )}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent transition-opacity",
+                canScrollLeft ? "opacity-100" : "opacity-0",
+              )}
+            />
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent transition-opacity",
+                canScrollRight ? "opacity-100" : "opacity-0",
+              )}
+            />
+          </>
+        ) : null}
+
+        <div
+          ref={scrollRef}
+          className={cn(
+            "h-full min-h-[12rem] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            needsCarousel && "px-1",
+          )}
+        >
           <div
-            className="mb-1 grid gap-1"
+            className="flex h-full min-h-[12rem] flex-col gap-1"
             style={{
-              gridTemplateColumns: `1.5rem repeat(${weeks.length}, minmax(0, 1fr))`,
+              minWidth: `max(100%, calc(${LABEL_W_PX}px + ${weeks.length} * (${CELL_MIN_PX}px + ${GAP_PX}px)))`,
             }}
           >
-            <span />
-            {weeks.map((_, weekIndex) => {
-              const month = monthLabels.find(
-                (item) => item.weekIndex === weekIndex,
-              );
-              return (
-                <span
-                  key={`month-${weekIndex}`}
-                  className="text-center text-micro text-slate-400"
-                >
-                  {month?.label ?? ""}
-                </span>
-              );
-            })}
-          </div>
+            <div
+              className="grid shrink-0 gap-1"
+              style={{ gridTemplateColumns: weekCols }}
+            >
+              <span className="sticky left-0 z-10 bg-white" />
+              {weeks.map((_, weekIndex) => {
+                const month = monthLabels.find(
+                  (item) => item.weekIndex === weekIndex,
+                );
+                return (
+                  <span
+                    key={`month-${weekIndex}`}
+                    className="truncate text-center text-micro text-slate-400"
+                  >
+                    {month?.label ?? ""}
+                  </span>
+                );
+              })}
+            </div>
 
-          <div className="grid gap-1">
-            {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((weekday, rowIndex) => (
-              <div
-                key={weekday}
-                className="grid items-center gap-1"
-                style={{
-                  gridTemplateColumns: `1.5rem repeat(${weeks.length}, minmax(0, 1fr))`,
-                }}
-              >
-                <span className="text-right text-micro text-slate-400">
-                  {rowIndex % 2 === 0 ? weekday : ""}
-                </span>
-                {weeks.map((week, weekIndex) => {
+            <div
+              className="grid min-h-0 flex-1 gap-1"
+              style={{
+                gridTemplateColumns: weekCols,
+                gridTemplateRows: `repeat(${weekdays.length}, minmax(0, 1fr))`,
+              }}
+            >
+              {weekdays.flatMap((weekday, rowIndex) => {
+                const label = (
+                  <span
+                    key={`label-${weekday}`}
+                    className="sticky left-0 z-10 flex items-center justify-end bg-white pr-1 text-micro text-slate-400"
+                  >
+                    {rowIndex % 2 === 0 ? weekday : ""}
+                  </span>
+                );
+                const cells = weeks.map((week, weekIndex) => {
                   const day = week[rowIndex];
                   if (!day) {
-                    return <span key={`empty-${weekIndex}-${rowIndex}`} />;
+                    return (
+                      <span
+                        key={`empty-${weekIndex}-${rowIndex}`}
+                        className="min-h-[12px] rounded-[3px]"
+                      />
+                    );
                   }
                   const key = toDayKey(day) ?? "";
                   const count = counts.get(key) ?? 0;
@@ -268,29 +417,39 @@ function TaskFrequencyHeatmap({
                           : `${format(day, "d MMM yyyy", { locale: th })} · นอกช่วงที่เลือก`
                       }
                       className={cn(
-                        "aspect-square w-full min-w-[10px] rounded-[3px]",
+                        "min-h-[12px] rounded-[3px]",
                         selected
                           ? intensityClass(count, maxCount)
                           : "bg-slate-50 opacity-40",
-                        isToday && selected && "ring-1 ring-primary/50 ring-offset-1",
+                        isToday &&
+                          selected &&
+                          "ring-1 ring-primary/50 ring-offset-1",
                       )}
                     />
                   );
-                })}
-              </div>
-            ))}
+                });
+                return [label, ...cells];
+              })}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-end gap-1.5 text-micro text-slate-400">
-        <span>น้อย</span>
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-slate-100" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_18%,white)]" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_35%,white)]" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_55%,white)]" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_78%,white)]" />
-        <span>มาก</span>
+      <div className="mt-3 flex shrink-0 items-center justify-between gap-2 text-micro text-slate-400">
+        {needsCarousel && windowLabel ? (
+          <span className="truncate">{windowLabel}</span>
+        ) : (
+          <span />
+        )}
+        <span className="inline-flex shrink-0 items-center gap-1.5">
+          <span>น้อย</span>
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-slate-100" />
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_18%,white)]" />
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_35%,white)]" />
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_55%,white)]" />
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_78%,white)]" />
+          <span>มาก</span>
+        </span>
       </div>
     </section>
   );
@@ -364,9 +523,9 @@ function PeopleWorkloadMatrix({
 
   if (members.length === 0) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-800">โหลดงานต่อคน</h2>
-        <p className="mt-6 rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
+        <p className="mt-6 flex flex-1 items-center justify-center rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
           ไม่มี assignee ในช่วงวันที่เลือก
         </p>
       </section>
@@ -374,15 +533,15 @@ function PeopleWorkloadMatrix({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4">
+    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 shrink-0">
         <h2 className="text-sm font-semibold text-slate-800">โหลดงานต่อคน</h2>
         <p className="mt-0.5 text-xs text-slate-500">
           Task ที่มี Activity/UAT/PRD ในช่วงที่เลือก · สถานะปัจจุบัน
         </p>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <table className="w-full min-w-[28rem] border-separate border-spacing-1 text-sm">
           <thead>
             <tr>
@@ -590,7 +749,7 @@ export function DashboardHeatmaps({
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid items-stretch gap-6 xl:grid-cols-2">
         <TaskFrequencyHeatmap
           tasks={filteredTasks}
           rangeStart={rangeStart}

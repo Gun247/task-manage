@@ -46,7 +46,7 @@ export function ProjectSwitcher({
         onClick={() => setOpen((current) => !current)}
         disabled={projects.length === 0}
         className={cn(
-          "flex h-9 min-w-[200px] max-w-[280px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 min-w-[200px] max-w-[280px] items-center gap-2 rounded-xl border border-slate-200 bg-white py-0 pr-2 pl-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
           open && "border-primary/40 ring-2 ring-primary/10",
         )}
       >
@@ -61,14 +61,16 @@ export function ProjectSwitcher({
             </span>
           </>
         ) : (
-          <span className="flex-1 text-slate-400">เลือกโปรเจกต์</span>
+          <span className="min-w-0 flex-1 text-slate-400">เลือกโปรเจกต์</span>
         )}
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-slate-400 transition",
-            open && "rotate-180",
-          )}
-        />
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400">
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 transition",
+              open && "rotate-180",
+            )}
+          />
+        </span>
       </button>
 
       {open ? (

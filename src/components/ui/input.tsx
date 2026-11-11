@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Input = forwardRef<
@@ -46,15 +47,25 @@ export function Label({
 
 export function Select({
   className,
+  style,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select
+    <span
       className={cn(
-        "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-0 text-sm leading-10 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+        "relative inline-flex h-10 w-full min-w-0 items-center overflow-hidden rounded-lg border border-slate-200 bg-white text-sm text-slate-900 focus-within:ring-2 focus-within:ring-primary/20",
         className,
       )}
-      {...props}
-    />
+      style={style}
+    >
+      <select
+        className="h-full w-full cursor-pointer appearance-none bg-transparent py-0 pr-9 pl-3 text-inherit outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        {...props}
+      />
+      <ChevronDown
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 right-2.5 h-3.5 w-3.5 -translate-y-1/2 text-current opacity-55"
+      />
+    </span>
   );
 }

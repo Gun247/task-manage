@@ -672,7 +672,7 @@ export function TaskListView({
                     >
                       <Select
                         aria-label={`สถานะของ ${task.name}`}
-                        className="h-6 min-w-[5.5rem] max-w-[7.5rem] rounded-md border-0 px-1.5 py-0 text-micro font-medium leading-6 focus-visible:ring-1 focus-visible:ring-primary/30"
+                        className="h-6 min-w-[5.5rem] max-w-[7.5rem] rounded-md border-0 py-0 pl-1.5 text-micro font-medium leading-6 focus-visible:ring-1 focus-visible:ring-primary/30"
                         style={{
                           backgroundColor: `${task.status.color}1a`,
                           color: task.status.color,
@@ -850,7 +850,7 @@ export function TaskListView({
               <div className="flex items-center gap-1.5 rounded-full bg-white/10 p-1">
                 <Select
                   aria-label="เปลี่ยนสถานะรายการที่เลือก"
-                  className="h-8 min-w-[8.5rem] rounded-full border-0 bg-white px-3 py-0 text-sm leading-8 text-slate-900 shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-[9.5rem]"
+                  className="h-8 min-w-[8.5rem] rounded-full border-0 bg-white py-0 pl-3 text-sm leading-8 text-slate-900 shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-[9.5rem]"
                   value={bulkStatusId}
                   disabled={busy}
                   onChange={(event) => {

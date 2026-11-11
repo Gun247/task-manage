@@ -191,7 +191,7 @@ export function TaskInlineCreate({
       onSubmit={handleSubmit}
       className={cn(
         "flex flex-col border-b border-primary/15 bg-primary/5",
-        expanded && "max-h-[min(58vh,36rem)]",
+        expanded && "h-[min(58vh,36rem)] max-h-[min(58vh,36rem)]",
       )}
     >
       <div className="flex shrink-0 min-w-0 items-center gap-2 px-4 py-2">
