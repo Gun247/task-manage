@@ -22,6 +22,7 @@ export type ExcelProject = {
   name: string;
   description: string;
   color: string;
+  theme: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -133,6 +134,7 @@ const projectsTable = new ExcelTable<ExcelProject>("Projects", [
   "name",
   "description",
   "color",
+  "theme",
   "sortOrder",
   "createdAt",
   "updatedAt",
@@ -506,6 +508,7 @@ export async function createProject(data: {
   name: string;
   description?: string;
   color?: string;
+  theme?: string;
 }) {
   const sortOrder = (await projectsTable.maxOf("sortOrder")) + 1;
   return projectsTable.create({
@@ -513,13 +516,16 @@ export async function createProject(data: {
     name: data.name,
     description: data.description ?? "",
     color: data.color ?? "#6BB82A",
+    theme: data.theme ?? "clean",
     sortOrder,
   });
 }
 
 export async function updateProject(
   id: string,
-  data: Partial<Pick<ExcelProject, "name" | "description" | "color" | "sortOrder">>,
+  data: Partial<
+    Pick<ExcelProject, "name" | "description" | "color" | "theme" | "sortOrder">
+  >,
 ) {
   return projectsTable.update(id, data);
 }
@@ -1344,6 +1350,7 @@ export async function seedDefaultData() {
       name: "FWF Task Manager",
       description: "Foreigner Worker Fund",
       color: "#6BB82A",
+      theme: "grass",
       sortOrder: 0,
     });
   }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ClipboardList } from "lucide-react";
+import { themeAccentColor } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ export function ProjectCard({
   showManageLink = false,
 }: ProjectCardProps) {
   const taskCount = project._count?.tasks ?? 0;
+  const accent = themeAccentColor(project.theme) || project.color;
 
   return (
     <div
@@ -25,7 +27,7 @@ export function ProjectCard({
     >
       <div
         className="h-1.5 w-full"
-        style={{ backgroundColor: project.color }}
+        style={{ backgroundColor: accent }}
       />
 
       <div className="p-5">
@@ -34,7 +36,7 @@ export function ProjectCard({
             <div className="flex items-center gap-2">
               <span
                 className="h-3 w-3 shrink-0 rounded-full"
-                style={{ backgroundColor: project.color }}
+                style={{ backgroundColor: accent }}
               />
               <h3 className="truncate text-base font-semibold text-slate-900">
                 {project.name}

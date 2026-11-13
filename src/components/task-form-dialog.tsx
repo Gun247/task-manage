@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
@@ -18,6 +19,7 @@ import {
 import { SubtaskAssigneePicker } from "@/components/subtask-assignee-picker";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { TextLinks } from "@/components/ui/linkified-text";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import type {
   Priority,
@@ -77,6 +79,7 @@ export function TaskFormDialog({
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
   const [newSubtaskName, setNewSubtaskName] = useState("");
@@ -168,10 +171,6 @@ export function TaskFormDialog({
 
   async function handleDelete() {
     if (!task || deleting || saving) return;
-    const confirmed = window.confirm(
-      `ลบ task "${task.name}"?\nการลบนี้ย้อนกลับไม่ได้`,
-    );
-    if (!confirmed) return;
 
     setDeleting(true);
     try {
@@ -185,6 +184,7 @@ export function TaskFormDialog({
         window.alert(data?.error ?? "ลบ task ไม่สำเร็จ");
         return;
       }
+      setDeleteConfirmOpen(false);
       onSaved();
       onOpenChange(false);
     } finally {
@@ -506,13 +506,14 @@ export function TaskFormDialog({
               />
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-3 border-t border-slate-100 pt-3">
               <div>
                 <Label htmlFor="description" className={fieldLabelClass}>
                   Description
                 </Label>
                 <Textarea
                   id="description"
+                  placeholder="รายละเอียดงาน ขอบเขต หรือขั้นตอนที่เกี่ยวข้อง"
                   value={form.description}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -520,8 +521,10 @@ export function TaskFormDialog({
                       description: event.target.value,
                     }))
                   }
-                  className="min-h-[72px]"
+                  rows={6}
+                  className="min-h-[9rem] resize-y leading-relaxed"
                 />
+                <TextLinks text={form.description} />
               </div>
               <div>
                 <Label htmlFor="remarks" className={fieldLabelClass}>
@@ -529,6 +532,7 @@ export function TaskFormDialog({
                 </Label>
                 <Textarea
                   id="remarks"
+                  placeholder="หมายเหตุสั้น ๆ เช่น รอบ UAT / จากตึก / ข้อสังเกต"
                   value={form.remarks}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -536,8 +540,10 @@ export function TaskFormDialog({
                       remarks: event.target.value,
                     }))
                   }
-                  className="min-h-[72px]"
+                  rows={3}
+                  className="min-h-[5.5rem] resize-y leading-relaxed"
                 />
+                <TextLinks text={form.remarks} />
               </div>
             </div>
 
@@ -727,7 +733,7 @@ export function TaskFormDialog({
                 size="sm"
                 className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                 disabled={saving || deleting}
-                onClick={() => void handleDelete()}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 <LoadingButtonContent
                   loading={deleting}
@@ -762,6 +768,16 @@ export function TaskFormDialog({
           </div>
         </form>
       </DialogContent>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={`ลบ task "${task?.name ?? ""}"?`}
+        description="การลบนี้ย้อนกลับไม่ได้"
+        confirmLabel="ลบ"
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
     </Dialog>
   );
 }

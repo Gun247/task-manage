@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProject, getDatabaseMode, listProjects, seedDefaultData } from "@/lib/db";
+import { themeAccentColor } from "@/lib/themes";
 
 export async function GET() {
   try {
@@ -28,10 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Project name is required" }, { status: 400 });
     }
 
+    const theme = body.theme;
     const project = await createProject({
       name: body.name.trim(),
       description: body.description?.trim(),
-      color: body.color,
+      theme,
+      color: themeAccentColor(theme),
     });
 
     return NextResponse.json(project, { status: 201 });

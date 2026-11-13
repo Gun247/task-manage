@@ -19,6 +19,7 @@ import { th } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 import { Select } from "@/components/ui/input";
+import { themeAccentColor } from "@/lib/themes";
 import type { Project, Status, Task, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -26,11 +27,89 @@ type FrequencyMode = "activity" | "uat" | "prd";
 type RangePreset = "4w" | "8w" | "12w" | "custom";
 
 const WEEK_STARTS_ON = 1 as const;
+const FALLBACK_ACCENT = "#334155";
+
+function projectAccent(project: Project | undefined | null) {
+  if (!project) return FALLBACK_ACCENT;
+  return themeAccentColor(project.theme) || project.color || FALLBACK_ACCENT;
+}
+
+function mixAccent(accent: string, percent: number) {
+  return `color-mix(in srgb, ${accent} ${percent}%, white)`;
+}
+
+function intensityStyle(
+  count: number,
+  max: number,
+  accent: string,
+): { className: string; style?: { backgroundColor: string } } {
+  if (count <= 0 || max <= 0) {
+    return { className: "bg-slate-100" };
+  }
+  const ratio = count / max;
+  const percent =
+    ratio <= 0.25 ? 18 : ratio <= 0.5 ? 35 : ratio <= 0.75 ? 55 : 78;
+  return {
+    className: "",
+    style: { backgroundColor: mixAccent(accent, percent) },
+  };
+}
+
+function cellToneStyle(
+  count: number,
+  max: number,
+  accent: string,
+): { className: string; style?: { backgroundColor: string; color?: string } } {
+  if (count <= 0 || max <= 0) {
+    return { className: "bg-slate-100 text-slate-400" };
+  }
+  const ratio = count / max;
+  if (ratio <= 0.25) {
+    return {
+      className: "text-slate-700",
+      style: { backgroundColor: mixAccent(accent, 14) },
+    };
+  }
+  if (ratio <= 0.5) {
+    return {
+      className: "text-slate-800",
+      style: { backgroundColor: mixAccent(accent, 28) },
+    };
+  }
+  if (ratio <= 0.75) {
+    return {
+      className: "text-white",
+      style: { backgroundColor: mixAccent(accent, 48) },
+    };
+  }
+  return {
+    className: "text-white",
+    style: { backgroundColor: mixAccent(accent, 72) },
+  };
+}
 
 function toDayKey(value: string | Date) {
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return null;
   return format(startOfDay(date), "yyyy-MM-dd");
+}
+
+/** Empty Clear on `<input type="date">` yields ""; parseISO then crashes format(). */
+function parseDayKey(value: string): Date | null {
+  if (!value.trim()) return null;
+  const date = parseISO(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function resolveDayRange(rangeStart: string, rangeEnd: string) {
+  const parsedStart = parseDayKey(rangeStart);
+  const parsedEnd = parseDayKey(rangeEnd);
+  if (!parsedStart || !parsedEnd) return null;
+  return {
+    start: startOfDay(minDate([parsedStart, parsedEnd])),
+    end: endOfDay(maxDate([parsedStart, parsedEnd])),
+  };
 }
 
 function rangeFromWeeks(weeks: number) {
@@ -68,53 +147,51 @@ function taskTouchesRange(task: Task, start: Date, end: Date) {
   });
 }
 
-function intensityClass(count: number, max: number) {
-  if (count <= 0 || max <= 0) {
-    return "bg-slate-100";
-  }
-  const ratio = count / max;
-  if (ratio <= 0.25) return "bg-[color-mix(in_srgb,var(--primary)_18%,white)]";
-  if (ratio <= 0.5) return "bg-[color-mix(in_srgb,var(--primary)_35%,white)]";
-  if (ratio <= 0.75) return "bg-[color-mix(in_srgb,var(--primary)_55%,white)]";
-  return "bg-[color-mix(in_srgb,var(--primary)_78%,white)]";
-}
-
-function cellTone(count: number, max: number) {
-  if (count <= 0 || max <= 0) {
-    return "bg-slate-100 text-slate-400";
-  }
-  const ratio = count / max;
-  if (ratio <= 0.25) {
-    return "bg-[color-mix(in_srgb,var(--primary)_14%,white)] text-slate-700";
-  }
-  if (ratio <= 0.5) {
-    return "bg-[color-mix(in_srgb,var(--primary)_28%,white)] text-slate-800";
-  }
-  if (ratio <= 0.75) {
-    return "bg-[color-mix(in_srgb,var(--primary)_48%,white)] text-white";
-  }
-  return "bg-[color-mix(in_srgb,var(--primary)_72%,white)] text-white";
-}
-
 function TaskFrequencyHeatmap({
   tasks,
+  projects,
+  accentColor,
   rangeStart,
   rangeEnd,
   mode,
   onModeChange,
 }: {
   tasks: Task[];
+  projects: Project[];
+  accentColor: string;
   rangeStart: string;
   rangeEnd: string;
   mode: FrequencyMode;
   onModeChange: (mode: FrequencyMode) => void;
 }) {
-  const { counts, maxCount, weeks, monthLabels, totalEvents } =
-    useMemo(() => {
-      const rawStart = startOfDay(parseISO(rangeStart));
-      const rawEnd = endOfDay(parseISO(rangeEnd));
-      const safeStart = minDate([rawStart, rawEnd]);
-      const safeEnd = maxDate([rawStart, rawEnd]);
+  const projectById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
+    [projects],
+  );
+
+  const {
+    counts,
+    dayAccent,
+    maxCount,
+    weeks,
+    monthLabels,
+    totalEvents,
+    hasRange,
+  } = useMemo(() => {
+      const range = resolveDayRange(rangeStart, rangeEnd);
+      if (!range) {
+        return {
+          counts: new Map<string, number>(),
+          dayAccent: new Map<string, string>(),
+          maxCount: 0,
+          weeks: [] as Date[][],
+          monthLabels: [] as { label: string; weekIndex: number }[],
+          totalEvents: 0,
+          hasRange: false,
+        };
+      }
+
+      const { start: safeStart, end: safeEnd } = range;
       const gridStart = startOfWeek(safeStart, {
         weekStartsOn: WEEK_STARTS_ON,
       });
@@ -122,6 +199,8 @@ function TaskFrequencyHeatmap({
       const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
       const counts = new Map<string, number>();
+      const dayProjectCounts = new Map<string, Map<string, number>>();
+
       for (const task of tasks) {
         const seen = new Set<string>();
         for (const raw of taskDatesForMode(task, mode)) {
@@ -133,7 +212,33 @@ function TaskFrequencyHeatmap({
           }
           seen.add(key);
           counts.set(key, (counts.get(key) ?? 0) + 1);
+
+          let byProject = dayProjectCounts.get(key);
+          if (!byProject) {
+            byProject = new Map();
+            dayProjectCounts.set(key, byProject);
+          }
+          byProject.set(
+            task.projectId,
+            (byProject.get(task.projectId) ?? 0) + 1,
+          );
         }
+      }
+
+      const dayAccent = new Map<string, string>();
+      for (const [key, byProject] of dayProjectCounts) {
+        let bestId = "";
+        let bestCount = -1;
+        for (const [projectId, count] of byProject) {
+          if (count > bestCount) {
+            bestCount = count;
+            bestId = projectId;
+          }
+        }
+        dayAccent.set(
+          key,
+          projectAccent(projectById.get(bestId)) || accentColor,
+        );
       }
 
       let maxCount = 0;
@@ -166,8 +271,16 @@ function TaskFrequencyHeatmap({
         }
       });
 
-      return { counts, maxCount, weeks, monthLabels, totalEvents };
-    }, [tasks, mode, rangeStart, rangeEnd]);
+      return {
+        counts,
+        dayAccent,
+        maxCount,
+        weeks,
+        monthLabels,
+        totalEvents,
+        hasRange: true,
+      };
+    }, [tasks, mode, rangeStart, rangeEnd, projectById, accentColor]);
 
   const modes: { id: FrequencyMode; label: string }[] = [
     { id: "activity", label: "Activity" },
@@ -176,10 +289,10 @@ function TaskFrequencyHeatmap({
   ];
 
   const inSelectedRange = (day: Date) => {
-    const start = startOfDay(parseISO(rangeStart));
-    const end = startOfDay(parseISO(rangeEnd));
-    const safeStart = minDate([start, end]);
-    const safeEnd = maxDate([start, end]);
+    const range = resolveDayRange(rangeStart, rangeEnd);
+    if (!range) return false;
+    const safeStart = startOfDay(range.start);
+    const safeEnd = startOfDay(range.end);
     return day >= safeStart && day <= safeEnd;
   };
 
@@ -275,9 +388,15 @@ function TaskFrequencyHeatmap({
             ความถี่ Task ตามวัน
           </h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            {format(parseISO(rangeStart), "d MMM yyyy", { locale: th })} –{" "}
-            {format(parseISO(rangeEnd), "d MMM yyyy", { locale: th })} ·{" "}
-            {totalEvents} รายการ
+            {hasRange ? (
+              <>
+                {format(parseISO(rangeStart), "d MMM yyyy", { locale: th })} –{" "}
+                {format(parseISO(rangeEnd), "d MMM yyyy", { locale: th })} ·{" "}
+                {totalEvents} รายการ
+              </>
+            ) : (
+              "เลือกวันเริ่มและวันสิ้นสุด"
+            )}
           </p>
         </div>
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -300,139 +419,162 @@ function TaskFrequencyHeatmap({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {needsCarousel ? (
+        {!hasRange ? (
+          <div className="flex h-full min-h-[12rem] items-center justify-center rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
+            เลือกวันเริ่มและวันสิ้นสุดเพื่อแสดง heatmap
+          </div>
+        ) : (
           <>
-            <button
-              type="button"
-              aria-label="เลื่อนย้อนหลัง"
-              disabled={!canScrollLeft}
-              onClick={() => scrollByPage(-1)}
-              className={cn(
-                "absolute left-0 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition",
-                canScrollLeft
-                  ? "hover:border-primary/30 hover:text-primary"
-                  : "pointer-events-none opacity-0",
-              )}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="เลื่อนไปข้างหน้า"
-              disabled={!canScrollRight}
-              onClick={() => scrollByPage(1)}
-              className={cn(
-                "absolute right-0 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition",
-                canScrollRight
-                  ? "hover:border-primary/30 hover:text-primary"
-                  : "pointer-events-none opacity-0",
-              )}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <div
-              className={cn(
-                "pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent transition-opacity",
-                canScrollLeft ? "opacity-100" : "opacity-0",
-              )}
-            />
-            <div
-              className={cn(
-                "pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent transition-opacity",
-                canScrollRight ? "opacity-100" : "opacity-0",
-              )}
-            />
-          </>
-        ) : null}
-
-        <div
-          ref={scrollRef}
-          className={cn(
-            "h-full min-h-[12rem] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            needsCarousel && "px-1",
-          )}
-        >
-          <div
-            className="flex h-full min-h-[12rem] flex-col gap-1"
-            style={{
-              minWidth: `max(100%, calc(${LABEL_W_PX}px + ${weeks.length} * (${CELL_MIN_PX}px + ${GAP_PX}px)))`,
-            }}
-          >
-            <div
-              className="grid shrink-0 gap-1"
-              style={{ gridTemplateColumns: weekCols }}
-            >
-              <span className="sticky left-0 z-10 bg-white" />
-              {weeks.map((_, weekIndex) => {
-                const month = monthLabels.find(
-                  (item) => item.weekIndex === weekIndex,
-                );
-                return (
-                  <span
-                    key={`month-${weekIndex}`}
-                    className="truncate text-center text-micro text-slate-400"
-                  >
-                    {month?.label ?? ""}
-                  </span>
-                );
-              })}
-            </div>
+            {needsCarousel ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="เลื่อนย้อนหลัง"
+                  disabled={!canScrollLeft}
+                  onClick={() => scrollByPage(-1)}
+                  className={cn(
+                    "absolute left-0 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition",
+                    canScrollLeft
+                      ? "hover:border-primary/30 hover:text-primary"
+                      : "pointer-events-none opacity-0",
+                  )}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="เลื่อนไปข้างหน้า"
+                  disabled={!canScrollRight}
+                  onClick={() => scrollByPage(1)}
+                  className={cn(
+                    "absolute right-0 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-600 shadow-sm transition",
+                    canScrollRight
+                      ? "hover:border-primary/30 hover:text-primary"
+                      : "pointer-events-none opacity-0",
+                  )}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent transition-opacity",
+                    canScrollLeft ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent transition-opacity",
+                    canScrollRight ? "opacity-100" : "opacity-0",
+                  )}
+                />
+              </>
+            ) : null}
 
             <div
-              className="grid min-h-0 flex-1 gap-1"
-              style={{
-                gridTemplateColumns: weekCols,
-                gridTemplateRows: `repeat(${weekdays.length}, minmax(0, 1fr))`,
-              }}
+              ref={scrollRef}
+              className={cn(
+                "h-full min-h-[12rem] overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                needsCarousel && "px-1",
+              )}
             >
-              {weekdays.flatMap((weekday, rowIndex) => {
-                const label = (
-                  <span
-                    key={`label-${weekday}`}
-                    className="sticky left-0 z-10 flex items-center justify-end bg-white pr-1 text-micro text-slate-400"
-                  >
-                    {rowIndex % 2 === 0 ? weekday : ""}
-                  </span>
-                );
-                const cells = weeks.map((week, weekIndex) => {
-                  const day = week[rowIndex];
-                  if (!day) {
+              <div
+                className="flex h-full min-h-[12rem] flex-col gap-1"
+                style={{
+                  minWidth: `max(100%, calc(${LABEL_W_PX}px + ${weeks.length} * (${CELL_MIN_PX}px + ${GAP_PX}px)))`,
+                }}
+              >
+                <div
+                  className="grid shrink-0 gap-1"
+                  style={{ gridTemplateColumns: weekCols }}
+                >
+                  <span className="sticky left-0 z-10 bg-white" />
+                  {weeks.map((_, weekIndex) => {
+                    const month = monthLabels.find(
+                      (item) => item.weekIndex === weekIndex,
+                    );
                     return (
                       <span
-                        key={`empty-${weekIndex}-${rowIndex}`}
-                        className="min-h-[12px] rounded-[3px]"
-                      />
+                        key={`month-${weekIndex}`}
+                        className="truncate text-center text-micro text-slate-400"
+                      >
+                        {month?.label ?? ""}
+                      </span>
                     );
-                  }
-                  const key = toDayKey(day) ?? "";
-                  const count = counts.get(key) ?? 0;
-                  const selected = inSelectedRange(day);
-                  const isToday = isSameDay(day, new Date());
-                  return (
-                    <span
-                      key={key}
-                      title={
-                        selected
-                          ? `${format(day, "d MMM yyyy", { locale: th })} · ${count} task`
-                          : `${format(day, "d MMM yyyy", { locale: th })} · นอกช่วงที่เลือก`
+                  })}
+                </div>
+
+                <div
+                  className="grid min-h-0 flex-1 gap-1"
+                  style={{
+                    gridTemplateColumns: weekCols,
+                    gridTemplateRows: `repeat(${weekdays.length}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {weekdays.flatMap((weekday, rowIndex) => {
+                    const label = (
+                      <span
+                        key={`label-${weekday}`}
+                        className="sticky left-0 z-10 flex items-center justify-end bg-white pr-1 text-micro text-slate-400"
+                      >
+                        {rowIndex % 2 === 0 ? weekday : ""}
+                      </span>
+                    );
+                    const cells = weeks.map((week, weekIndex) => {
+                      const day = week[rowIndex];
+                      if (!day) {
+                        return (
+                          <span
+                            key={`empty-${weekIndex}-${rowIndex}`}
+                            className="min-h-[12px] rounded-[3px]"
+                          />
+                        );
                       }
-                      className={cn(
-                        "min-h-[12px] rounded-[3px]",
-                        selected
-                          ? intensityClass(count, maxCount)
-                          : "bg-slate-50 opacity-40",
-                        isToday &&
-                          selected &&
-                          "ring-1 ring-primary/50 ring-offset-1",
-                      )}
-                    />
-                  );
-                });
-                return [label, ...cells];
-              })}
+                      const key = toDayKey(day) ?? "";
+                      const count = counts.get(key) ?? 0;
+                      const selected = inSelectedRange(day);
+                      const isToday = isSameDay(day, new Date());
+                      const cellAccent =
+                        dayAccent.get(key) ?? accentColor;
+                      const tone = intensityStyle(count, maxCount, cellAccent);
+                      return (
+                        <span
+                          key={key}
+                          title={
+                            selected
+                              ? `${format(day, "d MMM yyyy", { locale: th })} · ${count} task`
+                              : `${format(day, "d MMM yyyy", { locale: th })} · นอกช่วงที่เลือก`
+                          }
+                          className={cn(
+                            "min-h-[12px] rounded-[3px]",
+                            selected
+                              ? tone.className
+                              : "bg-slate-50 opacity-40",
+                            isToday &&
+                              selected &&
+                              "ring-1 ring-offset-1",
+                          )}
+                          style={
+                            selected
+                              ? {
+                                  ...tone.style,
+                                  ...(isToday
+                                    ? {
+                                        boxShadow: `0 0 0 1px ${cellAccent}80`,
+                                      }
+                                    : {}),
+                                }
+                              : undefined
+                          }
+                        />
+                      );
+                    });
+                    return [label, ...cells];
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       <div className="mt-3 flex shrink-0 items-center justify-between gap-2 text-micro text-slate-400">
@@ -444,10 +586,22 @@ function TaskFrequencyHeatmap({
         <span className="inline-flex shrink-0 items-center gap-1.5">
           <span>น้อย</span>
           <span className="h-2.5 w-2.5 rounded-[2px] bg-slate-100" />
-          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_18%,white)]" />
-          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_35%,white)]" />
-          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_55%,white)]" />
-          <span className="h-2.5 w-2.5 rounded-[2px] bg-[color-mix(in_srgb,var(--primary)_78%,white)]" />
+          <span
+            className="h-2.5 w-2.5 rounded-[2px]"
+            style={{ backgroundColor: mixAccent(accentColor, 18) }}
+          />
+          <span
+            className="h-2.5 w-2.5 rounded-[2px]"
+            style={{ backgroundColor: mixAccent(accentColor, 35) }}
+          />
+          <span
+            className="h-2.5 w-2.5 rounded-[2px]"
+            style={{ backgroundColor: mixAccent(accentColor, 55) }}
+          />
+          <span
+            className="h-2.5 w-2.5 rounded-[2px]"
+            style={{ backgroundColor: mixAccent(accentColor, 78) }}
+          />
           <span>มาก</span>
         </span>
       </div>
@@ -458,19 +612,30 @@ function TaskFrequencyHeatmap({
 function PeopleWorkloadMatrix({
   tasks,
   statuses,
+  accentColor,
   rangeStart,
   rangeEnd,
 }: {
   tasks: Task[];
   statuses: Status[];
+  accentColor: string;
   rangeStart: string;
   rangeEnd: string;
 }) {
-  const { members, matrix, maxCount, rowTotals, colTotals } = useMemo(() => {
-    const start = startOfDay(parseISO(rangeStart));
-    const end = endOfDay(parseISO(rangeEnd));
-    const safeStart = minDate([start, end]);
-    const safeEnd = maxDate([start, end]);
+  const { members, matrix, maxCount, rowTotals, colTotals, hasRange } =
+    useMemo(() => {
+    const range = resolveDayRange(rangeStart, rangeEnd);
+    if (!range) {
+      return {
+        members: [] as TeamMember[],
+        matrix: new Map<string, number>(),
+        maxCount: 0,
+        rowTotals: new Map<string, number>(),
+        colTotals: new Map<string, number>(),
+        hasRange: false,
+      };
+    }
+    const { start: safeStart, end: safeEnd } = range;
     const scopedTasks = tasks.filter((task) =>
       taskTouchesRange(task, safeStart, safeEnd),
     );
@@ -518,15 +683,17 @@ function PeopleWorkloadMatrix({
       maxCount = Math.max(maxCount, value);
     }
 
-    return { members, matrix, maxCount, rowTotals, colTotals };
+    return { members, matrix, maxCount, rowTotals, colTotals, hasRange: true };
   }, [tasks, rangeStart, rangeEnd]);
 
-  if (members.length === 0) {
+  if (!hasRange || members.length === 0) {
     return (
       <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-800">โหลดงานต่อคน</h2>
         <p className="mt-6 flex flex-1 items-center justify-center rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
-          ไม่มี assignee ในช่วงวันที่เลือก
+          {hasRange
+            ? "ไม่มี assignee ในช่วงวันที่เลือก"
+            : "เลือกวันเริ่มและวันสิ้นสุด"}
         </p>
       </section>
     );
@@ -588,15 +755,25 @@ function PeopleWorkloadMatrix({
                   const count = matrix.get(`${member.id}:${status.id}`) ?? 0;
                   return (
                     <td key={status.id} className="p-0.5 text-center">
-                      <span
-                        title={`${member.nickname} · ${status.name}: ${count}`}
-                        className={cn(
-                          "inline-flex h-8 min-w-[2.25rem] items-center justify-center rounded-md px-1.5 text-xs font-semibold tabular-nums",
-                          cellTone(count, maxCount),
-                        )}
-                      >
-                        {count > 0 ? count : "·"}
-                      </span>
+                      {(() => {
+                        const tone = cellToneStyle(
+                          count,
+                          maxCount,
+                          accentColor,
+                        );
+                        return (
+                          <span
+                            title={`${member.nickname} · ${status.name}: ${count}`}
+                            className={cn(
+                              "inline-flex h-8 min-w-[2.25rem] items-center justify-center rounded-md px-1.5 text-xs font-semibold tabular-nums",
+                              tone.className,
+                            )}
+                            style={tone.style}
+                          >
+                            {count > 0 ? count : "·"}
+                          </span>
+                        );
+                      })()}
                     </td>
                   );
                 })}
@@ -662,6 +839,7 @@ export function DashboardHeatmaps({
   );
 
   const selectedProject = projects.find((project) => project.id === projectId);
+  const accentColor = projectAccent(selectedProject);
 
   function applyPreset(next: RangePreset) {
     setPreset(next);
@@ -690,19 +868,30 @@ export function DashboardHeatmaps({
           >
             โปรเจกต์
           </label>
-          <Select
-            id="heatmap-project"
-            value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
-            className="h-9 bg-white py-0 leading-9"
-          >
-            <option value="">ทุกโปรเจกต์</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </Select>
+          <div className="flex items-center gap-2">
+            <span
+              className="h-3 w-3 shrink-0 rounded-full ring-1 ring-slate-200"
+              style={{ backgroundColor: accentColor }}
+              title={
+                selectedProject
+                  ? `สีธีม: ${selectedProject.name}`
+                  : "ทุกโปรเจกต์ — ช่องใช้สีตามโปรเจกต์ที่มีงานมากสุดวันนั้น"
+              }
+            />
+            <Select
+              id="heatmap-project"
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
+              className="h-9 flex-1 bg-white py-0 leading-9"
+            >
+              <option value="">ทุกโปรเจกต์</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
 
         <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-50 p-0.5">
@@ -752,6 +941,8 @@ export function DashboardHeatmaps({
       <div className="grid items-stretch gap-6 xl:grid-cols-2">
         <TaskFrequencyHeatmap
           tasks={filteredTasks}
+          projects={projects}
+          accentColor={accentColor}
           rangeStart={rangeStart}
           rangeEnd={rangeEnd}
           mode={mode}
@@ -760,6 +951,7 @@ export function DashboardHeatmaps({
         <PeopleWorkloadMatrix
           tasks={filteredTasks}
           statuses={statuses}
+          accentColor={accentColor}
           rangeStart={rangeStart}
           rangeEnd={rangeEnd}
         />

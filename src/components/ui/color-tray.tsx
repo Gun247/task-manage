@@ -27,13 +27,15 @@ export function ColorTray({
   label?: string;
 }) {
   const pickerId = useId();
+  const hexId = useId();
   const normalizedValue = normalizeHex(value) ?? value.toUpperCase();
   const isPreset = options.some(
     (option) => option.toUpperCase() === normalizedValue,
   );
+  const pickerValue = normalizeHex(value) ?? "#3B82F6";
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-2.5", className)}>
       <div className="flex flex-wrap items-center gap-1.5">
         {options.map((color) => {
           const selected = color.toUpperCase() === normalizedValue;
@@ -55,58 +57,61 @@ export function ColorTray({
             />
           );
         })}
+      </div>
 
+      <div className="flex flex-wrap items-center gap-2">
         <label
           htmlFor={pickerId}
-          title="เลือกสีเอง"
+          title="เปิด color picker"
           className={cn(
-            "relative flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed transition",
+            "relative inline-flex h-9 cursor-pointer items-center gap-2 overflow-hidden rounded-lg border px-2.5 text-sm font-medium transition",
             !isPreset
-              ? "border-slate-900 ring-2 ring-slate-900/10"
-              : "border-slate-300 hover:border-slate-400",
+              ? "border-slate-900 bg-white text-slate-800 ring-2 ring-slate-900/10"
+              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
           )}
-          style={!isPreset ? { backgroundColor: normalizedValue } : undefined}
         >
-          {isPreset ? (
-            <Pipette className="h-3.5 w-3.5 text-slate-500" />
-          ) : (
-            <span className="absolute inset-0 bg-black/10" />
-          )}
+          <span
+            className="h-5 w-5 shrink-0 rounded-md border border-slate-200"
+            style={{ backgroundColor: pickerValue }}
+            aria-hidden
+          />
+          <Pipette className="h-3.5 w-3.5 text-slate-500" />
+          <span>เลือกสีเอง</span>
           <input
             id={pickerId}
             type="color"
-            value={normalizeHex(value) ?? "#3B82F6"}
-            aria-label={`${label} — เลือกจากถาดสี`}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            value={pickerValue}
+            aria-label={`${label} — color picker`}
+            className="absolute inset-0 cursor-pointer opacity-0"
             onChange={(event) => onChange(event.target.value.toUpperCase())}
           />
         </label>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <span
-          className="h-6 w-6 shrink-0 rounded-md border border-slate-200"
-          style={{ backgroundColor: normalizedValue }}
-          aria-hidden
-        />
-        <input
-          type="text"
-          value={normalizedValue}
-          spellCheck={false}
-          aria-label={`${label} — รหัสสี hex`}
-          placeholder="#3B82F6"
-          className="h-8 w-[7.5rem] rounded-md border border-slate-200 bg-white px-2 font-mono text-xs text-slate-700 uppercase placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-          onChange={(event) => {
-            const next = normalizeHex(event.target.value);
-            if (next) onChange(next);
-            else onChange(event.target.value);
-          }}
-          onBlur={() => {
-            const next = normalizeHex(value);
-            if (next) onChange(next);
-          }}
-        />
-        <span className="text-caption text-slate-400">หรือพิมพ์รหัสสี</span>
+        <div className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2">
+          <span
+            className="h-5 w-5 shrink-0 rounded-md border border-slate-200"
+            style={{ backgroundColor: normalizedValue }}
+            aria-hidden
+          />
+          <input
+            id={hexId}
+            type="text"
+            value={normalizedValue}
+            spellCheck={false}
+            aria-label={`${label} — รหัสสี hex`}
+            placeholder="#3B82F6"
+            className="h-7 w-[6.5rem] border-0 bg-transparent px-0.5 font-mono text-xs text-slate-700 uppercase placeholder:text-slate-400 focus-visible:outline-none"
+            onChange={(event) => {
+              const next = normalizeHex(event.target.value);
+              if (next) onChange(next);
+              else onChange(event.target.value);
+            }}
+            onBlur={() => {
+              const next = normalizeHex(value);
+              if (next) onChange(next);
+            }}
+          />
+        </div>
       </div>
     </div>
   );

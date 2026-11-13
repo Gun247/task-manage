@@ -11,10 +11,18 @@ function isTerminalStatus(name: string) {
 export function TaskDashboardBar({
   tasks,
   statuses,
+  overdueActive = false,
+  onOverdueClick,
+  activeStatusId = "",
+  onStatusClick,
   className,
 }: {
   tasks: Task[];
   statuses: Status[];
+  overdueActive?: boolean;
+  onOverdueClick?: () => void;
+  activeStatusId?: string;
+  onStatusClick?: (statusId: string) => void;
   className?: string;
 }) {
   const total = tasks.length;
@@ -57,16 +65,29 @@ export function TaskDashboardBar({
           </div>
         </div>
 
-        <div
+        <button
+          type="button"
+          onClick={onOverdueClick}
+          aria-pressed={overdueActive}
+          title={
+            overdueActive
+              ? "แสดง task ทั้งหมด"
+              : "กรองเฉพาะ task ที่เกินกำหนด"
+          }
           className={cn(
-            "flex min-w-[7.5rem] flex-1 items-center gap-3 rounded-xl px-3 py-2.5 sm:min-w-[9rem]",
-            overdue > 0 ? "bg-red-50" : "bg-slate-50",
+            "flex min-w-[7.5rem] flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left transition sm:min-w-[9rem]",
+            overdueActive
+              ? "bg-red-100 ring-2 ring-red-400/50"
+              : overdue > 0
+                ? "bg-red-50 hover:bg-red-100/80"
+                : "bg-slate-50 hover:bg-slate-100/80",
+            onOverdueClick ? "cursor-pointer" : "cursor-default",
           )}
         >
           <span
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-lg text-white",
-              overdue > 0 ? "bg-red-500" : "bg-slate-400",
+              overdue > 0 || overdueActive ? "bg-red-500" : "bg-slate-400",
             )}
           >
             <AlertTriangle className="h-4 w-4" />
@@ -75,7 +96,9 @@ export function TaskDashboardBar({
             <p
               className={cn(
                 "text-caption font-medium tracking-wide uppercase",
-                overdue > 0 ? "text-red-700/70" : "text-slate-500",
+                overdue > 0 || overdueActive
+                  ? "text-red-700/70"
+                  : "text-slate-500",
               )}
             >
               เกินกำหนด
@@ -83,28 +106,49 @@ export function TaskDashboardBar({
             <p
               className={cn(
                 "text-xl font-bold",
-                overdue > 0 ? "text-red-600" : "text-slate-700",
+                overdue > 0 || overdueActive
+                  ? "text-red-600"
+                  : "text-slate-700",
               )}
             >
               {overdue}
             </p>
           </div>
-        </div>
+        </button>
 
         <div className="flex min-w-0 flex-[2] flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5">
-          {byStatus.map(({ status, count }) => (
-            <div
-              key={status.id}
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-sm shadow-sm"
-            >
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: status.color }}
-              />
-              <span className="text-slate-600">{status.name}</span>
-              <span className="font-semibold text-slate-900">{count}</span>
-            </div>
-          ))}
+          {byStatus.map(({ status, count }) => {
+            const active = activeStatusId === status.id;
+            return (
+              <button
+                key={status.id}
+                type="button"
+                onClick={() => onStatusClick?.(status.id)}
+                aria-pressed={active}
+                title={
+                  active
+                    ? `ยกเลิกกรอง ${status.name}`
+                    : `กรองเฉพาะ ${status.name}`
+                }
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm shadow-sm transition",
+                  active
+                    ? "bg-white ring-2 ring-primary/40"
+                    : "bg-white hover:bg-slate-50",
+                  onStatusClick ? "cursor-pointer" : "cursor-default",
+                )}
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: status.color }}
+                />
+                <span className={active ? "font-medium text-slate-800" : "text-slate-600"}>
+                  {status.name}
+                </span>
+                <span className="font-semibold text-slate-900">{count}</span>
+              </button>
+            );
+          })}
           {byStatus.length === 0 ? (
             <p className="text-sm text-slate-400">ยังไม่มีสถานะ</p>
           ) : null}

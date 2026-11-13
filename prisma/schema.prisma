@@ -60,6 +60,7 @@ model Project {
   name        String   @unique
   description String   @default("")
   color       String   @default("#1E3A5F")
+  theme       String   @default("clean")
   sortOrder   Int      @default(0)
   tasks       Task[]
   createdAt   DateTime @default(now())

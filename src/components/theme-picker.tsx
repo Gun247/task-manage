@@ -1,36 +1,14 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
 import { Check, Palette } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   DEFAULT_THEME_ID,
   THEME_GROUPS,
   THEMES,
-  applyTheme,
-  readTheme,
+  resolveProjectTheme,
   type ThemeOption,
 } from "@/lib/themes";
 import { cn } from "@/lib/utils";
-
-function subscribe(onChange: () => void) {
-  const observer = new MutationObserver(onChange);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme"],
-  });
-  return () => observer.disconnect();
-}
-
-function useCurrentTheme() {
-  return useSyncExternalStore(subscribe, readTheme, () => DEFAULT_THEME_ID);
-}
 
 function Swatches({
   colors,
@@ -43,7 +21,7 @@ function Swatches({
     <span className={cn("flex shrink-0 -space-x-1", className)}>
       {colors.map((color, index) => (
         <span
-          key={index}
+          key={`${color}-${index}`}
           className="h-4 w-4 rounded-full ring-2 ring-white"
           style={{ backgroundColor: color }}
         />
@@ -52,99 +30,82 @@ function Swatches({
   );
 }
 
-export function ThemePicker({ collapsed = false }: { collapsed?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const currentId = useCurrentTheme();
+/** Compact theme chooser for project settings (controlled). */
+export function ProjectThemeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (themeId: string) => void;
+}) {
+  const currentId = resolveProjectTheme(value);
   const current = THEMES.find((theme) => theme.id === currentId) ?? THEMES[0];
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          "flex w-full items-center rounded-xl text-slate-600 transition hover:bg-slate-50 hover:text-slate-900",
-          collapsed
-            ? "justify-center px-2 py-2.5"
-            : "justify-between gap-2 px-3 py-2.5",
-        )}
-        aria-label="เปลี่ยนธีมสี"
-        title={collapsed ? `ธีมสี: ${current.label}` : undefined}
-      >
-        {collapsed ? (
-          <Palette className="h-4 w-4 text-slate-400" />
-        ) : (
-          <>
-            <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium">
-              <Palette className="h-4 w-4 shrink-0 text-slate-400" />
-              <span className="truncate">ธีมสี</span>
-            </span>
-            <Swatches colors={current.swatches} />
-          </>
-        )}
-      </button>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+        <span className="inline-flex min-w-0 items-center gap-2 text-sm text-slate-700">
+          <Palette className="h-4 w-4 shrink-0 text-slate-400" />
+          <span className="truncate font-medium">{current.label}</span>
+        </span>
+        <Swatches colors={current.swatches} />
+      </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex h-[min(90vh,760px)] max-w-4xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-6 py-4 pr-12">
-            <DialogTitle>ธีมสี</DialogTitle>
-            <DialogDescription>
-              เลือกแล้วเปลี่ยนทันที และจำไว้ในเบราว์เซอร์นี้ · ตอนนี้ใช้{" "}
-              {current.label}
-            </DialogDescription>
-          </DialogHeader>
+      <div className="max-h-56 space-y-4 overflow-y-auto rounded-xl border border-slate-200 p-3">
+        {THEME_GROUPS.map((group) => {
+          const items = THEMES.filter((theme) => theme.group === group.id);
+          if (items.length === 0) return null;
+          return (
+            <section key={group.id}>
+              <h4 className="mb-1.5 text-caption font-semibold tracking-wide text-slate-500 uppercase">
+                {group.label}
+              </h4>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                {items.map((theme) => {
+                  const active = theme.id === currentId;
+                  return (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => onChange(theme.id)}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-2 py-2 text-left transition",
+                        active
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                      )}
+                    >
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white"
+                        style={{
+                          background: `linear-gradient(135deg, ${theme.swatches[1]}, ${theme.swatches[0]})`,
+                        }}
+                      >
+                        {active ? <Check className="h-3.5 w-3.5" /> : null}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium text-slate-800">
+                          {theme.label}
+                        </span>
+                        <span className="block truncate text-[11px] text-slate-500">
+                          {theme.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
-            {THEME_GROUPS.map((group) => {
-              const items = THEMES.filter((theme) => theme.group === group.id);
-              return (
-                <section key={group.id}>
-                  <h3 className="mb-2 text-caption font-semibold tracking-wide text-slate-500 uppercase">
-                    {group.label} · {items.length}
-                  </h3>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {items.map((theme) => {
-                      const active = theme.id === currentId;
-                      return (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          onClick={() => applyTheme(theme.id)}
-                          aria-pressed={active}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl border bg-white p-2.5 text-left transition",
-                            active
-                              ? "border-primary ring-2 ring-primary/30"
-                              : "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
-                          )}
-                        >
-                          <span
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white"
-                            style={{
-                              background: `linear-gradient(135deg, ${theme.swatches[1]}, ${theme.swatches[0]})`,
-                            }}
-                          >
-                            {active ? <Check className="h-4 w-4" /> : null}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-slate-800">
-                              {theme.label}
-                            </span>
-                            <span className="block truncate text-xs text-slate-500">
-                              {theme.description}
-                            </span>
-                          </span>
-                          <Swatches colors={theme.swatches} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      {currentId === DEFAULT_THEME_ID ? (
+        <p className="text-xs text-slate-500">
+          Clean เป็นธีมเดียวกับหน้ารวม — โปรเจกต์จะดูขาวสะอาดเหมือนกัน
+        </p>
+      ) : null}
+    </div>
   );
 }

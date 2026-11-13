@@ -7,11 +7,15 @@ import {
   getProjectById,
   listStatuses,
   listTasks,
+  listTeamMembers,
   markTasksSource,
+  updateTask,
 } from "@/lib/db";
 import {
   fetchPlanUatCsv,
   isIsoDate,
+  mapPlanUatToAppStatus,
+  matchAssigneeNickname,
   normalizeTaskName,
   parseCsv,
   parsePlanUatSheet,
@@ -19,6 +23,23 @@ import {
   type PlanUatDateField,
 } from "@/lib/plan-uat-import";
 import { TASK_SOURCE_PLAN_UAT } from "@/lib/task-source";
+
+function preferLaterIso(
+  current: string | null | undefined,
+  incoming: string | null | undefined,
+) {
+  if (!incoming) return current ?? null;
+  if (!current) return incoming;
+  return incoming >= current ? incoming : current;
+}
+
+function mergeAssigneeIdLists(current: string[], incoming: string[]) {
+  const merged = [...current];
+  for (const id of incoming) {
+    if (!merged.includes(id)) merged.push(id);
+  }
+  return merged;
+}
 
 function parseDateField(value: unknown): PlanUatDateField {
   if (value === "uat" || value === "prd" || value === "either") return value;
@@ -33,14 +54,28 @@ function parseBound(value: unknown) {
 
 function parseItems(value: unknown) {
   if (!Array.isArray(value)) return null;
-  const items: { name: string; statusId: string }[] = [];
+  const items: {
+    name: string;
+    statusId: string;
+    assigneeIds?: string[];
+  }[] = [];
   for (const entry of value) {
     if (!entry || typeof entry !== "object") return null;
     const name = "name" in entry ? entry.name : undefined;
     const statusId = "statusId" in entry ? entry.statusId : undefined;
     if (typeof name !== "string" || !name.trim()) return null;
     if (typeof statusId !== "string" || !statusId.trim()) return null;
-    items.push({ name: name.trim(), statusId });
+    const assigneeIds =
+      "assigneeIds" in entry && Array.isArray(entry.assigneeIds)
+        ? entry.assigneeIds.filter(
+            (id): id is string => typeof id === "string" && Boolean(id.trim()),
+          )
+        : undefined;
+    items.push({
+      name: name.trim(),
+      statusId,
+      ...(assigneeIds ? { assigneeIds } : {}),
+    });
   }
   return items;
 }
@@ -56,13 +91,19 @@ export async function POST(request: Request) {
       items?: unknown;
     };
 
-    const [defaultStatus, defaultPriority, defaultProject, statuses] =
-      await Promise.all([
-        getDefaultStatus(),
-        getDefaultPriority(),
-        getDefaultProject(),
-        listStatuses(),
-      ]);
+    const [
+      defaultStatus,
+      defaultPriority,
+      defaultProject,
+      statuses,
+      teamMembers,
+    ] = await Promise.all([
+      getDefaultStatus(),
+      getDefaultPriority(),
+      getDefaultProject(),
+      listStatuses(),
+      listTeamMembers(),
+    ]);
 
     if (!defaultStatus || !defaultPriority || !defaultProject) {
       return NextResponse.json(
@@ -88,6 +129,33 @@ export async function POST(request: Request) {
     }
 
     const statusIds = new Set(statuses.map((status) => status.id));
+    const statusByName = new Map(
+      statuses.map((status) => [status.name, status] as const),
+    );
+    const memberNicknames = teamMembers.map((member) => member.nickname);
+    const memberByNickname = new Map(
+      teamMembers.map((member) => [member.nickname, member] as const),
+    );
+
+    function resolveStatusId(
+      uatStatus: string,
+      prdStatus: string,
+      fallbackId: string,
+    ) {
+      const appStatus = mapPlanUatToAppStatus(uatStatus, prdStatus);
+      return statusByName.get(appStatus)?.id ?? fallbackId;
+    }
+
+    function resolveAssigneeIds(names: string[]) {
+      const ids: string[] = [];
+      for (const name of names) {
+        const matched = matchAssigneeNickname(name, memberNicknames);
+        if (!matched) continue;
+        const member = memberByNickname.get(matched);
+        if (member && !ids.includes(member.id)) ids.push(member.id);
+      }
+      return ids;
+    }
 
     if (body.preview) {
       const dateFrom = parseBound(body.dateFrom);
@@ -124,14 +192,30 @@ export async function POST(request: Request) {
       );
 
       const items = matched
-        .map((task) => ({
-          name: task.name,
-          section: task.section,
-          uatDate: task.uatDate,
-          prdDate: task.prdDate,
-          sheetRow: task.sheetRow,
-          alreadyExists: existingByName.has(normalizeTaskName(task.name)),
-        }))
+        .map((task) => {
+          const suggestedStatusId = resolveStatusId(
+            task.uatStatus,
+            task.prdStatus,
+            defaultStatus.id,
+          );
+          const assigneeIds = resolveAssigneeIds(task.assigneeNames);
+          return {
+            name: task.name,
+            section: task.section,
+            uatDate: task.uatDate,
+            prdDate: task.prdDate,
+            sheetRow: task.sheetRow,
+            alreadyExists: existingByName.has(normalizeTaskName(task.name)),
+            uatStatus: task.uatStatus,
+            prdStatus: task.prdStatus,
+            suggestedStatusId,
+            suggestedStatusName:
+              statuses.find((status) => status.id === suggestedStatusId)
+                ?.name ?? null,
+            assigneeNames: task.assigneeNames,
+            assigneeIds,
+          };
+        })
         .sort((a, b) => {
           if (a.alreadyExists !== b.alreadyExists) {
             return a.alreadyExists ? 1 : -1;
@@ -177,9 +261,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const requested = new Map<string, string>();
+    const memberIds = new Set(teamMembers.map((member) => member.id));
+    if (
+      items.some((item) =>
+        (item.assigneeIds ?? []).some((id) => !memberIds.has(id)),
+      )
+    ) {
+      return NextResponse.json(
+        { error: "สมาชิกที่เลือกไม่ถูกต้อง" },
+        { status: 400 },
+      );
+    }
+
+    const requested = new Map<
+      string,
+      { statusId: string; assigneeIds?: string[] }
+    >();
     for (const item of items) {
-      requested.set(normalizeTaskName(item.name), item.statusId);
+      requested.set(normalizeTaskName(item.name), {
+        statusId: item.statusId,
+        assigneeIds: item.assigneeIds,
+      });
     }
 
     const csv = await fetchPlanUatCsv();
@@ -193,23 +295,71 @@ export async function POST(request: Request) {
     const toImport: {
       task: (typeof parsed)[number];
       statusId: string;
+      assigneeIds: string[];
+    }[] = [];
+    const toUpdate: {
+      id: string;
+      task: (typeof parsed)[number];
+      statusId: string;
+      assigneeIds: string[];
+      uatDate: string | null;
+      prdDate: string | null;
     }[] = [];
     let skipped = 0;
 
     for (const task of parsed) {
       const key = normalizeTaskName(task.name);
-      const statusId = requested.get(key);
-      if (!statusId) continue;
+      const request = requested.get(key);
+      if (!request) continue;
 
+      const assigneeIds =
+        request.assigneeIds ?? resolveAssigneeIds(task.assigneeNames);
       const match = existingByName.get(key);
-      if (match) {
-        skipped += 1;
-        if (!match.source) sourceBackfillIds.push(match.id);
+
+      if (match && match.id !== "new") {
+        const existingAssignees = (
+          match.assignees?.length
+            ? match.assignees
+            : match.assignee
+              ? [match.assignee]
+              : []
+        ).map((member) => member.id);
+        const mergedAssignees = mergeAssigneeIdLists(
+          existingAssignees,
+          assigneeIds,
+        );
+        const nextUat = preferLaterIso(match.uatDate, task.uatDate);
+        const nextPrd = preferLaterIso(match.prdDate, task.prdDate);
+        const datesChanged =
+          nextUat !== (match.uatDate ?? null) ||
+          nextPrd !== (match.prdDate ?? null);
+        const assigneesChanged =
+          mergedAssignees.length !== existingAssignees.length ||
+          mergedAssignees.some((id) => !existingAssignees.includes(id));
+        const statusChanged = match.statusId !== request.statusId;
+
+        if (datesChanged || assigneesChanged || statusChanged || !match.source) {
+          toUpdate.push({
+            id: match.id,
+            task,
+            statusId: request.statusId,
+            assigneeIds: mergedAssignees,
+            uatDate: nextUat,
+            prdDate: nextPrd,
+          });
+          if (!match.source) sourceBackfillIds.push(match.id);
+        } else {
+          skipped += 1;
+        }
         requested.delete(key);
         continue;
       }
 
-      toImport.push({ task, statusId });
+      toImport.push({
+        task,
+        statusId: request.statusId,
+        assigneeIds,
+      });
       requested.delete(key);
       existingByName.set(key, {
         id: "new",
@@ -223,6 +373,18 @@ export async function POST(request: Request) {
       TASK_SOURCE_PLAN_UAT,
     );
 
+    for (const entry of toUpdate) {
+      await updateTask(entry.id, {
+        description: entry.task.description || undefined,
+        remarks: entry.task.remarks,
+        source: TASK_SOURCE_PLAN_UAT,
+        uatDate: entry.uatDate,
+        prdDate: entry.prdDate,
+        statusId: entry.statusId,
+        assigneeIds: entry.assigneeIds,
+      });
+    }
+
     for (const entry of toImport) {
       await createTask({
         name: entry.task.name,
@@ -234,12 +396,14 @@ export async function POST(request: Request) {
         projectId,
         priorityId: defaultPriority.id,
         statusId: entry.statusId,
+        assigneeIds: entry.assigneeIds,
       });
     }
 
     return NextResponse.json({
       sourceCount: parsed.length,
       imported: toImport.length,
+      updated: toUpdate.length,
       skipped,
       missing: requested.size,
       markedSource,

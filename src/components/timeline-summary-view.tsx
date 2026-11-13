@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { AssigneesDisplay } from "@/components/assignee-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LinkifiedText } from "@/components/ui/linkified-text";
 import type { Task } from "@/lib/types";
 import {
   buildTimelineSummaryText,
@@ -136,7 +137,9 @@ const TaskRows = memo(function TaskRows({
                   </div>
                 </td>
                 <td className="px-3 py-2.5 align-top text-xs leading-relaxed text-slate-600">
-                  {task.description?.trim() || (
+                  {task.description?.trim() ? (
+                    <LinkifiedText text={task.description.trim()} />
+                  ) : (
                     <span className="text-slate-400">-</span>
                   )}
                 </td>

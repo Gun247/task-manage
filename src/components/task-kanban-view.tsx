@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TaskCard } from "@/components/task-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LinkifiedText } from "@/components/ui/linkified-text";
 import { DONE_STATUS_NAME } from "@/lib/default-statuses";
 import type { Status, Task } from "@/lib/types";
 import { calendarDateKey, cn, formatDate } from "@/lib/utils";
@@ -135,7 +136,7 @@ function DraggableDoneRow({
         <p className="truncate text-xs font-medium text-slate-800">{task.name}</p>
         {task.description?.trim() ? (
           <p className="mt-0.5 line-clamp-2 text-micro leading-relaxed text-slate-500">
-            {task.description.trim()}
+            <LinkifiedText text={task.description.trim()} />
           </p>
         ) : null}
       </button>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteProject, updateProject } from "@/lib/db";
+import { themeAccentColor } from "@/lib/themes";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,7 +14,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.description !== undefined
         ? { description: body.description.trim() }
         : {}),
-      ...(body.color !== undefined ? { color: body.color } : {}),
+      ...(body.theme !== undefined
+        ? { theme: body.theme, color: themeAccentColor(body.theme) }
+        : {}),
     });
 
     return NextResponse.json(project);

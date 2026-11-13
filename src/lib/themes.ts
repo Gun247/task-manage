@@ -8,7 +8,7 @@ export type ThemeOption = {
   swatches: [string, string, string];
 };
 
-export const DEFAULT_THEME_ID = "grass";
+export const DEFAULT_THEME_ID = "clean";
 export const THEME_STORAGE_KEY = "fwf-theme";
 
 export const THEME_GROUPS: { id: ThemeGroup; label: string }[] = [
@@ -21,6 +21,13 @@ export const THEME_GROUPS: { id: ThemeGroup; label: string }[] = [
 export const THEMES: ThemeOption[] = [
   {
     id: DEFAULT_THEME_ID,
+    label: "Clean · ขาวสะอาด",
+    description: "พื้นขาว สเลตกลาง — ธีมหลักของหน้ารวม",
+    group: "default",
+    swatches: ["#334155", "#64748b", "#f1f5f9"],
+  },
+  {
+    id: "grass",
     label: "Grass · ฟ้า-เขียว",
     description: "ธีมเดิมของ FWF Task Manager",
     group: "default",
@@ -314,27 +321,32 @@ export function isThemeId(value: unknown): value is string {
   return typeof value === "string" && THEME_IDS.has(value);
 }
 
-/** Runs before hydration so the saved theme paints on the first frame. */
-export const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem(${JSON.stringify(
+/** Clears legacy browser-stored themes so aggregate pages always start clean white. */
+export const THEME_INIT_SCRIPT = `try{document.documentElement.removeAttribute("data-theme");localStorage.removeItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});if(t&&t!==${JSON.stringify(DEFAULT_THEME_ID)}&&${JSON.stringify(
-  THEMES.map((theme) => theme.id),
-)}.indexOf(t)>-1)document.documentElement.dataset.theme=t}catch(e){}`;
+)})}catch(e){}`;
 
+/** Apply a theme for the current visit (project pages). Does not persist to localStorage. */
 export function applyTheme(id: string) {
   const root = document.documentElement;
-  if (id === DEFAULT_THEME_ID) delete root.dataset.theme;
-  else root.dataset.theme = id;
-  try {
-    if (id === DEFAULT_THEME_ID) localStorage.removeItem(THEME_STORAGE_KEY);
-    else localStorage.setItem(THEME_STORAGE_KEY, id);
-  } catch {
-    // Storage blocked — the theme still applies to this visit.
-  }
+  const next = isThemeId(id) ? id : DEFAULT_THEME_ID;
+  if (next === DEFAULT_THEME_ID) delete root.dataset.theme;
+  else root.dataset.theme = next;
 }
 
 export function readTheme(): string {
   if (typeof document === "undefined") return DEFAULT_THEME_ID;
   const current = document.documentElement.dataset.theme;
   return isThemeId(current) ? current : DEFAULT_THEME_ID;
+}
+
+export function resolveProjectTheme(theme: string | null | undefined): string {
+  return isThemeId(theme) ? theme : DEFAULT_THEME_ID;
+}
+
+/** Primary accent from a theme — used as the project badge/dot color. */
+export function themeAccentColor(theme: string | null | undefined): string {
+  const id = resolveProjectTheme(theme);
+  const option = THEMES.find((item) => item.id === id) ?? THEMES[0];
+  return option.swatches[0];
 }

@@ -1,6 +1,31 @@
-/* Bio-ID palette themes, applied with <html data-theme="…">. Generated from the Bio-ID
-   gateway palette sheet; every theme maps its brand / ok / warn / danger / gray scales onto the
-   app tokens, and the gray scale replaces Tailwind's slate so surfaces tint with the theme. */
+/* Project palette themes, applied with <html data-theme="…"> when a project is active.
+   Aggregate pages keep :root (clean white). The gray scale replaces Tailwind's slate so
+   surfaces tint with the theme. */
+
+/* Grass · ฟ้า-เขียว (legacy default look, now per-project) */
+html[data-theme="grass"] {
+  --background: #e8f4fc;
+  --foreground: #1e3a2f;
+  --primary: #6bb82a;
+  --primary-dark: #3d7a18;
+  --accent: #5bb5e8;
+  --muted: #d6e8f5;
+  --border: #b8d4e8;
+  --canvas: #f8fafc;
+  --success: #16a34a;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+}
 
 /* Cerulean · ฟ้าเซรูเลียน */
 html[data-theme="cerulean"] {

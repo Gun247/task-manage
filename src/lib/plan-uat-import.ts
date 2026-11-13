@@ -43,7 +43,20 @@ export interface PlanUatParsedTask {
   prdDate: string | null;
   section: string;
   sheetRow: number;
+  /** Nicknames from sheet column D (assignee). */
+  assigneeNames: string[];
+  uatStatus: string;
+  prdStatus: string;
+  testerStatus: string;
 }
+
+/** App status name derived from sheet UAT/PRD Status cells. */
+export type PlanUatAppStatusName =
+  | "Backlog"
+  | "In Progress"
+  | "UAT"
+  | "PRD"
+  | "Done";
 
 export type PlanUatDateField = "uat" | "prd" | "either";
 
@@ -169,6 +182,113 @@ function resolveTaskName(taskCol: string, subjectCol: string) {
   return "";
 }
 
+/** Split assignee cell like `Junior, Creem` / `P' JuAek` into nicknames. */
+export function parseAssigneeNames(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const value = raw.replace(/\s+/g, " ").trim();
+  if (!value) return [];
+  if (/^https?:\/\//i.test(value)) return [];
+  if (/^[*]+$/.test(value)) return [];
+
+  return value
+    .split(/[,/|&+;]+|\s+และ\s+/)
+    .map((part) => part.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((part) => !/^https?:\/\//i.test(part));
+}
+
+function normalizeStatusToken(raw: string | null | undefined) {
+  if (!raw) return "";
+  return raw
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\*+/, "")
+    .replace(/\*+$/, "")
+    .trim()
+    .toUpperCase();
+}
+
+function isBlankSheetStatus(raw: string | null | undefined) {
+  const value = (raw ?? "").replace(/\s+/g, " ").trim();
+  return !value || /^[*]+$/.test(value);
+}
+
+function isPassStatus(raw: string | null | undefined) {
+  const token = normalizeStatusToken(raw);
+  if (!token) return false;
+  if (/\bFAIL\b/.test(token)) return false;
+  return /\bPASS\b/.test(token);
+}
+
+function isCancelStatus(raw: string | null | undefined) {
+  return /\bCANCEL\b/.test(normalizeStatusToken(raw));
+}
+
+function isActivePhaseStatus(raw: string | null | undefined) {
+  const token = normalizeStatusToken(raw);
+  if (!token || isPassStatus(raw) || isCancelStatus(raw)) return false;
+  if (isBlankSheetStatus(raw)) return false;
+  return (
+    /\b(WAIT|FAIL|MODIFIED|RECHECK|PAUSE|UAT|PRD|CF)\b/.test(token) ||
+    /รอ/.test(raw ?? "") ||
+    /\d/.test(token)
+  );
+}
+
+/**
+ * Map sheet UAT/PRD Status → app status.
+ * Prefer PRD Status when present; otherwise fall back to UAT Status.
+ */
+export function mapPlanUatToAppStatus(
+  uatStatus: string | null | undefined,
+  prdStatus: string | null | undefined,
+): PlanUatAppStatusName {
+  if (isPassStatus(prdStatus)) return "Done";
+  if (isCancelStatus(prdStatus)) return "Backlog";
+  if (isActivePhaseStatus(prdStatus)) return "PRD";
+
+  if (isPassStatus(uatStatus)) return "Done";
+  if (isCancelStatus(uatStatus)) return "Backlog";
+  if (isActivePhaseStatus(uatStatus)) return "UAT";
+
+  return "Backlog";
+}
+
+/** Match sheet nickname aliases to a known team member nickname. */
+export function matchAssigneeNickname(
+  rawName: string,
+  memberNicknames: string[],
+): string | null {
+  const needle = rawName.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!needle) return null;
+
+  const normalizedMembers = memberNicknames.map((nickname) => ({
+    nickname,
+    key: nickname.replace(/\s+/g, " ").trim().toLowerCase(),
+  }));
+
+  const exact = normalizedMembers.find((member) => member.key === needle);
+  if (exact) return exact.nickname;
+
+  const aliases: Record<string, string[]> = {
+    creem: ["cream", "creem"],
+    breeze: ["breez", "breeze"],
+    "p' juaek": ["p juaek", "p' juaek", "p'aek", "p aek", "juaek", "p' juu", "p juu"],
+    mind: ["mild", "mind"],
+    fame: ["frame", "fame"],
+  };
+
+  for (const member of normalizedMembers) {
+    const aliasKeys = aliases[member.key] ?? [member.key];
+    if (aliasKeys.includes(needle)) return member.nickname;
+    if (needle.includes(member.key) || member.key.includes(needle)) {
+      return member.nickname;
+    }
+  }
+
+  return null;
+}
+
 function buildRemarks(parts: {
   section: string;
   uatStatus: string;
@@ -238,12 +358,87 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
+function preferLaterDate(
+  current: string | null,
+  incoming: string | null,
+): string | null {
+  if (!incoming) return current;
+  if (!current) return incoming;
+  return incoming >= current ? incoming : current;
+}
+
+function preferStatus(
+  current: string,
+  incoming: string,
+): string {
+  if (isBlankSheetStatus(incoming)) return current;
+  if (isBlankSheetStatus(current)) return incoming;
+  // Later non-blank sheet row wins (reschedule / retest).
+  return incoming;
+}
+
+function mergeAssigneeNames(current: string[], incoming: string[]) {
+  const seen = new Set(current.map((name) => name.toLowerCase()));
+  const merged = [...current];
+  for (const name of incoming) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(name);
+  }
+  return merged;
+}
+
+/**
+ * Same task often appears once under a UAT plan day and again under a PRD day.
+ * Merge into one record: keep latest dates/status, union assignees.
+ */
+export function mergePlanUatTask(
+  current: PlanUatParsedTask,
+  incoming: PlanUatParsedTask,
+): PlanUatParsedTask {
+  const uatDate = preferLaterDate(current.uatDate, incoming.uatDate);
+  const prdDate = preferLaterDate(current.prdDate, incoming.prdDate);
+  const uatStatus = preferStatus(current.uatStatus, incoming.uatStatus);
+  const prdStatus = preferStatus(current.prdStatus, incoming.prdStatus);
+  const testerStatus = preferStatus(current.testerStatus, incoming.testerStatus);
+  const assigneeNames = mergeAssigneeNames(
+    current.assigneeNames,
+    incoming.assigneeNames,
+  );
+  const section = incoming.section || current.section;
+  const subjectLink =
+    incoming.remarks.match(/^อ้างอิง: (.+)$/m)?.[1] ??
+    current.remarks.match(/^อ้างอิง: (.+)$/m)?.[1] ??
+    "";
+
+  return {
+    ...current,
+    description: current.description || incoming.description,
+    uatDate,
+    prdDate,
+    section,
+    sheetRow: incoming.sheetRow,
+    assigneeNames,
+    uatStatus,
+    prdStatus,
+    testerStatus,
+    remarks: buildRemarks({
+      section,
+      uatStatus,
+      testerStatus,
+      prdStatus,
+      subjectLink,
+    }),
+  };
+}
+
 export function parsePlanUatSheet(rows: string[][]): PlanUatParsedTask[] {
   let section = "";
   let uatDate: string | null = null;
   let prdDate: string | null = null;
   const tasks: PlanUatParsedTask[] = [];
-  const seen = new Set<string>();
+  const indexByName = new Map<string, number>();
 
   for (let index = 0; index < rows.length; index++) {
     const row = rows[index] ?? [];
@@ -278,29 +473,44 @@ export function parsePlanUatSheet(rows: string[][]): PlanUatParsedTask[] {
     if (!name) continue;
 
     const key = normalizeTaskName(name);
-    if (seen.has(key)) continue;
-    seen.add(key);
-
     const description =
       taskCol && name === subjectCol && taskCol !== subjectCol
         ? `หมวด: ${taskCol}`
         : "";
 
-    tasks.push({
+    const uatStatus = cell(row, 4);
+    const testerStatus = cell(row, 5);
+    const prdStatus = cell(row, 6);
+    const assigneeNames = parseAssigneeNames(cell(row, 3));
+
+    const next: PlanUatParsedTask = {
       name,
       description,
       remarks: buildRemarks({
         section,
-        uatStatus: cell(row, 4),
-        testerStatus: cell(row, 5),
-        prdStatus: cell(row, 6),
+        uatStatus,
+        testerStatus,
+        prdStatus,
         subjectLink: isUrl(subjectCol) ? subjectCol : "",
       }),
       uatDate,
       prdDate,
       section,
       sheetRow: index + 1,
-    });
+      assigneeNames,
+      uatStatus,
+      prdStatus,
+      testerStatus,
+    };
+
+    const existingIndex = indexByName.get(key);
+    if (existingIndex !== undefined) {
+      tasks[existingIndex] = mergePlanUatTask(tasks[existingIndex]!, next);
+      continue;
+    }
+
+    indexByName.set(key, tasks.length);
+    tasks.push(next);
   }
 
   return tasks;

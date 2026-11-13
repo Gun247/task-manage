@@ -37,11 +37,12 @@ import type {
   Task,
   TaskDateFilterField,
   TaskFilters,
+  TaskOverdueFilter,
   TaskTypeOption,
   TeamMember,
   ViewMode,
 } from "@/lib/types";
-import { cn, taskMatchesDateFilter } from "@/lib/utils";
+import { cn, isTaskOverdue, taskMatchesDateFilter } from "@/lib/utils";
 
 const views: { id: ViewMode; label: string }[] = [
   { id: "list", label: "รายการ" },
@@ -70,6 +71,7 @@ export function TasksPageContent() {
     taskType: "",
     date: "",
     dateField: "",
+    overdue: "",
   });
   const [sortMode, setSortMode] = useState<TaskSortMode>("default");
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -210,6 +212,9 @@ export function TasksPageContent() {
         view === "list" &&
         !taskMatchesDateFilter(task, filters.date, filters.dateField)
       ) {
+        return false;
+      }
+      if (filters.overdue === "overdue" && !isTaskOverdue(task)) {
         return false;
       }
       return true;
@@ -534,6 +539,19 @@ export function TasksPageContent() {
               </>
             ) : null}
             <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-36"
+              value={filters.overdue}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  overdue: event.target.value as TaskOverdueFilter,
+                }))
+              }
+            >
+              <option value="">กำหนดส่ง</option>
+              <option value="overdue">เกินกำหนด</option>
+            </Select>
+            <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-auto sm:min-w-[11rem]"
               value={sortMode}
               onChange={(event) =>
@@ -611,6 +629,22 @@ export function TasksPageContent() {
             <TaskDashboardBar
               tasks={tasks}
               statuses={statuses}
+              overdueActive={filters.overdue === "overdue"}
+              onOverdueClick={() =>
+                setFilters((current) => ({
+                  ...current,
+                  overdue:
+                    current.overdue === "overdue" ? "" : "overdue",
+                }))
+              }
+              activeStatusId={filters.statusId}
+              onStatusClick={(statusId) =>
+                setFilters((current) => ({
+                  ...current,
+                  statusId:
+                    current.statusId === statusId ? "" : statusId,
+                }))
+              }
               className={
                 view === "kanban" || view === "list" || view === "calendar"
                   ? "shrink-0"

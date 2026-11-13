@@ -7,6 +7,7 @@ export interface Project {
   name: string;
   description: string;
   color: string;
+  theme: string;
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
@@ -100,6 +101,8 @@ export interface Task {
   updatedAt: string;
 }
 
+export type TaskOverdueFilter = "" | "overdue";
+
 export interface TaskFilters {
   search: string;
   statusId: string;
@@ -108,6 +111,8 @@ export interface TaskFilters {
   taskType: string;
   date: string;
   dateField: TaskDateFilterField;
+  /** Empty = all tasks; "overdue" = only past-due incomplete tasks. */
+  overdue: TaskOverdueFilter;
 }
 
 export type TaskDateFilterField =

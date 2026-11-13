@@ -2,15 +2,15 @@
 @import "./themes.css";
 
 :root {
-  /* Sky–grass theme (floating island) */
-  --background: #e8f4fc;
-  --foreground: #1e3a2f;
-  --primary: #6bb82a;
-  --primary-dark: #3d7a18;
-  --accent: #5bb5e8;
-  --muted: #d6e8f5;
+  /* Clean white — default for aggregate pages; project pages may override via data-theme */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --primary: #334155;
+  --primary-dark: #1e293b;
+  --accent: #64748b;
+  --muted: #f1f5f9;
   --surface: #ffffff;
-  --border: #b8d4e8;
+  --border: #e2e8f0;
   --canvas: #f8fafc;
   --success: #16a34a;
   --danger: #ef4444;

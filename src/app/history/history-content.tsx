@@ -1,15 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, History, Search } from "lucide-react";
+import { ArrowRight, History, Pencil, Search } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
-import type { Project, Status, Task } from "@/lib/types";
+import { themeAccentColor } from "@/lib/themes";
+import type {
+  Priority,
+  Project,
+  Status,
+  Task,
+  TaskTypeOption,
+  TeamMember,
+} from "@/lib/types";
 import { useAfterPaint } from "@/lib/use-after-paint";
 import { cn, formatDateTime } from "@/lib/utils";
 
@@ -65,7 +73,8 @@ function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
         taskName: task.name,
         projectId: task.projectId,
         projectName: task.project.name,
-        projectColor: task.project.color,
+        projectColor:
+          themeAccentColor(task.project.theme) || task.project.color,
         priorityLabel: task.priority.label,
         priorityColor: task.priority.color,
         assignees:
@@ -75,7 +84,12 @@ function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
                 color: member.color,
               }))
             : task.assignee
-              ? [{ nickname: task.assignee.nickname, color: task.assignee.color }]
+              ? [
+                  {
+                    nickname: task.assignee.nickname,
+                    color: task.assignee.color,
+                  },
+                ]
               : [],
         fromStatusName: entry.fromStatusName,
         toStatusName: entry.toStatusName,
@@ -100,45 +114,72 @@ export default function HistoryPageContent() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [taskTypes, setTaskTypes] = useState<TaskTypeOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
-  useEffect(() => {
-    if (!pageReady) return;
-
-    const controller = new AbortController();
-
-    async function loadData() {
+  const loadData = useCallback(
+    async (signal?: AbortSignal) => {
       setLoading(true);
       try {
         setError(null);
         const taskUrl = projectFromUrl
           ? `/api/tasks?projectId=${encodeURIComponent(projectFromUrl)}`
           : "/api/tasks";
-        const [tasksData, projectsData, statusesData] = await Promise.all([
-          fetchJsonArray<Task>(taskUrl, { signal: controller.signal }),
-          fetchJsonArray<Project>("/api/projects", { signal: controller.signal }),
-          fetchJsonArray<Status>("/api/statuses", { signal: controller.signal }),
+        const [
+          tasksData,
+          projectsData,
+          statusesData,
+          prioritiesData,
+          membersData,
+          typesData,
+        ] = await Promise.all([
+          fetchJsonArray<Task>(taskUrl, { signal }),
+          fetchJsonArray<Project>("/api/projects", { signal }),
+          fetchJsonArray<Status>("/api/statuses", { signal }),
+          fetchJsonArray<Priority>("/api/priorities", { signal }),
+          fetchJsonArray<TeamMember>("/api/team-members", { signal }),
+          fetchJsonArray<TaskTypeOption>("/api/task-types", { signal }),
         ]);
         setTasks(tasksData);
         setProjects(projectsData);
         setStatuses(statusesData);
+        setPriorities(prioritiesData);
+        setTeamMembers(membersData);
+        setTaskTypes(typesData);
+        setEditingTask((current) => {
+          if (!current) return null;
+          return tasksData.find((task) => task.id === current.id) ?? null;
+        });
       } catch (err) {
-        if (controller.signal.aborted) return;
+        if (signal?.aborted) return;
         setTasks([]);
         setProjects([]);
         setStatuses([]);
+        setPriorities([]);
+        setTeamMembers([]);
+        setTaskTypes([]);
         setError(err instanceof Error ? err.message : "โหลดประวัติไม่สำเร็จ");
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!signal?.aborted) setLoading(false);
       }
-    }
+    },
+    [projectFromUrl],
+  );
 
-    void loadData();
+  useEffect(() => {
+    if (!pageReady) return;
+
+    const controller = new AbortController();
+    void loadData(controller.signal);
     return () => controller.abort();
-  }, [pageReady, projectFromUrl]);
+  }, [pageReady, loadData]);
 
   function handleProjectFilterChange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -146,6 +187,17 @@ export default function HistoryPageContent() {
     else params.delete("project");
     const query = params.toString();
     router.replace(query ? `/history?${query}` : "/history");
+  }
+
+  function openEditTask(taskId: string) {
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    setEditingTask(task);
+    setTaskDialogOpen(true);
+  }
+
+  async function handleSaved() {
+    await loadData();
   }
 
   const historyItems = useMemo(
@@ -164,9 +216,9 @@ export default function HistoryPageContent() {
         item.projectName.toLowerCase().includes(query) ||
         item.toStatusName.toLowerCase().includes(query) ||
         item.fromStatusName.toLowerCase().includes(query) ||
-        (item.assignees.some((member) =>
+        item.assignees.some((member) =>
           member.nickname.toLowerCase().includes(query),
-        ))
+        )
       );
     });
   }, [historyItems, projectFromUrl, statusFilter, search]);
@@ -196,8 +248,7 @@ export default function HistoryPageContent() {
             <div>
               <h1 className="text-2xl font-bold text-primary">ประวัติ Task</h1>
               <p className="mt-1 text-sm text-slate-500">
-                ไทม์ไลน์การเปลี่ยนสถานะของทุก task —
-                ดูว่างานถึงขั้นไหนแล้วเมื่อไหร่
+                ไทม์ไลน์การเปลี่ยนสถานะ — คลิกรายการเพื่อแก้ไข task ได้ทันที
               </p>
             </div>
           </div>
@@ -215,7 +266,9 @@ export default function HistoryPageContent() {
             <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-44"
               value={projectFromUrl}
-              onChange={(event) => handleProjectFilterChange(event.target.value)}
+              onChange={(event) =>
+                handleProjectFilterChange(event.target.value)
+              }
             >
               <option value="">ทุกโปรเจกต์</option>
               {projects.map((project) => (
@@ -276,11 +329,13 @@ export default function HistoryPageContent() {
                         className="absolute top-4 -left-[1.4rem] h-2.5 w-2.5 rounded-full ring-4 ring-canvas"
                         style={{ backgroundColor: item.toStatusColor }}
                       />
-                      <Link
-                        href={`/tasks?project=${item.projectId}`}
+                      <button
+                        type="button"
+                        onClick={() => openEditTask(item.taskId)}
                         className={cn(
-                          "block rounded-2xl border border-slate-200 bg-white p-4 transition",
+                          "group block w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition",
                           "hover:border-primary/25 hover:shadow-sm",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
                         )}
                       >
                         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -343,11 +398,17 @@ export default function HistoryPageContent() {
                               </p>
                             ) : null}
                           </div>
-                          <time className="shrink-0 text-xs text-slate-500">
-                            {formatDateTime(item.changedAt)}
-                          </time>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            <time className="text-xs text-slate-500">
+                              {formatDateTime(item.changedAt)}
+                            </time>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-caption font-medium text-slate-500 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                              <Pencil className="h-3 w-3" />
+                              แก้ไข
+                            </span>
+                          </div>
                         </div>
-                      </Link>
+                      </button>
                     </li>
                   ))}
                 </ol>
@@ -356,6 +417,21 @@ export default function HistoryPageContent() {
           </div>
         )}
       </main>
+
+      <TaskFormDialog
+        open={taskDialogOpen}
+        onOpenChange={(open) => {
+          setTaskDialogOpen(open);
+          if (!open) setEditingTask(null);
+        }}
+        task={editingTask}
+        statuses={statuses}
+        priorities={priorities}
+        teamMembers={teamMembers}
+        taskTypes={taskTypes}
+        projectId={editingTask?.projectId}
+        onSaved={() => void handleSaved()}
+      />
     </AppShell>
   );
 }

@@ -24,11 +24,17 @@ interface PreviewItem {
   prdDate: string | null;
   sheetRow: number;
   alreadyExists: boolean;
+  suggestedStatusId?: string;
+  assigneeIds?: string[];
+  assigneeNames?: string[];
+  uatStatus?: string;
+  prdStatus?: string;
 }
 
 interface PreviewRow extends PreviewItem {
   selected: boolean;
   statusId: string;
+  assigneeIds: string[];
 }
 
 interface PreviewQuery {
@@ -200,7 +206,11 @@ export function PlanUatImportDialog({
         (data.items ?? []).map((item) => ({
           ...item,
           selected: !item.alreadyExists,
-          statusId: fallbackStatusId,
+          statusId:
+            item.suggestedStatusId && statusName.has(item.suggestedStatusId)
+              ? item.suggestedStatusId
+              : fallbackStatusId,
+          assigneeIds: item.assigneeIds ?? [],
         })),
       );
       setPreviewQuery({ dateFrom, dateTo, dateField });
@@ -236,6 +246,7 @@ export function PlanUatImportDialog({
           items: selectedRows.map((row) => ({
             name: row.name,
             statusId: row.statusId,
+            assigneeIds: row.assigneeIds,
           })),
         }),
       });

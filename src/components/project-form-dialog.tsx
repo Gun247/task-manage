@@ -9,9 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ProjectThemeField } from "@/components/theme-picker";
 import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
-import { PROJECT_COLOR_OPTIONS } from "@/lib/project-colors";
+import { DEFAULT_THEME_ID, themeAccentColor } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 
 interface ProjectFormDialogProps {
@@ -29,7 +30,7 @@ export function ProjectFormDialog({
 }: ProjectFormDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState<string>(PROJECT_COLOR_OPTIONS[0]);
+  const [theme, setTheme] = useState(DEFAULT_THEME_ID);
   const [saving, setSaving] = useState(false);
   const isEditing = Boolean(project);
 
@@ -39,19 +40,19 @@ export function ProjectFormDialog({
     if (project) {
       setName(project.name);
       setDescription(project.description);
-      setColor(project.color);
+      setTheme(project.theme || DEFAULT_THEME_ID);
       return;
     }
 
     setName("");
     setDescription("");
-    setColor(PROJECT_COLOR_OPTIONS[0]);
+    setTheme(DEFAULT_THEME_ID);
   }, [open, project]);
 
   function resetForm() {
     setName("");
     setDescription("");
-    setColor(PROJECT_COLOR_OPTIONS[0]);
+    setTheme(DEFAULT_THEME_ID);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -63,7 +64,8 @@ export function ProjectFormDialog({
     const payload = {
       name: name.trim(),
       description: description.trim(),
-      color,
+      theme,
+      color: themeAccentColor(theme),
     };
 
     const response = await fetch(
@@ -82,6 +84,9 @@ export function ProjectFormDialog({
       resetForm();
       onSaved(savedProject.id);
       onOpenChange(false);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("fwf-projects-changed"));
+      }
     }
   }
 
@@ -93,15 +98,15 @@ export function ProjectFormDialog({
         onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "แก้ไขโปรเจกต์" : "สร้างโปรเจกต์ใหม่"}
           </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "อัปเดตรายละเอียดโปรเจกต์"
-              : "เพิ่มโปรเจกต์เพื่อจัดการ task แยกตามงาน"}
+              ? "อัปเดตรายละเอียดและธีมสีของโปรเจกต์"
+              : "เพิ่มโปรเจกต์เพื่อจัดการ task แยกตามงาน — ธีมสีใช้เฉพาะในโปรเจกต์นี้"}
           </DialogDescription>
         </DialogHeader>
 
@@ -128,20 +133,11 @@ export function ProjectFormDialog({
           </div>
 
           <div>
-            <Label>สีโปรเจกต์</Label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {PROJECT_COLOR_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`h-8 w-8 rounded-full border-2 ${
-                    color === option ? "border-slate-900" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: option }}
-                  onClick={() => setColor(option)}
-                />
-              ))}
-            </div>
+            <Label>ธีมสีของโปรเจกต์</Label>
+            <p className="mt-0.5 mb-2 text-xs text-slate-500">
+              สีจุด/ป้ายโปรเจกต์และธีมหน้า Task มาจากธีมนี้ · หน้ารวมยังเป็นขาวสะอาด
+            </p>
+            <ProjectThemeField value={theme} onChange={setTheme} />
           </div>
 
           <div className="flex justify-end gap-2">

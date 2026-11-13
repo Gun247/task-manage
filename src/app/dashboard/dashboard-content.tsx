@@ -16,6 +16,7 @@ import { DashboardHeatmaps } from "@/components/dashboard-heatmaps";
 import { Badge } from "@/components/ui/badge";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { themeAccentColor } from "@/lib/themes";
 import type { Project, Status, Task } from "@/lib/types";
 import { formatDateTime, isTaskOverdue } from "@/lib/utils";
 
@@ -283,7 +284,10 @@ export default function DashboardPageContent() {
                       <div className="mb-3 flex items-start gap-2">
                         <span
                           className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: project.color }}
+                          style={{
+                            backgroundColor:
+                              themeAccentColor(project.theme) || project.color,
+                          }}
                         />
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-slate-900">

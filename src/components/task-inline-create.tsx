@@ -10,6 +10,7 @@ import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Select, Textarea } from "@/components/ui/input";
+import { TextLinks } from "@/components/ui/linkified-text";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import type {
   Priority,
@@ -395,14 +396,14 @@ export function TaskInlineCreate({
               />
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-3 border-t border-slate-100 pt-3">
               <div>
                 <label className={fieldLabelClass} htmlFor="inline-description">
                   Description
                 </label>
                 <Textarea
                   id="inline-description"
-                  placeholder="รายละเอียดงาน"
+                  placeholder="รายละเอียดงาน ขอบเขต หรือขั้นตอนที่เกี่ยวข้อง"
                   value={form.description}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -410,8 +411,10 @@ export function TaskInlineCreate({
                       description: event.target.value,
                     }))
                   }
-                  className="min-h-[72px] bg-white text-sm"
+                  rows={5}
+                  className="min-h-[8rem] resize-y bg-white text-sm leading-relaxed"
                 />
+                <TextLinks text={form.description} />
               </div>
               <div>
                 <label className={fieldLabelClass} htmlFor="inline-remarks">
@@ -419,7 +422,7 @@ export function TaskInlineCreate({
                 </label>
                 <Textarea
                   id="inline-remarks"
-                  placeholder="หมายเหตุ"
+                  placeholder="หมายเหตุสั้น ๆ เช่น รอบ UAT / จากตึก / ข้อสังเกต"
                   value={form.remarks}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -427,8 +430,10 @@ export function TaskInlineCreate({
                       remarks: event.target.value,
                     }))
                   }
-                  className="min-h-[72px] bg-white text-sm"
+                  rows={3}
+                  className="min-h-[5.5rem] resize-y bg-white text-sm leading-relaxed"
                 />
+                <TextLinks text={form.remarks} />
               </div>
             </div>
 

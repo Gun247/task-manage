@@ -6,8 +6,10 @@ import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LoadingButtonContent, LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { themeAccentColor } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 
 export default function ManageProjectsPage() {
@@ -17,6 +19,7 @@ export default function ManageProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -44,7 +47,7 @@ export default function ManageProjectsPage() {
     setDialogOpen(true);
   }
 
-  async function handleDelete(project: Project) {
+  function requestDelete(project: Project) {
     const taskCount = project._count?.tasks ?? 0;
     if (taskCount > 0) {
       alert(
@@ -52,16 +55,20 @@ export default function ManageProjectsPage() {
       );
       return;
     }
+    setPendingDelete(project);
+  }
 
-    if (!confirm(`ลบโปรเจกต์ "${project.name}" ใช่หรือไม่?`)) return;
+  async function handleDelete() {
+    if (!pendingDelete) return;
 
-    setDeletingId(project.id);
-    const response = await fetch(`/api/projects/${project.id}`, {
+    setDeletingId(pendingDelete.id);
+    const response = await fetch(`/api/projects/${pendingDelete.id}`, {
       method: "DELETE",
     });
     setDeletingId(null);
 
     if (response.ok) {
+      setPendingDelete(null);
       loadProjects();
       return;
     }
@@ -126,7 +133,10 @@ export default function ManageProjectsPage() {
                   <div className="flex min-w-0 items-start gap-3">
                     <span
                       className="mt-1 h-4 w-4 shrink-0 rounded-full"
-                      style={{ backgroundColor: project.color }}
+                      style={{
+                        backgroundColor:
+                          themeAccentColor(project.theme) || project.color,
+                      }}
                     />
                     <div className="min-w-0">
                       <h3 className="truncate font-semibold text-slate-900">
@@ -164,7 +174,7 @@ export default function ManageProjectsPage() {
                       variant="ghost"
                       size="sm"
                       disabled={deletingId === project.id}
-                      onClick={() => handleDelete(project)}
+                      onClick={() => requestDelete(project)}
                       className="text-red-500 hover:bg-red-50 hover:text-red-600"
                     >
                       <LoadingButtonContent
@@ -187,6 +197,18 @@ export default function ManageProjectsPage() {
         onOpenChange={setDialogOpen}
         project={editingProject}
         onSaved={() => loadProjects()}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        title={`ลบโปรเจกต์ "${pendingDelete?.name ?? ""}" ใช่หรือไม่?`}
+        description="การลบนี้ย้อนกลับไม่ได้"
+        confirmLabel="ลบ"
+        loading={deletingId !== null}
+        onConfirm={handleDelete}
       />
     </AppShell>
   );

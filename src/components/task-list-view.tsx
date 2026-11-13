@@ -13,6 +13,7 @@ import { TaskTypesDisplay } from "@/components/task-type-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select } from "@/components/ui/input";
+import { LinkifiedText } from "@/components/ui/linkified-text";
 import { LoadingButtonContent, LoadingOverlay } from "@/components/ui/loading";
 import { TaskInlineCreate } from "@/components/task-inline-create";
 import { taskSourceLabel } from "@/lib/task-source";
@@ -105,6 +107,7 @@ export function TaskListView({
   const [busyLabel, setBusyLabel] = useState("กำลังอัปเดต...");
   const [error, setError] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<TimelineDraft>(emptyTimelineDraft);
   const paintRef = useRef<{
     active: boolean;
@@ -278,10 +281,6 @@ export function TaskListView({
 
   async function handleBulkDelete() {
     if (selectedCount === 0 || busy) return;
-    const confirmed = window.confirm(
-      `ลบ ${selectedCount.toLocaleString("th-TH")} รายการที่เลือก?\nการลบนี้ย้อนกลับไม่ได้`,
-    );
-    if (!confirmed) return;
 
     setBusy(true);
     setBusyLabel("กำลังลบรายการที่เลือก...");
@@ -298,6 +297,7 @@ export function TaskListView({
         return;
       }
       setSelectedIds(new Set());
+      setDeleteConfirmOpen(false);
       await onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ลบหลายรายการไม่สำเร็จ");
@@ -649,7 +649,7 @@ export function TaskListView({
                             overdue ? "text-red-700/70" : "text-slate-500",
                           )}
                         >
-                          {task.description.trim()}
+                          <LinkifiedText text={task.description.trim()} />
                         </p>
                       ) : null}
                     </td>
@@ -904,7 +904,7 @@ export function TaskListView({
                 size="sm"
                 className="h-8 rounded-full bg-red-500 px-3 text-white hover:bg-red-400"
                 disabled={busy}
-                onClick={() => void handleBulkDelete()}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 ลบ
@@ -913,6 +913,16 @@ export function TaskListView({
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title={`ลบ ${selectedCount.toLocaleString("th-TH")} รายการที่เลือก?`}
+        description="การลบนี้ย้อนกลับไม่ได้"
+        confirmLabel="ลบ"
+        loading={busy}
+        onConfirm={handleBulkDelete}
+      />
 
       <Dialog open={timelineOpen} onOpenChange={setTimelineOpen}>
         <DialogContent className="max-w-md">

@@ -279,6 +279,7 @@ export async function createProject(data: {
   name: string;
   description?: string;
   color?: string;
+  theme?: string;
 }) {
   const maxOrder = await prisma.project.aggregate({ _max: { sortOrder: true } });
   const project = await prisma.project.create({
@@ -286,6 +287,7 @@ export async function createProject(data: {
       name: data.name,
       description: data.description ?? "",
       color: data.color ?? "#6BB82A",
+      theme: data.theme ?? "clean",
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
@@ -298,7 +300,13 @@ export async function createProject(data: {
 
 export async function updateProject(
   id: string,
-  data: Partial<{ name: string; description: string; color: string; sortOrder: number }>,
+  data: Partial<{
+    name: string;
+    description: string;
+    color: string;
+    theme: string;
+    sortOrder: number;
+  }>,
 ) {
   const project = await prisma.project.update({ where: { id }, data });
   return {
@@ -1037,12 +1045,14 @@ export async function seedDefaultData() {
     update: {
       description: "Foreigner Worker Fund",
       color: "#6BB82A",
+      theme: "grass",
       sortOrder: 0,
     },
     create: {
       name: "FWF Task Manager",
       description: "Foreigner Worker Fund",
       color: "#6BB82A",
+      theme: "grass",
       sortOrder: 0,
     },
   });

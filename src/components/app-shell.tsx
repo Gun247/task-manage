@@ -17,7 +17,7 @@ import {
   Settings2,
   X,
 } from "lucide-react";
-import { ThemePicker } from "@/components/theme-picker";
+import { ProjectThemeSync } from "@/components/project-theme-sync";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = "fwf-sidebar-collapsed";
@@ -203,15 +203,6 @@ function SidebarNav({
         </div>
       ) : null}
 
-      <div
-        className={cn(
-          "shrink-0 border-t border-slate-200",
-          collapsed ? "p-2" : "p-3",
-        )}
-      >
-        <ThemePicker collapsed={collapsed} />
-      </div>
-
       {onToggleCollapsed ? (
         <div
           className={cn(
@@ -330,6 +321,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-svh overflow-hidden bg-canvas">
+      <Suspense fallback={null}>
+        <ProjectThemeSync />
+      </Suspense>
       <div className="relative z-40 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0">
         <Suspense
           fallback={

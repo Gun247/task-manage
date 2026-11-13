@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, LayoutGrid, Plus } from "lucide-react";
+import { themeAccentColor } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +55,11 @@ export function ProjectSwitcher({
           <>
             <span
               className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: selectedProject.color }}
+              style={{
+                backgroundColor:
+                  themeAccentColor(selectedProject.theme) ||
+                  selectedProject.color,
+              }}
             />
             <span className="min-w-0 flex-1 truncate font-medium text-slate-800">
               {selectedProject.name}
@@ -95,7 +100,10 @@ export function ProjectSwitcher({
               >
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: project.color }}
+                  style={{
+                    backgroundColor:
+                      themeAccentColor(project.theme) || project.color,
+                  }}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-slate-800">
