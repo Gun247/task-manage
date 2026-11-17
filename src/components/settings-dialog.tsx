@@ -562,8 +562,8 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(90vh,720px)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-6 py-4 pr-12">
+      <DialogContent className="flex h-[min(92dvh,720px)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-4 py-4 pr-12 sm:px-6">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             จัดการสถานะ ทีม Task Type priority ธีมสี และ WIP
@@ -579,24 +579,24 @@ export function SettingsDialog({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="shrink-0 px-6 pt-4">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="status" className="px-1 text-xs sm:px-2 sm:text-sm">
+          <div className="shrink-0 overflow-x-auto px-4 pt-4 sm:px-6">
+            <TabsList className="inline-flex h-auto min-w-full w-max gap-1 sm:grid sm:w-full sm:grid-cols-6">
+              <TabsTrigger value="status" className="px-2.5 text-xs sm:px-2 sm:text-sm">
                 สถานะ
               </TabsTrigger>
-              <TabsTrigger value="team" className="px-1 text-xs sm:px-2 sm:text-sm">
+              <TabsTrigger value="team" className="px-2.5 text-xs sm:px-2 sm:text-sm">
                 ทีม
               </TabsTrigger>
-              <TabsTrigger value="type" className="px-1 text-xs sm:px-2 sm:text-sm">
+              <TabsTrigger value="type" className="px-2.5 text-xs sm:px-2 sm:text-sm">
                 Type
               </TabsTrigger>
-              <TabsTrigger value="priority" className="px-1 text-xs sm:px-2 sm:text-sm">
+              <TabsTrigger value="priority" className="px-2.5 text-xs sm:px-2 sm:text-sm">
                 Priority
               </TabsTrigger>
-              <TabsTrigger value="themes" className="px-1 text-xs sm:px-2 sm:text-sm">
+              <TabsTrigger value="themes" className="px-2.5 text-xs sm:px-2 sm:text-sm">
                 ธีมสี
               </TabsTrigger>
-              <TabsTrigger value="wip" className="px-1 text-xs sm:px-2 sm:text-sm">
+              <TabsTrigger value="wip" className="px-2.5 text-xs sm:px-2 sm:text-sm">
                 WIP
               </TabsTrigger>
             </TabsList>
@@ -606,7 +606,7 @@ export function SettingsDialog({
             value="status"
             className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
           >
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-6">
               <p className="text-xs text-slate-500">
                 สถานะเริ่มต้นแก้และลบไม่ได้ — สถานะที่เพิ่มเองแก้ชื่อกับสีได้
                 ลากไอคอน{" "}
@@ -639,7 +639,7 @@ export function SettingsDialog({
                 </SortableContext>
               </DndContext>
             </div>
-            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-6">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-slate-800">
                   {isEditingStatus ? "แก้ไขสถานะ" : "เพิ่มสถานะใหม่"}
@@ -719,7 +719,7 @@ export function SettingsDialog({
             value="team"
             className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
           >
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4 sm:px-6">
               {teamMembers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
                   <UserRound className="mb-2 h-8 w-8 text-slate-300" />
@@ -804,7 +804,7 @@ export function SettingsDialog({
               )}
             </div>
 
-            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-6">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-medium text-slate-800">
@@ -966,7 +966,7 @@ export function SettingsDialog({
             value="type"
             className="mt-0 min-h-0 flex-1 flex-col data-[state=active]:flex"
           >
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4 sm:px-6">
               {taskTypes.length === 0 ? (
                 <p className="rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
                   ยังไม่มี Task Type — เพิ่มเพื่อเลือกในฟอร์ม task ได้
@@ -1006,7 +1006,7 @@ export function SettingsDialog({
                 ))
               )}
             </div>
-            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+            <div className="shrink-0 border-t border-slate-100 bg-slate-50/80 px-4 py-4 sm:px-6">
               <p className="mb-2 text-sm font-medium text-slate-800">
                 เพิ่ม Task Type
               </p>
@@ -1046,7 +1046,7 @@ export function SettingsDialog({
 
           <TabsContent
             value="priority"
-            className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
+            className="mt-0 min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 data-[state=active]:block"
           >
             <p className="mb-3 text-xs text-slate-500">
               Priority ใช้ค่าเริ่มต้นของระบบ (P0 / P1 / P2)
@@ -1071,14 +1071,14 @@ export function SettingsDialog({
 
           <TabsContent
             value="themes"
-            className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
+            className="mt-0 min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 data-[state=active]:block"
           >
             {activeTab === "themes" ? <ThemeManager key="theme-manager" /> : null}
           </TabsContent>
 
           <TabsContent
             value="wip"
-            className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
+            className="mt-0 min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 data-[state=active]:block"
           >
             {!project ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">

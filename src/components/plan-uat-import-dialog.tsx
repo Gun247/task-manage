@@ -288,8 +288,8 @@ export function PlanUatImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
-      <DialogContent className="flex max-h-[min(92vh,880px)] w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 px-6 pt-6 pr-12">
+      <DialogContent className="flex max-h-[min(92dvh,880px)] w-[calc(100%-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 px-4 pt-5 pr-12 sm:px-6 sm:pt-6">
           <DialogTitle>ดึงจาก Plan UAT</DialogTitle>
           <DialogDescription>
             เลือกช่วงวันที่ ดูตัวอย่าง แล้วปรับสถานะก่อนนำเข้าเป็น task
@@ -297,7 +297,7 @@ export function PlanUatImportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="shrink-0 px-6 pt-4">
+        <div className="shrink-0 px-4 pt-4 sm:px-6">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)_auto] sm:items-end">
             <DateInput
               id="plan-uat-from"
@@ -363,7 +363,7 @@ export function PlanUatImportDialog({
           </p>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-auto px-6 py-4">
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-4 sm:px-6">
           {previewing ? (
             <div className="flex min-h-48 items-center justify-center">
               <Loading label="กำลังดึงจากชีท Plan UAT..." />
@@ -493,7 +493,7 @@ export function PlanUatImportDialog({
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex shrink-0 flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex flex-wrap items-center gap-2">
             <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-56"

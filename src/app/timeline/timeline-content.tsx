@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarRange, FolderKanban, ListFilter, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { PageHeader, PageMain } from "@/components/page-layout";
 import { TimelineSummaryView } from "@/components/timeline-summary-view";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Button } from "@/components/ui/button";
@@ -233,113 +234,103 @@ export default function TimelinePageContent() {
 
   return (
     <AppShell>
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <CalendarRange className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-bold text-primary">สรุป Timeline</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                แสดงเฉพาะวันที่ตั้ง Timeline UAT หรือ PRD ไว้ — จัดกลุ่มรายวันให้อ่านและคัดลอกง่าย
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                className="h-9 w-full max-w-xs py-0 text-sm leading-9"
-                placeholder="ค้นหา task, รายละเอียด, DEV..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-              <Select
-                className="h-9 w-full py-0 text-sm leading-9 sm:w-52"
-                value={projectFilter}
-                onChange={(event) => handleProjectFilterChange(event.target.value)}
-                disabled={projectsLoading && projects.length === 0}
-              >
-                <option value="">ทุกโปรเจกต์</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="flex items-center gap-1 text-caption font-medium text-slate-500">
-                  <CalendarRange className="h-3.5 w-3.5" />
-                  วันใน timeline
-                </p>
-                <StatValue loading={statsLoading} value={dayCount} />
-              </div>
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="flex items-center gap-1 text-caption font-medium text-amber-700">
-                  <ListFilter className="h-3.5 w-3.5" />
-                  UAT
-                </p>
-                <StatValue loading={statsLoading} value={uatCount} />
-              </div>
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
-                <p className="flex items-center gap-1 text-caption font-medium text-emerald-700">
-                  <Zap className="h-3.5 w-3.5" />
-                  PRD
-                </p>
-                <StatValue loading={statsLoading} value={prdCount} />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
-              {RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setRange(option.value)}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-xs font-medium transition",
-                    range === option.value
-                      ? "bg-white text-primary shadow-sm"
-                      : "text-slate-500 hover:text-slate-700",
-                  )}
-                >
-                  {option.label}
-                </button>
+      <PageHeader
+        icon={<CalendarRange className="h-5 w-5" />}
+        title="สรุป Timeline"
+        description="แสดงเฉพาะวันที่ตั้ง Timeline UAT หรือ PRD ไว้ — จัดกลุ่มรายวันให้อ่านและคัดลอกง่าย"
+      >
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="h-9 w-full max-w-xs rounded-lg border-slate-200 bg-white py-0 text-sm leading-9"
+              placeholder="ค้นหา task, รายละเอียด, DEV..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Select
+              className="h-9 w-full rounded-lg border-slate-200 bg-white py-0 text-sm leading-9 sm:w-52"
+              value={projectFilter}
+              onChange={(event) => handleProjectFilterChange(event.target.value)}
+              disabled={projectsLoading && projects.length === 0}
+            >
+              <option value="">ทุกโปรเจกต์</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
               ))}
-            </div>
-            <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
-              {KIND_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setKind(option.value)}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-xs font-medium transition",
-                    kind === option.value
-                      ? "bg-white text-primary shadow-sm"
-                      : "text-slate-500 hover:text-slate-700",
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            {!statsLoading && !error ? (
-              <p className="text-xs text-slate-500">
-                <FolderKanban className="mr-1 inline h-3.5 w-3.5" />
-                {tasks.length} task ที่มี timeline
+            </Select>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            <div className="rounded-2xl border border-white/80 bg-white/75 px-2 py-2 shadow-sm sm:px-3">
+              <p className="flex items-center gap-1 text-[10px] font-medium text-slate-500 sm:text-caption">
+                <CalendarRange className="hidden h-3.5 w-3.5 sm:inline" />
+                วัน
               </p>
-            ) : null}
+              <StatValue loading={statsLoading} value={dayCount} />
+            </div>
+            <div className="rounded-2xl border border-amber-200/80 bg-amber-50/80 px-2 py-2 shadow-sm sm:px-3">
+              <p className="flex items-center gap-1 text-[10px] font-medium text-amber-700 sm:text-caption">
+                <ListFilter className="hidden h-3.5 w-3.5 sm:inline" />
+                UAT
+              </p>
+              <StatValue loading={statsLoading} value={uatCount} />
+            </div>
+            <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-2 py-2 shadow-sm sm:px-3">
+              <p className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 sm:text-caption">
+                <Zap className="hidden h-3.5 w-3.5 sm:inline" />
+                PRD
+              </p>
+              <StatValue loading={statsLoading} value={prdCount} />
+            </div>
           </div>
         </div>
-      </div>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="inline-flex max-w-full overflow-x-auto rounded-lg bg-slate-100 p-0.5">
+            {RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setRange(option.value)}
+                className={cn(
+                  "shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition sm:px-3",
+                  range === option.value
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex max-w-full overflow-x-auto rounded-lg bg-slate-100 p-0.5">
+            {KIND_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setKind(option.value)}
+                className={cn(
+                  "shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition sm:px-3",
+                  kind === option.value
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {!statsLoading && !error ? (
+            <p className="text-xs text-slate-500">
+              <FolderKanban className="mr-1 inline h-3.5 w-3.5" />
+              {tasks.length} task ที่มี timeline
+            </p>
+          ) : null}
+        </div>
+      </PageHeader>
+
+      <PageMain width="6xl">
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
             {error}
@@ -368,7 +359,7 @@ export default function TimelinePageContent() {
             />
           </div>
         )}
-      </main>
+      </PageMain>
 
       <TaskFormDialog
         open={Boolean(editingTask)}

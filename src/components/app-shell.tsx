@@ -1,66 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import {
   CalendarRange,
-  ChevronLeft,
-  ClipboardList,
   FolderKanban,
   History,
   LayoutDashboard,
   LayoutGrid,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
+  Plus,
   Settings2,
-  X,
 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
 import { ProjectThemeSync } from "@/components/project-theme-sync";
+import { SessionControls } from "@/components/session-controls";
 import { readMemberSession } from "@/lib/current-member";
 import { canManageProjects } from "@/lib/roles";
 import { cn } from "@/lib/utils";
-
-const SIDEBAR_COLLAPSED_KEY = "fwf-sidebar-collapsed";
 
 const navItems = [
   {
     id: "dashboard",
     label: "Dashboard",
-    description: "ภาพรวมงานทั้งหมด",
     icon: LayoutDashboard,
     match: (pathname: string) => pathname.startsWith("/dashboard"),
   },
   {
     id: "projects",
     label: "โปรเจกต์",
-    description: "ดูและเลือกโปรเจกต์",
     icon: LayoutGrid,
     match: (pathname: string) =>
       pathname === "/projects" || pathname.startsWith("/tasks"),
   },
   {
     id: "timeline",
-    label: "สรุป Timeline",
-    description: "UAT / PRD รายวัน",
+    label: "Timeline",
     icon: CalendarRange,
     match: (pathname: string) => pathname.startsWith("/timeline"),
   },
   {
     id: "history",
-    label: "ประวัติ Task",
-    description: "ไทม์ไลน์เปลี่ยนสถานะ",
+    label: "ประวัติ",
     icon: History,
     match: (pathname: string) => pathname.startsWith("/history"),
-  },
-  {
-    id: "manage",
-    label: "จัดการโปรเจกต์",
-    description: "สร้าง แก้ไข ลบ",
-    icon: Settings2,
-    match: (pathname: string) => pathname === "/projects/manage",
   },
 ] as const;
 
@@ -80,26 +63,10 @@ function resolveHref(
   if (id === "history") {
     return projectId ? `/history?project=${projectId}` : "/history";
   }
-  if (id === "timeline") {
-    return projectId ? `/timeline?project=${projectId}` : "/timeline";
-  }
-  return "/projects/manage";
+  return projectId ? `/timeline?project=${projectId}` : "/timeline";
 }
 
-function SidebarNav({
-  onNavigate,
-  className,
-  collapsed = false,
-  onToggleCollapsed,
-}: {
-  onNavigate?: () => void;
-  className?: string;
-  collapsed?: boolean;
-  onToggleCollapsed?: () => void;
-}) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const projectId = searchParams.get("project");
+function useShowManage() {
   const [showManage, setShowManage] = useState(false);
 
   useEffect(() => {
@@ -116,287 +83,274 @@ function SidebarNav({
     };
   }, []);
 
-  const visibleNavItems = navItems.filter(
-    (item) => item.id !== "manage" || showManage,
-  );
+  return showManage;
+}
 
-  return (
-    <aside
-      className={cn(
-        "flex h-full flex-col border-r border-slate-200 bg-white transition-[width] duration-200",
-        collapsed ? "w-[72px]" : "w-64",
-        className,
-      )}
-    >
-      <div
+function useCreateAction(showManage: boolean) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const projectId = searchParams.get("project");
+
+  return () => {
+    if (pathname.startsWith("/tasks") && projectId) {
+      window.dispatchEvent(new Event("fwf-open-new-task"));
+      return;
+    }
+    router.push(showManage ? "/projects/manage" : "/projects");
+  };
+}
+
+function NavLink({
+  href,
+  label,
+  active,
+  orientation,
+  children,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  orientation: "side" | "dock";
+  children: React.ReactNode;
+}) {
+  if (orientation === "dock") {
+    return (
+      <Link
+        href={href}
+        title={label}
+        aria-label={label}
+        aria-current={active ? "page" : undefined}
         className={cn(
-          "border-b border-slate-200 py-4",
-          collapsed ? "px-3" : "px-4",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition duration-200",
+          active
+            ? "bg-white text-slate-900 shadow-[0_6px_18px_rgba(15,23,42,0.12)]"
+            : "text-slate-600 hover:bg-white/60 hover:text-slate-900",
         )}
       >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition duration-200",
+        active
+          ? "bg-white text-slate-900 shadow-[0_8px_24px_rgba(15,23,42,0.08)]"
+          : "text-slate-600 hover:bg-white/55 hover:text-slate-900",
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition",
+          active
+            ? "bg-slate-900 text-white"
+            : "bg-white/70 text-slate-600 group-hover:bg-white",
+        )}
+      >
+        {children}
+      </span>
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+}
+
+function DesktopSidebar({ showManage }: { showManage: boolean }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("project");
+
+  return (
+    <aside className="relative z-20 hidden w-[17.5rem] shrink-0 flex-col p-3 lg:flex">
+      <div className="flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/70 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55">
         <Link
-          href="/projects"
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center",
-            collapsed ? "justify-center" : "gap-2.5",
-          )}
-          title="TIM TaskManage"
+          href="/dashboard"
+          className="mb-3 flex items-center gap-2.5 rounded-2xl px-2.5 py-2"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
-            <FolderKanban className="h-5 w-5" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]">
+            <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
           </span>
-          {!collapsed ? (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-primary">
-                TIM TaskManage
-              </p>
-            </div>
-          ) : null}
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
+              TIM TaskManage
+            </span>
+            <span className="block text-[11px] text-slate-500">Workspace</span>
+          </span>
         </Link>
-      </div>
 
-      <nav className={cn("flex-1 space-y-1 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
-        {!collapsed ? (
-          <p className="px-2 pb-2 text-caption font-semibold tracking-wide text-slate-400 uppercase">
-            เมนู
-          </p>
-        ) : null}
-        {visibleNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.match(pathname);
-          const href = resolveHref(item.id, pathname, projectId);
+        <nav aria-label="เมนูหลัก" className="flex min-h-0 flex-1 flex-col gap-1.5">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.id}
+                href={resolveHref(item.id, pathname, projectId)}
+                label={item.label}
+                active={item.match(pathname)}
+                orientation="side"
+              >
+                <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.75} />
+              </NavLink>
+            );
+          })}
 
-          return (
-            <Link
-              key={item.id}
-              href={href}
-              onClick={onNavigate}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex rounded-xl transition",
-                collapsed
-                  ? "items-center justify-center px-2 py-2.5"
-                  : "items-start gap-3 px-3 py-2.5",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
-              )}
+          {showManage ? (
+            <NavLink
+              href="/projects/manage"
+              label="Manage"
+              active={pathname === "/projects/manage"}
+              orientation="side"
             >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  !collapsed && "mt-0.5",
-                  isActive ? "text-primary" : "text-slate-400",
-                )}
-              />
-              {!collapsed ? (
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{item.label}</span>
-                  <span
-                    className={cn(
-                      "block text-xs",
-                      isActive ? "text-primary/70" : "text-slate-400",
-                    )}
-                  >
-                    {item.description}
-                  </span>
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </nav>
+              <Settings2 className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.75} />
+            </NavLink>
+          ) : null}
+        </nav>
 
-      {!collapsed ? (
-        <div className="border-t border-slate-200 p-4">
-          <div className="rounded-xl bg-slate-50 px-3 py-3">
-            <div className="mb-1 flex items-center gap-2 text-xs font-medium text-slate-700">
-              <ClipboardList className="h-3.5 w-3.5 text-slate-400" />
-              เคล็ดลับ
-            </div>
-            <p className="text-xs leading-relaxed text-slate-500">
-              เปลี่ยนสถานะใน Kanban แล้วดูไทม์ไลน์ได้ที่เมนูประวัติ Task
-            </p>
-          </div>
+        <div className="mt-3 rounded-2xl border border-white/80 bg-white/80 p-2 shadow-sm">
+          <SessionControls />
         </div>
-      ) : null}
-
-      {onToggleCollapsed ? (
-        <div
-          className={cn(
-            "shrink-0 border-t border-slate-200",
-            collapsed ? "p-2" : "p-3",
-          )}
-        >
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onToggleCollapsed();
-            }}
-            className={cn(
-              "flex w-full items-center rounded-xl text-slate-600 transition hover:bg-slate-50 hover:text-slate-900",
-              collapsed
-                ? "justify-center px-2 py-2.5"
-                : "justify-between gap-2 px-3 py-2.5",
-            )}
-            aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
-            title={collapsed ? "ขยายเมนู" : "ย่อเมนู"}
-          >
-            {!collapsed ? (
-              <span className="inline-flex items-center gap-2 text-sm font-medium">
-                <PanelLeftClose className="h-4 w-4 text-slate-400" />
-                ย่อเมนู
-              </span>
-            ) : (
-              <PanelLeftOpen className="h-4 w-4 text-slate-400" />
-            )}
-            {!collapsed ? (
-              <ChevronLeft className="h-4 w-4 text-slate-400" />
-            ) : (
-              <span className="sr-only">ขยายเมนู</span>
-            )}
-          </button>
-        </div>
-      ) : null}
+      </div>
     </aside>
   );
 }
 
-function SidebarFallback({
-  className,
-  collapsed = false,
-}: {
-  className?: string;
-  collapsed?: boolean;
-}) {
+function MobileTopBar() {
   return (
-    <aside
-      className={cn(
-        "flex h-full flex-col border-r border-slate-200 bg-white",
-        collapsed ? "w-[72px]" : "w-64",
-        className,
-      )}
+    <header className="relative z-20 flex shrink-0 items-center justify-between gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 lg:hidden">
+      <Link href="/dashboard" className="inline-flex min-w-0 items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+          <FolderKanban className="h-4 w-4" />
+        </span>
+        <span className="truncate text-sm font-bold tracking-tight text-slate-800">
+          TIM TaskManage
+        </span>
+      </Link>
+      <SessionControls />
+    </header>
+  );
+}
+
+function MobileDock({ showManage }: { showManage: boolean }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get("project");
+  const handleCreate = useCreateAction(showManage);
+  const left = navItems.slice(0, 2);
+  const right = navItems.slice(2);
+
+  return (
+    <nav
+      aria-label="เมนูหลัก"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[max(0.85rem,env(safe-area-inset-bottom))] lg:hidden"
     >
-      <div
-        className={cn(
-          "border-b border-slate-200 py-4",
-          collapsed ? "px-3" : "px-4",
-        )}
-      >
-        <div
-          className={cn(
-            "flex items-center",
-            collapsed ? "justify-center" : "gap-2.5",
-          )}
+      <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-white/80 bg-white/70 p-1.5 shadow-[0_14px_44px_rgba(15,23,42,0.14)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 sm:gap-1.5 sm:px-2">
+        {left.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.id}
+              href={resolveHref(item.id, pathname, projectId)}
+              label={item.label}
+              active={item.match(pathname)}
+              orientation="dock"
+            >
+              <Icon className="h-[1.2rem] w-[1.2rem]" strokeWidth={1.75} />
+            </NavLink>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={handleCreate}
+          aria-label={
+            pathname.startsWith("/tasks") && projectId
+              ? "สร้าง task ใหม่"
+              : "สร้างใหม่"
+          }
+          className="mx-0.5 flex h-[3.15rem] w-[3.15rem] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(160deg,#6BB8FF_0%,#3B82F6_55%,#2563EB_100%)] text-white shadow-[0_12px_28px_rgba(59,130,246,0.45)] transition hover:brightness-105 active:scale-[0.96]"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
-            <FolderKanban className="h-5 w-5" />
-          </span>
-          {!collapsed ? (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-primary">
-                TIM TaskManage
-              </p>
+          <Plus className="h-5 w-5" strokeWidth={2.4} />
+        </button>
+
+        {right.map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.id}
+              href={resolveHref(item.id, pathname, projectId)}
+              label={item.label}
+              active={item.match(pathname)}
+              orientation="dock"
+            >
+              <Icon className="h-[1.2rem] w-[1.2rem]" strokeWidth={1.75} />
+            </NavLink>
+          );
+        })}
+
+        {showManage ? (
+          <NavLink
+            href="/projects/manage"
+            label="Manage"
+            active={pathname === "/projects/manage"}
+            orientation="dock"
+          >
+            <Settings2 className="h-[1.2rem] w-[1.2rem]" strokeWidth={1.75} />
+          </NavLink>
+        ) : null}
+      </div>
+    </nav>
+  );
+}
+
+function ShellChrome({ children }: { children: React.ReactNode }) {
+  const showManage = useShowManage();
+
+  return (
+    <div className="relative flex h-svh overflow-hidden bg-[linear-gradient(165deg,#e8f1ff_0%,#f5f8fc_42%,#eef8f1_100%)]">
+      <Suspense fallback={null}>
+        <ProjectThemeSync />
+      </Suspense>
+
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden
+      >
+        <div className="absolute -left-28 top-0 h-72 w-72 rounded-full bg-[color-mix(in_srgb,#93c5fd_28%,transparent)] blur-3xl" />
+        <div className="absolute right-[-4rem] top-24 h-80 w-80 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] blur-3xl" />
+        <div className="absolute bottom-10 left-1/3 h-64 w-64 rounded-full bg-[color-mix(in_srgb,#bbf7d0_22%,transparent)] blur-3xl" />
+      </div>
+
+      <Suspense fallback={null}>
+        <DesktopSidebar showManage={showManage} />
+      </Suspense>
+
+      <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <MobileTopBar />
+
+        <div className="flex min-h-0 flex-1 flex-col px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-0 lg:p-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/85 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+              {children}
             </div>
-          ) : null}
+          </div>
         </div>
       </div>
-    </aside>
+
+      <Suspense fallback={null}>
+        <MobileDock showManage={showManage} />
+      </Suspense>
+    </div>
   );
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (stored === "1") setCollapsed(true);
-    } catch {
-      // ignore
-    }
-    setHydrated(true);
-  }, []);
-
-  function toggleCollapsed() {
-    setCollapsed((current) => {
-      const next = !current;
-      try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  }
-
   return (
     <AuthGate>
-      <div className="flex h-svh overflow-hidden bg-canvas">
-        <Suspense fallback={null}>
-          <ProjectThemeSync />
-        </Suspense>
-        <div className="relative z-40 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0">
-          <Suspense
-            fallback={
-              <SidebarFallback collapsed={hydrated ? collapsed : false} />
-            }
-          >
-            <SidebarNav
-              collapsed={collapsed}
-              onToggleCollapsed={toggleCollapsed}
-            />
-          </Suspense>
-        </div>
-
-        {mobileOpen ? (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <button
-              type="button"
-              className="absolute inset-0 bg-slate-900/40"
-              aria-label="ปิดเมนู"
-              onClick={() => setMobileOpen(false)}
-            />
-            <div className="relative h-full w-72 max-w-[85vw] shadow-xl">
-              <Suspense fallback={<SidebarFallback />}>
-                <SidebarNav onNavigate={() => setMobileOpen(false)} />
-              </Suspense>
-              <button
-                type="button"
-                className="absolute top-3 right-3 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                onClick={() => setMobileOpen(false)}
-                aria-label="ปิด"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-            <button
-              type="button"
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
-              onClick={() => setMobileOpen(true)}
-              aria-label="เปิดเมนู"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-primary">
-                TIM TaskManage
-              </p>
-            </div>
-          </div>
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
-        </div>
-      </div>
+      <ShellChrome>{children}</ShellChrome>
     </AuthGate>
   );
 }

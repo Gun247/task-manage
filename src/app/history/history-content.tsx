@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, History, Pencil, Search } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { GlassPanel, PageHeader, PageMain } from "@/components/page-layout";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
@@ -346,87 +347,76 @@ export default function HistoryPageContent() {
 
   return (
     <AppShell>
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <History className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-bold text-primary">ประวัติ Task</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                ไทม์ไลน์สถานะและการปรับ flow หลังขึ้น UAT/PRD —
-                คลิกรายการเพื่อแก้ไข task ได้ทันที
-              </p>
-            </div>
+      <PageHeader
+        icon={<History className="h-5 w-5" />}
+        title="ประวัติ Task"
+        description="ไทม์ไลน์สถานะและการปรับ flow หลังขึ้น UAT/PRD — คลิกรายการเพื่อแก้ไข task ได้ทันที"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:max-w-xs sm:flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Input
+              className="h-9 rounded-lg border-slate-200 bg-white py-0 pl-8 text-sm leading-9"
+              placeholder="ค้นหาชื่อ task, โปรเจกต์, สถานะ, เหตุผล..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
           </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <div className="relative w-full sm:max-w-xs sm:flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <Input
-                className="h-9 py-0 pl-8 text-sm leading-9"
-                placeholder="ค้นหาชื่อ task, โปรเจกต์, สถานะ, เหตุผล..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </div>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-44"
-              value={projectFromUrl}
-              onChange={(event) =>
-                handleProjectFilterChange(event.target.value)
-              }
-            >
-              <option value="">ทุกโปรเจกต์</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              disabled={historyScope !== "all"}
-            >
-              <option value="">ทุกสถานะปลายทาง</option>
-              {statuses.map((status) => (
-                <option key={status.id} value={status.name}>
-                  {status.name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-52"
-              value={historyScope}
-              onChange={(event) => {
-                const value = event.target.value as
-                  | "all"
-                  | "postRelease"
-                  | "rework";
-                setHistoryScope(value);
-                if (value !== "all") setStatusFilter("");
-              }}
-            >
-              <option value="all">ทุกประเภทประวัติ</option>
-              <option value="postRelease">เฉพาะแก้หลังขึ้น</option>
-              <option value="rework">เคยเข้า Modify / HOLD</option>
-            </Select>
-          </div>
+          <Select
+            className="h-9 w-[calc(50%-0.25rem)] rounded-lg border-slate-200 bg-white py-0 text-sm leading-9 sm:w-44"
+            value={projectFromUrl}
+            onChange={(event) =>
+              handleProjectFilterChange(event.target.value)
+            }
+          >
+            <option value="">ทุกโปรเจกต์</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            className="h-9 w-[calc(50%-0.25rem)] rounded-lg border-slate-200 bg-white py-0 text-sm leading-9 sm:w-40"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            disabled={historyScope !== "all"}
+          >
+            <option value="">ทุกสถานะปลายทาง</option>
+            {statuses.map((status) => (
+              <option key={status.id} value={status.name}>
+                {status.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            className="h-9 w-full rounded-lg border-slate-200 bg-white py-0 text-sm leading-9 sm:w-52"
+            value={historyScope}
+            onChange={(event) => {
+              const value = event.target.value as
+                | "all"
+                | "postRelease"
+                | "rework";
+              setHistoryScope(value);
+              if (value !== "all") setStatusFilter("");
+            }}
+          >
+            <option value="all">ทุกประเภทประวัติ</option>
+            <option value="postRelease">เฉพาะแก้หลังขึ้น</option>
+            <option value="rework">เคยเข้า Modify / HOLD</option>
+          </Select>
         </div>
-      </div>
+      </PageHeader>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 lg:px-8">
+      <PageMain width="5xl">
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+          <div className="rounded-[1.35rem] border border-red-200 bg-red-50/90 p-6 text-center text-sm text-red-700">
             {error}
           </div>
         ) : loading ? (
           <LoadingCard />
         ) : filteredItems.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+          <GlassPanel className="border-dashed px-6 py-16 text-center">
             <History className="mx-auto h-10 w-10 text-slate-300" />
             <h3 className="mt-4 text-base font-semibold text-slate-800">
               ยังไม่มีประวัติ
@@ -435,7 +425,7 @@ export default function HistoryPageContent() {
               เมื่อสร้าง task หรือเปลี่ยนสถานะ (เช่น Backlog → In Progress)
               ระบบจะประทับเวลาและแสดงที่นี่
             </p>
-          </div>
+          </GlassPanel>
         ) : (
           <div className="space-y-8">
             <p className="text-sm text-slate-500">
@@ -458,10 +448,10 @@ export default function HistoryPageContent() {
                         type="button"
                         onClick={() => openEditTask(item.taskId)}
                         className={cn(
-                          "group block w-full rounded-2xl border bg-white p-4 text-left transition",
+                          "group block w-full rounded-[1.25rem] border bg-white/85 p-4 text-left shadow-[0_6px_20px_rgba(15,23,42,0.04)] backdrop-blur-sm transition",
                           item.kind === "postRelease"
-                            ? "border-amber-200 hover:border-amber-300 hover:shadow-sm"
-                            : "border-slate-200 hover:border-primary/25 hover:shadow-sm",
+                            ? "border-amber-200/90 hover:border-amber-300 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]"
+                            : "border-white/80 hover:border-primary/25 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
                         )}
                       >
@@ -565,7 +555,7 @@ export default function HistoryPageContent() {
                             <time className="text-xs text-slate-500">
                               {formatDateTime(item.changedAt)}
                             </time>
-                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-caption font-medium text-slate-500 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-1 text-caption font-medium text-slate-500 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-visible:opacity-100">
                               <Pencil className="h-3 w-3" />
                               แก้ไข
                             </span>
@@ -579,7 +569,7 @@ export default function HistoryPageContent() {
             ))}
           </div>
         )}
-      </main>
+      </PageMain>
 
       <TaskFormDialog
         open={taskDialogOpen}

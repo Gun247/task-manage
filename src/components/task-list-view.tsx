@@ -425,7 +425,7 @@ export function TaskListView({
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {busy ? (
         <LoadingOverlay
           label={busyLabel}
@@ -493,7 +493,7 @@ export function TaskListView({
                   className={cn(
                     stickyHead,
                     stickyName,
-                    "z-40 min-w-[16rem] border-b border-slate-200 px-3 py-2.5 font-medium shadow-[6px_0_10px_-6px_rgba(15,23,42,0.22)]",
+                    "z-40 min-w-[11rem] border-b border-slate-200 px-3 py-2.5 font-medium shadow-[6px_0_10px_-6px_rgba(15,23,42,0.22)] sm:min-w-[16rem]",
                   )}
                 >
                   Task Name
@@ -661,7 +661,7 @@ export function TaskListView({
                         stickyName,
                         rowBg,
                         borderClass,
-                        "min-w-[16rem] max-w-[24rem] border-b px-3 py-2 shadow-[6px_0_10px_-6px_rgba(15,23,42,0.22)]",
+                        "min-w-[11rem] max-w-[24rem] border-b px-3 py-2 shadow-[6px_0_10px_-6px_rgba(15,23,42,0.22)] sm:min-w-[16rem]",
                       )}
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -877,7 +877,7 @@ export function TaskListView({
       </div>
 
       {selectedCount > 0 ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex flex-col items-center gap-2 px-3">
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-40 flex flex-col items-center gap-2 px-2 sm:px-3">
           {error ? (
             <p className="task-bulk-bar pointer-events-auto rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 shadow-sm">
               {error}

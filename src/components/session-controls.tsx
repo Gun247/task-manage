@@ -101,13 +101,13 @@ export function SessionControls() {
   }
 
   return (
-    <div className="relative flex h-9 items-center rounded-lg border border-slate-200 bg-white pl-1.5 pr-0.5">
+    <div className="relative flex h-9 w-full items-center rounded-xl border border-slate-200/80 bg-white/90 pl-1.5 pr-0.5">
       <div
         className="flex min-w-0 items-center gap-1.5 pr-1"
         title={`${session.nickname} · ${ROLE_LABELS[session.role]}${session.employeeId ? ` · ${session.employeeId}` : ""}`}
       >
         <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold text-white"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
           style={{ backgroundColor: session.color || "#6BB82A" }}
         >
           {memberInitials(session.nickname)}
@@ -154,7 +154,7 @@ export function SessionControls() {
       </Button>
 
       {notifyOpen ? (
-        <div className="absolute top-full right-0 z-50 mt-1.5 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+        <div className="absolute top-full right-0 z-50 mt-1.5 w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
           <div className="mb-2 flex items-center justify-between px-1">
             <p className="text-xs font-semibold text-slate-700">การแจ้งเตือน</p>
             <button

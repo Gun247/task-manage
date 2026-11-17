@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, LayoutGrid, Plus } from "lucide-react";
+import { displayProjectDescription } from "@/lib/project-display";
 import { themeAccentColor } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,7 @@ export function ProjectSwitcher({
         onClick={() => setOpen((current) => !current)}
         disabled={projects.length === 0}
         className={cn(
-          "flex h-9 min-w-[200px] max-w-[280px] items-center gap-2 rounded-xl border border-slate-200 bg-white py-0 pr-2 pl-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full min-w-0 max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-white py-0 pr-2 pl-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[200px] sm:max-w-[280px]",
           open && "border-primary/40 ring-2 ring-primary/10",
         )}
       >
@@ -79,7 +80,7 @@ export function ProjectSwitcher({
       </button>
 
       {open ? (
-        <div className="absolute top-full left-0 z-50 mt-1.5 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="absolute top-full left-0 z-50 mt-1.5 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg sm:w-72">
           <div className="border-b border-slate-100 px-3 py-2">
             <p className="text-xs font-medium text-slate-500">สลับโปรเจกต์</p>
           </div>
@@ -109,9 +110,9 @@ export function ProjectSwitcher({
                   <p className="truncate font-medium text-slate-800">
                     {project.name}
                   </p>
-                  {project.description ? (
+                  {displayProjectDescription(project.description) ? (
                     <p className="truncate text-xs text-slate-500">
-                      {project.description}
+                      {displayProjectDescription(project.description)}
                     </p>
                   ) : null}
                 </div>

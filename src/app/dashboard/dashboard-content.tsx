@@ -13,9 +13,11 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { DashboardHeatmaps } from "@/components/dashboard-heatmaps";
+import { GlassPanel, PageHeader, PageMain } from "@/components/page-layout";
 import { Badge } from "@/components/ui/badge";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { displayProjectDescription } from "@/lib/project-display";
 import { themeAccentColor } from "@/lib/themes";
 import type { Project, Status, Task } from "@/lib/types";
 import { formatDateTime, isTaskOverdue } from "@/lib/utils";
@@ -110,31 +112,21 @@ export default function DashboardPageContent() {
 
   return (
     <AppShell>
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <LayoutDashboard className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                ภาพรวมงานทุกโปรเจกต์และสถานะ
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={<LayoutDashboard className="h-5 w-5" />}
+        title="Dashboard"
+        description="ภาพรวมงานทุกโปรเจกต์และสถานะ"
+      />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+      <PageMain>
         {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+          <div className="rounded-[1.35rem] border border-red-200 bg-red-50/90 p-6 text-center text-sm text-red-700">
             {error}
           </div>
         ) : loading ? (
           <LoadingCard />
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5 sm:space-y-6">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
                 icon={<FolderKanban className="h-4 w-4" />}
@@ -168,8 +160,8 @@ export default function DashboardPageContent() {
               projects={projects}
             />
 
-            <div className="grid gap-6 lg:grid-cols-5">
-              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-3">
+            <div className="grid gap-5 lg:grid-cols-5 lg:gap-6">
+              <GlassPanel className="p-4 lg:col-span-3">
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold text-slate-800">
                     สถานะงาน
@@ -214,9 +206,9 @@ export default function DashboardPageContent() {
                     );
                   })}
                 </div>
-              </section>
+              </GlassPanel>
 
-              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
+              <GlassPanel className="p-4 lg:col-span-2">
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <h2 className="text-sm font-semibold text-slate-800">
                     กิจกรรมล่าสุด
@@ -230,7 +222,7 @@ export default function DashboardPageContent() {
                   </Link>
                 </div>
                 {recentHistory.length === 0 ? (
-                  <div className="rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
+                  <div className="rounded-xl bg-slate-50/80 px-3 py-8 text-center text-sm text-slate-500">
                     <History className="mx-auto mb-2 h-5 w-5 text-slate-300" />
                     ยังไม่มีประวัติการเปลี่ยนสถานะ
                   </div>
@@ -252,10 +244,10 @@ export default function DashboardPageContent() {
                     ))}
                   </ul>
                 )}
-              </section>
+              </GlassPanel>
             </div>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <GlassPanel className="p-4">
               <div className="mb-4 flex items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold text-slate-800">
                   โปรเจกต์
@@ -270,7 +262,7 @@ export default function DashboardPageContent() {
               </div>
 
               {projectStats.length === 0 ? (
-                <p className="rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
+                <p className="rounded-xl bg-slate-50/80 px-3 py-8 text-center text-sm text-slate-500">
                   ยังไม่มีโปรเจกต์
                 </p>
               ) : (
@@ -279,7 +271,7 @@ export default function DashboardPageContent() {
                     <Link
                       key={project.id}
                       href={`/tasks?project=${project.id}`}
-                      className="rounded-xl border border-slate-200 p-4 transition hover:border-primary/30 hover:shadow-sm"
+                      className="rounded-xl border border-slate-200 p-4 transition hover:border-slate-300 hover:shadow-sm"
                     >
                       <div className="mb-3 flex items-start gap-2">
                         <span
@@ -293,9 +285,9 @@ export default function DashboardPageContent() {
                           <p className="truncate font-semibold text-slate-900">
                             {project.name}
                           </p>
-                          {project.description ? (
+                          {displayProjectDescription(project.description) ? (
                             <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                              {project.description}
+                              {displayProjectDescription(project.description)}
                             </p>
                           ) : null}
                         </div>
@@ -311,10 +303,10 @@ export default function DashboardPageContent() {
                   ))}
                 </div>
               )}
-            </section>
+            </GlassPanel>
 
             {overdueTasks.length > 0 ? (
-              <section className="rounded-2xl border border-red-200 bg-red-50/50 p-4">
+              <GlassPanel className="border-red-200/80 bg-red-50/70 p-4">
                 <h2 className="mb-3 text-sm font-semibold text-red-700">
                   Task เกินกำหนด
                 </h2>
@@ -323,7 +315,7 @@ export default function DashboardPageContent() {
                     <li key={task.id}>
                       <Link
                         href={`/tasks?project=${task.projectId}`}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2.5 text-sm transition hover:shadow-sm"
+                        className="flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-3 py-2.5 text-sm transition hover:shadow-sm"
                       >
                         <span className="min-w-0 truncate font-medium text-slate-800">
                           {task.name}
@@ -333,11 +325,11 @@ export default function DashboardPageContent() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </GlassPanel>
             ) : null}
           </div>
         )}
-      </main>
+      </PageMain>
     </AppShell>
   );
 }
@@ -381,10 +373,12 @@ function SummaryCard({
   }[tone];
 
   return (
-    <div className={`rounded-2xl border border-slate-200 p-4 ${tones.wrap}`}>
+    <div
+      className={`rounded-2xl border border-slate-200/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ${tones.wrap}`}
+    >
       <div className="flex items-center gap-3">
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-lg ${tones.icon}`}
+          className={`flex h-9 w-9 items-center justify-center rounded-xl ${tones.icon}`}
         >
           {icon}
         </span>
@@ -394,7 +388,9 @@ function SummaryCard({
           >
             {label}
           </p>
-          <p className={`text-2xl font-bold ${tones.value}`}>{value}</p>
+          <p className={`text-2xl font-bold tracking-tight ${tones.value}`}>
+            {value}
+          </p>
         </div>
       </div>
     </div>

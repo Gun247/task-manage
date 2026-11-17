@@ -73,7 +73,7 @@ export function SignInPageContent() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-[linear-gradient(165deg,#E8F4FC_0%,#F7FBFE_50%,#EEF7E8_100%)] px-4 py-10">
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-[linear-gradient(165deg,#e8f1ff_0%,#f5f8fc_38%,#eef8f1_100%)] px-4 py-10">
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
         style={{

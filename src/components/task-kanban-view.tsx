@@ -176,7 +176,7 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full w-[280px] shrink-0 flex-col rounded-2xl border p-3 transition",
+        "flex h-full w-[min(280px,82vw)] shrink-0 flex-col rounded-2xl border p-3 transition",
         overWip && "ring-2 ring-red-300",
       )}
       style={{
@@ -360,16 +360,16 @@ export function TaskKanbanView({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <p className="mb-3 shrink-0 text-sm text-slate-500">
-        ลาก task card ข้ามคอลัมน์เพื่อเปลี่ยนสถานะ
+      <p className="mb-2 shrink-0 text-xs text-slate-500 sm:mb-3 sm:text-sm">
+        เลื่อนแนวนอน · ลากการ์ดข้ามคอลัมน์เพื่อเปลี่ยนสถานะ
       </p>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="min-h-0 flex-1 overflow-x-auto">
-          <div className="flex h-full min-h-0 gap-4 pb-1">
+        <div className="-mx-1 min-h-0 flex-1 overflow-x-auto overscroll-x-contain px-1 touch-pan-x">
+          <div className="flex h-full min-h-0 gap-3 pb-1 sm:gap-4">
             {statuses.map((status) => (
               <KanbanColumn
                 key={status.id}

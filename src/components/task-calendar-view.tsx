@@ -124,6 +124,7 @@ interface TaskCalendarViewProps {
   tasks: Task[];
   taskTypes?: TaskTypeOption[];
   onEditTask: (task: Task) => void;
+  onViewModeChange?: (mode: "list" | "kanban" | "calendar") => void;
 }
 
 function isDateOnDay(value: string | null | undefined, day: Date) {
@@ -289,6 +290,7 @@ export function TaskCalendarView({
   tasks,
   taskTypes = [],
   onEditTask,
+  onViewModeChange,
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -498,6 +500,52 @@ export function TaskCalendarView({
       .filter((event) => filters[event.kind]);
   }
 
+  const monthHeatMax = useMemo(() => {
+    let max = 0;
+    for (const day of calendarDays) {
+      if (!isSameMonth(day, currentMonth)) continue;
+      max = Math.max(max, getEventsOnDay(day).length);
+    }
+    return max;
+  }, [calendarDays, currentMonth, tasks, filters]);
+
+  function heatDayClass(count: number, selected: boolean) {
+    if (selected) {
+      return "border-orange-300 bg-white shadow-[0_10px_28px_rgba(249,115,22,0.18)] ring-2 ring-orange-200/80";
+    }
+    if (count === 0) {
+      return "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/80";
+    }
+    const ratio = count / Math.max(monthHeatMax, 1);
+    if (ratio >= 0.75) {
+      return "border-orange-300/50 bg-[#F97316]/45 hover:bg-[#F97316]/55";
+    }
+    if (ratio >= 0.5) {
+      return "border-orange-200/60 bg-orange-200/70 hover:bg-orange-200/90";
+    }
+    if (ratio >= 0.25) {
+      return "border-orange-100 bg-orange-100/80 hover:bg-orange-100";
+    }
+    return "border-orange-50 bg-orange-50/70 hover:bg-orange-50";
+  }
+
+  const weekHeat = useMemo(() => {
+    const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    const days = eachDayOfInterval({
+      start: weekStart,
+      end: addDays(weekStart, 6),
+    });
+    const counts = days.map((day) => getEventsOnDay(day).length);
+    const max = Math.max(...counts, 1);
+    return days.map((day, index) => ({
+      day,
+      label: format(day, "EEE", { locale: th }),
+      count: counts[index],
+      height: Math.max(12, Math.round((counts[index] / max) * 72)),
+      isSelected: isSameDay(day, selectedDate),
+    }));
+  }, [selectedDate, tasks, filters, calendarDays]);
+
   function toggleFilter(kind: EventKind) {
     setFilters((prev) => ({ ...prev, [kind]: !prev[kind] }));
   }
@@ -541,11 +589,11 @@ export function TaskCalendarView({
 
   function renderDetailPanel(showCollapse: boolean) {
     return (
-      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
+      <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+        <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 px-4 py-4">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-slate-900">
-              {format(selectedDate, "d MMMM yyyy", { locale: th })}
+            <h3 className="truncate text-base font-semibold tracking-tight text-slate-900">
+              {format(selectedDate, "EEE, d MMM", { locale: th })}
             </h3>
             <p className="mt-0.5 text-sm text-slate-500">
               {selectedDayEvents.length} รายการวันนี้
@@ -568,6 +616,53 @@ export function TaskCalendarView({
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+          <div className="rounded-2xl bg-slate-50/90 p-3 ring-1 ring-slate-200/70">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-caption font-semibold tracking-wide text-slate-500 uppercase">
+                This week
+              </p>
+              <span className="text-[11px] tabular-nums text-slate-400">
+                {weekHeat.reduce((sum, item) => sum + item.count, 0)} events
+              </span>
+            </div>
+            <div className="flex h-20 items-end justify-between gap-1.5">
+              {weekHeat.map((item) => (
+                <button
+                  key={item.day.toISOString()}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate(item.day);
+                    setCurrentMonth(item.day);
+                  }}
+                  className="group flex min-w-0 flex-1 flex-col items-center gap-1"
+                  title={`${format(item.day, "d MMM", { locale: th })} · ${item.count}`}
+                >
+                  <div className="flex h-16 w-full items-end justify-center">
+                    <span
+                      className={cn(
+                        "w-[70%] max-w-6 rounded-full transition",
+                        item.count === 0
+                          ? "bg-slate-200/80"
+                          : item.isSelected
+                            ? "bg-orange-500 shadow-[0_6px_16px_rgba(249,115,22,0.35)]"
+                            : "bg-orange-300/90 group-hover:bg-orange-400",
+                      )}
+                      style={{ height: `${item.height}px` }}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      "truncate text-[10px] font-medium",
+                      item.isSelected ? "text-orange-600" : "text-slate-400",
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-2.5">
             <p className="text-caption font-semibold tracking-wide text-slate-500 uppercase">
               ความครอบคลุม Timeline
@@ -848,113 +943,154 @@ export function TaskCalendarView({
     <div
       ref={layoutRef}
       className={cn(
-        "flex h-full min-h-0 flex-col gap-3 md:flex-row md:gap-0",
+        "flex h-full min-h-0 flex-col gap-4 md:flex-row md:gap-4",
         isResizing && "select-none",
       )}
     >
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {format(currentMonth, "MMMM yyyy", { locale: th })}
-              </h2>
-              <span className="text-sm text-slate-500">
-                {monthEventStats.taskCount} task ในเดือนนี้
-              </span>
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+        <div className="flex shrink-0 flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
+                Calendar
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+                  {format(currentMonth, "MMMM yyyy", { locale: th })}
+                </h2>
+                <span className="text-sm text-slate-500">
+                  {monthEventStats.taskCount} task
+                </span>
+              </div>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {(Object.keys(EVENT_META) as EventKind[]).map((kind) => {
-                const meta = EVENT_META[kind];
-                const active = filters[kind];
-                const count = monthEventStats.counts[kind];
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => toggleFilter(kind)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption font-medium transition",
-                      active ? meta.pillOn : meta.pillOff,
-                      !active && "opacity-70",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        active ? "bg-white/90" : meta.dot,
-                      )}
-                    />
-                    {meta.label}
-                    <span
-                      className={cn(
-                        "tabular-nums",
-                        active ? "text-white/75" : "opacity-70",
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200/80">
+                <button
+                  type="button"
+                  className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+                >
+                  Month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const weekStart = startOfWeek(selectedDate, {
+                      weekStartsOn: 1,
+                    });
+                    setSelectedDate(weekStart);
+                    setCurrentMonth(weekStart);
+                  }}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
+                >
+                  Week
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onViewModeChange?.("list")}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
+                >
+                  List
+                </button>
+              </div>
+
+              <div className="inline-flex items-center gap-1 rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200/80">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() =>
+                    setCurrentMonth((value) =>
+                      addDays(startOfMonth(value), -1),
+                    )
+                  }
+                  aria-label="เดือนก่อนหน้า"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-full px-3 text-xs font-semibold"
+                  onClick={() => {
+                    const today = new Date();
+                    setCurrentMonth(today);
+                    setSelectedDate(today);
+                  }}
+                >
+                  วันนี้
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full"
+                  onClick={() =>
+                    setCurrentMonth((value) => addDays(endOfMonth(value), 1))
+                  }
+                  aria-label="เดือนถัดไป"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {panelCollapsed ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="hidden h-8 gap-1.5 rounded-full border-0 bg-white shadow-sm ring-1 ring-slate-200/80 md:inline-flex"
+                  onClick={() => setPanelCollapsed(false)}
+                >
+                  <PanelRightOpen className="h-3.5 w-3.5" />
+                  รายละเอียด
+                </Button>
+              ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() =>
-                setCurrentMonth((value) => addDays(startOfMonth(value), -1))
-              }
-              aria-label="เดือนก่อนหน้า"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => {
-                const today = new Date();
-                setCurrentMonth(today);
-                setSelectedDate(today);
-              }}
-            >
-              วันนี้
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() =>
-                setCurrentMonth((value) => addDays(endOfMonth(value), 1))
-              }
-              aria-label="เดือนถัดไป"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            {panelCollapsed ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="hidden h-8 gap-1.5 md:inline-flex"
-                onClick={() => setPanelCollapsed(false)}
-              >
-                <PanelRightOpen className="h-3.5 w-3.5" />
-                รายละเอียด
-              </Button>
-            ) : null}
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(Object.keys(EVENT_META) as EventKind[]).map((kind) => {
+              const meta = EVENT_META[kind];
+              const active = filters[kind];
+              const count = monthEventStats.counts[kind];
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => toggleFilter(kind)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption font-medium transition",
+                    active ? meta.pillOn : meta.pillOff,
+                    !active && "opacity-70",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      active ? "bg-white/90" : meta.dot,
+                    )}
+                  />
+                  {meta.label}
+                  <span
+                    className={cn(
+                      "tabular-nums",
+                      active ? "text-white/75" : "opacity-70",
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
-          <div className="mb-2 grid shrink-0 grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 sm:gap-1.5">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#FBFBFC] p-3 sm:p-4">
+          <div className="mb-2 grid shrink-0 grid-cols-7 gap-1 text-center text-[11px] font-semibold tracking-wide text-slate-400 uppercase sm:gap-1.5">
             {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((day) => (
               <div key={day} className="py-1">
                 {day}
@@ -963,7 +1099,7 @@ export function TaskCalendarView({
           </div>
 
           <div
-            className="grid min-h-0 flex-1 grid-cols-7 gap-1 sm:gap-1.5"
+            className="grid min-h-0 flex-1 grid-cols-7 gap-1.5 sm:gap-2"
             style={{
               gridTemplateRows: `repeat(${weekCount}, minmax(5.5rem, 1fr))`,
             }}
@@ -990,14 +1126,12 @@ export function TaskCalendarView({
                   aria-pressed={isSelected}
                   aria-label={`เลือกวันที่ ${format(day, "d MMMM yyyy", { locale: th })}${dayEvents.length > 0 ? ` · ${dayEvents.length} รายการ` : ""}${hasClash ? " · มีการชนกัน" : ""}`}
                   className={cn(
-                    "group flex min-h-0 flex-col overflow-hidden rounded-xl border p-1.5 text-left transition sm:p-2",
-                    isSelected
-                      ? "border-slate-900/20 bg-slate-50 ring-2 ring-slate-900/10"
-                      : "border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70",
-                    !isSameMonth(day, currentMonth) && "opacity-40",
+                    "group flex min-h-0 flex-col overflow-hidden rounded-2xl border p-1.5 text-left transition sm:p-2",
+                    heatDayClass(dayEvents.length, isSelected),
+                    !isSameMonth(day, currentMonth) && "opacity-35",
                     hasClash &&
                       !isSelected &&
-                      "border-orange-200 bg-orange-50/40",
+                      "ring-1 ring-orange-300/60",
                   )}
                 >
                   <span className="mb-1 flex w-full shrink-0 items-center justify-between gap-1">
@@ -1005,7 +1139,7 @@ export function TaskCalendarView({
                       className={cn(
                         "inline-flex h-7 w-7 items-center justify-center rounded-full text-sm",
                         isToday
-                          ? "bg-slate-900 font-bold text-white"
+                          ? "bg-orange-500 font-bold text-white shadow-[0_4px_12px_rgba(249,115,22,0.35)]"
                           : "font-medium text-slate-700",
                       )}
                     >

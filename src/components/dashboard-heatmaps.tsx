@@ -381,7 +381,7 @@ function TaskFrequencyHeatmap({
   }, [weeks.length, needsCarousel]);
 
   return (
-    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-800">
@@ -688,7 +688,7 @@ function PeopleWorkloadMatrix({
 
   if (!hasRange || members.length === 0) {
     return (
-      <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <h2 className="text-sm font-semibold text-slate-800">โหลดงานต่อคน</h2>
         <p className="mt-6 flex flex-1 items-center justify-center rounded-xl bg-slate-50 px-3 py-8 text-center text-sm text-slate-500">
           {hasRange
@@ -700,7 +700,7 @@ function PeopleWorkloadMatrix({
   }
 
   return (
-    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="mb-4 shrink-0">
         <h2 className="text-sm font-semibold text-slate-800">โหลดงานต่อคน</h2>
         <p className="mt-0.5 text-xs text-slate-500">

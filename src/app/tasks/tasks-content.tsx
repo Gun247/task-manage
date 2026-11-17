@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -11,10 +17,10 @@ import {
   Download,
   Bookmark,
   Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProjectSwitcher } from "@/components/project-switcher";
-import { SessionControls } from "@/components/session-controls";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Select } from "@/components/ui/input";
@@ -62,6 +68,7 @@ import type {
   TeamMember,
   ViewMode,
 } from "@/lib/types";
+import { displayProjectDescription } from "@/lib/project-display";
 import { cn, isTaskOverdue, taskMatchesDateFilter } from "@/lib/utils";
 
 type FilterScope = "" | "postRelease" | "rework";
@@ -124,6 +131,7 @@ export function TasksPageContent() {
     toStatusName: string;
   } | null>(null);
   const [postReleaseSaving, setPostReleaseSaving] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const loadTasks = useCallback(async (projectId: string) => {
     if (!projectId) {
@@ -495,6 +503,15 @@ export function TasksPageContent() {
     setFocusCreateTrigger((current) => current + 1);
   }
 
+  const onDockCreate = useEffectEvent(() => {
+    focusCreateTask();
+  });
+
+  useEffect(() => {
+    window.addEventListener("fwf-open-new-task", onDockCreate);
+    return () => window.removeEventListener("fwf-open-new-task", onDockCreate);
+  }, [onDockCreate]);
+
   async function handleProjectCreated(projectId: string) {
     await loadData();
     setSelectedProjectId(projectId);
@@ -536,8 +553,8 @@ export function TasksPageContent() {
             "flex h-full min-h-0 flex-col overflow-hidden",
         )}
       >
-      <div className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="w-full px-4 py-3 lg:px-6">
+      <div className="shrink-0 border-b border-slate-200/70 bg-white">
+        <div className="w-full px-4 py-3 sm:px-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <nav className="mb-1 flex items-center gap-1 text-xs text-slate-500">
@@ -550,36 +567,38 @@ export function TasksPageContent() {
                 </span>
               </nav>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <ProjectSwitcher
-                  projects={projects}
-                  selectedProjectId={selectedProjectId}
-                  onSelect={setSelectedProjectId}
-                  onCreateNew={
-                    canManageSettings(sessionRole)
-                      ? () => setProjectDialogOpen(true)
-                      : undefined
-                  }
-                />
-                {selectedProject?.description ? (
+              <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+                <div className="w-full sm:w-auto">
+                  <ProjectSwitcher
+                    projects={projects}
+                    selectedProjectId={selectedProjectId}
+                    onSelect={setSelectedProjectId}
+                    onCreateNew={
+                      canManageSettings(sessionRole)
+                        ? () => setProjectDialogOpen(true)
+                        : undefined
+                    }
+                  />
+                </div>
+                {displayProjectDescription(selectedProject?.description) ? (
                   <p className="hidden text-sm text-slate-500 lg:block">
-                    {selectedProject.description}
+                    {displayProjectDescription(selectedProject?.description)}
                   </p>
                 ) : null}
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <div className="inline-flex h-9 items-center rounded-lg bg-slate-100 p-0.5">
+              <div className="inline-flex h-9 w-full items-center rounded-xl bg-slate-100/90 p-1 sm:w-auto">
                 {views.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setView(item.id)}
                     className={cn(
-                      "inline-flex h-full items-center rounded-md px-3 text-sm font-medium transition sm:px-3.5",
+                      "inline-flex h-full flex-1 items-center justify-center rounded-lg px-3 text-sm font-medium transition sm:flex-none sm:px-3.5",
                       view === item.id
-                        ? "bg-white text-primary shadow-sm"
+                        ? "bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.08)]"
                         : "text-slate-500 hover:text-slate-700",
                     )}
                   >
@@ -588,14 +607,12 @@ export function TasksPageContent() {
                 ))}
               </div>
 
-              <div className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
-
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-1">
                 {canCreateOrEditTasks(sessionRole) ? (
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="h-9 rounded-lg px-2.5 text-sm text-slate-600"
+                    variant="outline"
+                    className="h-9 rounded-xl border-slate-200 bg-white px-3 text-sm text-slate-600 shadow-sm"
                     onClick={() => {
                       setImportMessage(null);
                       setPlanUatOpen(true);
@@ -610,8 +627,8 @@ export function TasksPageContent() {
                 {canManageSettings(sessionRole) ? (
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="h-9 rounded-lg px-2.5 text-sm text-slate-600"
+                    variant="outline"
+                    className="h-9 rounded-xl border-slate-200 bg-white px-3 text-sm text-slate-600 shadow-sm"
                     onClick={() => setSettingsOpen(true)}
                     title="Settings · WIP"
                   >
@@ -621,14 +638,10 @@ export function TasksPageContent() {
                 ) : null}
               </div>
 
-              <div className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
-
-              <SessionControls />
-
               {canCreateOrEditTasks(sessionRole) ? (
                 <Button
                   type="button"
-                  className="h-9 rounded-lg px-3 text-sm shadow-sm"
+                  className="hidden h-9 rounded-xl px-3.5 text-sm shadow-sm sm:inline-flex"
                   onClick={() => focusCreateTask()}
                   disabled={!selectedProjectId}
                 >
@@ -639,205 +652,231 @@ export function TasksPageContent() {
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <div className="relative w-full sm:w-52 lg:flex-1 lg:max-w-xs">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <Input
-                className="h-9 py-0 pl-8 text-sm leading-9"
-                placeholder="ค้นหา task..."
-                value={filters.search}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    search: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-36"
-              value={filters.statusId}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  statusId: event.target.value,
-                }))
-              }
-            >
-              <option value="">สถานะ</option>
-              {statuses.map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.name}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
-              value={filters.priorityId}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  priorityId: event.target.value,
-                }))
-              }
-            >
-              <option value="">Priority</option>
-              {priorities.map((priority) => (
-                <option key={priority.id} value={priority.id}>
-                  {priority.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
-              value={filters.assigneeId}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  assigneeId: event.target.value,
-                }))
-              }
-            >
-              <option value="">Assignee</option>
-              {teamMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.nickname}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-32"
-              value={filters.taskType}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  taskType: event.target.value,
-                }))
-              }
-            >
-              <option value="">Type</option>
-              {taskTypes.map((type) => (
-                <option key={type.id} value={type.name}>
-                  {type.name}
-                </option>
-              ))}
-            </Select>
-            {view === "list" ? (
-              <>
-                <Select
-                  className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
-                  value={filters.dateField}
+          <div className="mt-4 rounded-2xl border border-slate-200/70 bg-slate-50/90 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-3.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-0 flex-1 sm:min-w-[14rem] lg:max-w-sm">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Input
+                  className="h-9 rounded-full border-0 bg-white py-0 pl-9 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80"
+                  placeholder="ค้นหา task..."
+                  value={filters.search}
                   onChange={(event) =>
                     setFilters((current) => ({
                       ...current,
-                      dateField: event.target.value as TaskDateFilterField,
-                    }))
-                  }
-                >
-                  <option value="">ทุกวันที่</option>
-                  <option value="startDate">Start</option>
-                  <option value="endDate">End</option>
-                  <option value="uatDate">Timeline UAT</option>
-                  <option value="prdDate">Timeline PRD</option>
-                </Select>
-                <DateInput
-                  compact
-                  aria-label="กรองวันที่"
-                  className="h-9 w-full sm:w-40"
-                  value={filters.date}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      date: event.target.value,
+                      search: event.target.value,
                     }))
                   }
                 />
-              </>
-            ) : null}
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-36"
-              value={filters.overdue}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  overdue: event.target.value as TaskOverdueFilter,
-                }))
-              }
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-9 shrink-0 rounded-full border-0 bg-white shadow-sm ring-1 ring-slate-200/80 md:hidden",
+                  filtersOpen && "ring-orange-300/70 text-orange-700",
+                )}
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-expanded={filtersOpen}
+                aria-controls="task-filters"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                ตัวกรอง
+              </Button>
+            </div>
+
+            <div
+              id="task-filters"
+              className={cn(
+                "mt-2 flex w-full flex-wrap items-center gap-2",
+                filtersOpen ? "flex" : "hidden md:flex",
+              )}
             >
-              <option value="">กำหนดส่ง</option>
-              <option value="overdue">เกินกำหนด</option>
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
-              value={filterScope}
-              onChange={(event) =>
-                setFilterScope(event.target.value as FilterScope)
-              }
-            >
-              <option value="">ขอบเขต</option>
-              <option value="postRelease">เคยปรับหลังขึ้น</option>
-              <option value="rework">Modify / HOLD</option>
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-auto sm:min-w-[11rem]"
-              value={sortMode}
-              onChange={(event) =>
-                setSortMode(event.target.value as TaskSortMode)
-              }
-            >
-              {TASK_SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              className="h-9 w-full py-0 text-sm leading-9 sm:w-44"
-              value={selectedSavedFilterId}
-              onChange={(event) => {
-                const id = event.target.value;
-                setSelectedSavedFilterId(id);
-                const saved = savedFilters.find((item) => item.id === id);
-                if (saved) applySavedFilter(saved);
-              }}
-            >
-              <option value="">Saved filter</option>
-              {savedFilters.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9"
-              onClick={() => void handleSaveCurrentFilter()}
-              disabled={!selectedProjectId}
-              title="บันทึกฟิลเตอร์ปัจจุบัน"
-            >
-              <Bookmark className="h-3.5 w-3.5" />
-              บันทึก
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-9 px-2 text-slate-500"
-              onClick={() => void handleDeleteSavedFilter()}
-              disabled={!selectedSavedFilterId}
-              title="ลบ saved filter ที่เลือก"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+              <Select
+                className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-36"
+                value={filters.statusId}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    statusId: event.target.value,
+                  }))
+                }
+              >
+                <option value="">สถานะ</option>
+                {statuses.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-32"
+                value={filters.priorityId}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    priorityId: event.target.value,
+                  }))
+                }
+              >
+                <option value="">Priority</option>
+                {priorities.map((priority) => (
+                  <option key={priority.id} value={priority.id}>
+                    {priority.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-32"
+                value={filters.assigneeId}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    assigneeId: event.target.value,
+                  }))
+                }
+              >
+                <option value="">Assignee</option>
+                {teamMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.nickname}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-32"
+                value={filters.taskType}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    taskType: event.target.value,
+                  }))
+                }
+              >
+                <option value="">Type</option>
+                {taskTypes.map((type) => (
+                  <option key={type.id} value={type.name}>
+                    {type.name}
+                  </option>
+                ))}
+              </Select>
+              {view === "list" ? (
+                <>
+                  <Select
+                    className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-40"
+                    value={filters.dateField}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        dateField: event.target.value as TaskDateFilterField,
+                      }))
+                    }
+                  >
+                    <option value="">ทุกวันที่</option>
+                    <option value="startDate">Start</option>
+                    <option value="endDate">End</option>
+                    <option value="uatDate">Timeline UAT</option>
+                    <option value="prdDate">Timeline PRD</option>
+                  </Select>
+                  <DateInput
+                    compact
+                    aria-label="กรองวันที่"
+                    className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white shadow-sm ring-1 ring-slate-200/80 sm:w-40"
+                    value={filters.date}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        date: event.target.value,
+                      }))
+                    }
+                  />
+                </>
+              ) : null}
+              <Select
+                className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-36"
+                value={filters.overdue}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    overdue: event.target.value as TaskOverdueFilter,
+                  }))
+                }
+              >
+                <option value="">กำหนดส่ง</option>
+                <option value="overdue">เกินกำหนด</option>
+              </Select>
+              <Select
+                className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-40"
+                value={filterScope}
+                onChange={(event) =>
+                  setFilterScope(event.target.value as FilterScope)
+                }
+              >
+                <option value="">ขอบเขต</option>
+                <option value="postRelease">เคยปรับหลังขึ้น</option>
+                <option value="rework">Modify / HOLD</option>
+              </Select>
+              <Select
+                className="h-9 w-full rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-auto sm:min-w-[11rem]"
+                value={sortMode}
+                onChange={(event) =>
+                  setSortMode(event.target.value as TaskSortMode)
+                }
+              >
+                {TASK_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                className="h-9 min-w-0 flex-1 rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-44 sm:flex-none"
+                value={selectedSavedFilterId}
+                onChange={(event) => {
+                  const id = event.target.value;
+                  setSelectedSavedFilterId(id);
+                  const saved = savedFilters.find((item) => item.id === id);
+                  if (saved) applySavedFilter(saved);
+                }}
+              >
+                <option value="">Saved filter</option>
+                {savedFilters.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-full border-0 bg-white shadow-sm ring-1 ring-slate-200/80"
+                onClick={() => void handleSaveCurrentFilter()}
+                disabled={!selectedProjectId}
+                title="บันทึกฟิลเตอร์ปัจจุบัน"
+              >
+                <Bookmark className="h-3.5 w-3.5" />
+                บันทึก
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 rounded-xl px-2 text-slate-500"
+                onClick={() => void handleDeleteSavedFilter()}
+                disabled={!selectedSavedFilterId}
+                title="ลบ saved filter ที่เลือก"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <main
         className={cn(
-          "relative w-full px-4 py-6 lg:px-6",
+          "relative w-full px-4 py-4 sm:px-5",
           (view === "kanban" || view === "list" || view === "calendar") &&
             "flex min-h-0 flex-1 flex-col overflow-hidden py-4",
         )}
@@ -893,31 +932,33 @@ export function TasksPageContent() {
                 "flex min-h-0 flex-1 flex-col",
             )}
           >
-            <TaskDashboardBar
-              tasks={tasks}
-              statuses={statuses}
-              overdueActive={filters.overdue === "overdue"}
-              onOverdueClick={() =>
-                setFilters((current) => ({
-                  ...current,
-                  overdue:
-                    current.overdue === "overdue" ? "" : "overdue",
-                }))
-              }
-              activeStatusId={filters.statusId}
-              onStatusClick={(statusId) =>
-                setFilters((current) => ({
-                  ...current,
-                  statusId:
-                    current.statusId === statusId ? "" : statusId,
-                }))
-              }
-              className={
-                view === "kanban" || view === "list" || view === "calendar"
-                  ? "shrink-0"
-                  : undefined
-              }
-            />
+            {view !== "calendar" ? (
+              <TaskDashboardBar
+                tasks={tasks}
+                statuses={statuses}
+                overdueActive={filters.overdue === "overdue"}
+                onOverdueClick={() =>
+                  setFilters((current) => ({
+                    ...current,
+                    overdue:
+                      current.overdue === "overdue" ? "" : "overdue",
+                  }))
+                }
+                activeStatusId={filters.statusId}
+                onStatusClick={(statusId) =>
+                  setFilters((current) => ({
+                    ...current,
+                    statusId:
+                      current.statusId === statusId ? "" : statusId,
+                  }))
+                }
+                className={
+                  view === "kanban" || view === "list"
+                    ? "shrink-0"
+                    : undefined
+                }
+              />
+            ) : null}
             {tasksLoading ? (
               <LoadingOverlay label="กำลังโหลด task..." />
             ) : null}
@@ -954,6 +995,7 @@ export function TasksPageContent() {
                   tasks={filteredTasks}
                   taskTypes={taskTypes}
                   onEditTask={openEditTask}
+                  onViewModeChange={setView}
                 />
               </div>
             )}

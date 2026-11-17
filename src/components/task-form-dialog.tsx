@@ -475,7 +475,7 @@ export function TaskFormDialog({
                   ) : null}
                 </DialogTitle>
                 <DialogDescription>
-                  กรอกรายละเอียดงานตามโครงสร้าง FWF Task Tracker
+                  กรอกรายละเอียดงานของโปรเจกต์
                 </DialogDescription>
               </div>
               {task ? (

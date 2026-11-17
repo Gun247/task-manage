@@ -565,7 +565,7 @@ function ScrollFeatureStory() {
       style={{ height: `${count * 140}vh` } as CSSProperties}
     >
       <div className="sticky top-0 flex h-svh flex-col justify-center overflow-hidden bg-[linear-gradient(180deg,#F7FBFE_0%,#EEF7E8_100%)]">
-        <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-8">
+        <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-6 overflow-hidden px-4 py-6 sm:gap-10 sm:px-6 sm:py-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-8">
           <div
             style={{
               transform: reduceMotion
@@ -579,36 +579,47 @@ function ScrollFeatureStory() {
                 {feature.title}
               </span>
             </p>
-            <h2 className="mt-3 max-w-[12ch] text-[clamp(2rem,4.5vw,3.5rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#1E3A2F]">
+            <h2 className="mt-3 max-w-[12ch] text-[clamp(1.75rem,6vw,3.5rem)] font-bold leading-[1.05] tracking-[-0.03em] text-[#1E3A2F]">
               {feature.line}
             </h2>
-            <p className="mt-4 max-w-md text-base leading-relaxed text-slate-600">
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600 sm:mt-4 sm:text-base">
               {feature.body}
             </p>
-            <ol className="mt-6 flex flex-wrap gap-2" aria-label="ลำดับฟีเจอร์">
+            <ol className="mt-4 flex flex-wrap gap-2 sm:mt-6" aria-label="ลำดับฟีเจอร์">
               {SCROLL_FEATURES.map((item, index) => (
                 <li key={item.id}>
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const track = trackRef.current;
+                      if (!track) return;
+                      const total = track.offsetHeight - window.innerHeight;
+                      if (total <= 0) return;
+                      const target =
+                        track.offsetTop +
+                        ((index + 0.5) / count) * total;
+                      window.scrollTo({ top: target, behavior: "smooth" });
+                    }}
                     className={cn(
-                      "inline-flex h-8 items-center rounded-full px-3 text-xs font-medium",
+                      "inline-flex h-8 items-center rounded-full px-3 text-xs font-medium transition",
                       index === active
                         ? "bg-primary text-white"
-                        : "bg-white text-slate-500 ring-1 ring-slate-200",
+                        : "bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-700",
                     )}
                   >
                     {item.title}
-                  </span>
+                  </button>
                 </li>
               ))}
             </ol>
           </div>
 
-          <div className="min-h-[18rem] sm:min-h-[22rem]">
+          <div className="min-h-0 min-w-0 sm:min-h-[22rem]">
             <FeatureVisual kind={feature.visual} phase={phase} />
           </div>
         </div>
 
-        <div className="mx-auto mb-8 w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-6 w-full max-w-6xl shrink-0 px-4 sm:mb-8 sm:px-6 lg:px-8">
           <div className="h-1 overflow-hidden rounded-full bg-slate-200/80">
             <div
               className="h-full rounded-full bg-primary"
@@ -635,18 +646,18 @@ export function LandingContent() {
 
   return (
     <div className="bg-[linear-gradient(180deg,#E8F4FC_0%,#F7FBFE_40%,#EEF7E8_100%)] text-[var(--foreground,#1E3A2F)]">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 pt-6 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#354251] text-white shadow-sm">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:gap-4 sm:px-6 sm:pt-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#354251] text-white shadow-sm sm:h-11 sm:w-11">
             <FolderKanban className="h-5 w-5" aria-hidden />
           </span>
-          <h1 className="text-[1.5rem] font-bold leading-none tracking-[-0.02em] text-[#2e3c4d]">
+          <h1 className="truncate text-[1.25rem] font-bold leading-none tracking-[-0.02em] text-[#2e3c4d] sm:text-[1.5rem]">
             TIM TaskManage
           </h1>
         </div>
         <Link
           href="/signin"
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-primary px-3.5 text-sm font-semibold text-white transition hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:px-4"
         >
           เข้าสู่ระบบ
         </Link>

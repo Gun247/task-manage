@@ -126,7 +126,9 @@ export function DialogContent({
         />
         <SheetFrame
           className={cn(
-            "sheet-panel fixed inset-y-3 right-3 z-50 flex w-[min(32rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_60px_-24px_rgba(15,23,42,0.45)] will-change-transform",
+            "sheet-panel fixed z-50 flex flex-col overflow-hidden border border-slate-200 bg-white will-change-transform",
+            "inset-x-0 bottom-0 top-auto max-h-[min(92dvh,100%)] w-full rounded-t-2xl pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_48px_-24px_rgba(15,23,42,0.35)]",
+            "sm:inset-y-3 sm:right-3 sm:left-auto sm:bottom-3 sm:max-h-none sm:w-[min(32rem,calc(100vw-1.5rem))] sm:rounded-2xl sm:pb-0 sm:shadow-[0_24px_60px_-24px_rgba(15,23,42,0.45)]",
             "data-[state=open]:animate-[sheet-in_520ms_cubic-bezier(0.22,1,0.36,1)_both]",
             "data-[state=closed]:animate-[sheet-out_420ms_cubic-bezier(0.4,0,1,1)_both]",
             className,
@@ -147,7 +149,7 @@ export function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl",
+          "fixed left-1/2 top-1/2 z-50 max-h-[min(92dvh,100%)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6",
           className,
         )}
         {...props}

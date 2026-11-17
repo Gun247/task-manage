@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Settings2, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { GlassPanel, PageHeader, PageMain } from "@/components/page-layout";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -12,6 +13,7 @@ import { LoadingButtonContent, LoadingCard } from "@/components/ui/loading";
 import { ThemeSwatches } from "@/components/theme-picker";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import { readMemberSession } from "@/lib/current-member";
+import { displayProjectDescription } from "@/lib/project-display";
 import { canManageProjects } from "@/lib/roles";
 import { themeLabel, themeSwatches } from "@/lib/themes";
 import type { Project } from "@/lib/types";
@@ -99,7 +101,21 @@ export default function ManageProjectsPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto max-w-4xl px-4 py-8 lg:px-8">
+      <PageHeader
+        icon={<Settings2 className="h-5 w-5" />}
+        title="จัดการโปรเจกต์"
+        description="แก้ไข ลบ หรือสร้างโปรเจกต์ใหม่"
+        actions={
+          <Button
+            type="button"
+            className="h-10 rounded-lg px-4 shadow-[0_8px_20px_rgba(59,130,246,0.25)]"
+            onClick={openCreate}
+          >
+            <Plus className="h-4 w-4" />
+            สร้างโปรเจกต์ใหม่
+          </Button>
+        }
+      >
         <Link
           href="/projects"
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 transition hover:text-slate-700"
@@ -107,48 +123,41 @@ export default function ManageProjectsPage() {
           <ArrowLeft className="h-4 w-4" />
           กลับไปโปรเจกต์ทั้งหมด
         </Link>
+      </PageHeader>
 
-        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">จัดการโปรเจกต์</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              แก้ไข ลบ หรือสร้างโปรเจกต์ใหม่
-            </p>
-          </div>
-          <Button type="button" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            สร้างโปรเจกต์ใหม่
-          </Button>
-        </div>
-
+      <PageMain width="4xl">
         {error ? (
-          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+          <div className="rounded-[1.35rem] border border-red-200 bg-red-50/90 p-6 text-center text-sm text-red-700">
             {error}
           </div>
         ) : loading ? (
-          <LoadingCard className="mt-8" />
+          <LoadingCard />
         ) : projects.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-12 text-center">
+          <GlassPanel className="p-12 text-center">
             <h3 className="text-base font-semibold text-slate-800">
               ยังไม่มีโปรเจกต์
             </h3>
             <p className="mt-2 text-sm text-slate-500">
               สร้างโปรเจกต์แรกเพื่อเริ่มใช้งาน
             </p>
-            <Button type="button" className="mt-4" onClick={openCreate}>
+            <Button
+              type="button"
+              className="mt-4 rounded-lg"
+              onClick={openCreate}
+            >
               <Plus className="h-4 w-4" />
               สร้างโปรเจกต์ใหม่
             </Button>
-          </div>
+          </GlassPanel>
         ) : (
-          <div className="mt-6 space-y-3">
+          <div className="space-y-3">
             {projects.map((project) => {
               const taskCount = project._count?.tasks ?? 0;
 
               return (
-                <div
+                <GlassPanel
                   key={project.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <ThemeSwatches
@@ -160,9 +169,11 @@ export default function ManageProjectsPage() {
                       <h3 className="truncate font-semibold text-slate-900">
                         {project.name}
                       </h3>
-                      <p className="mt-0.5 text-sm text-slate-500">
-                        {project.description || "ไม่มีคำอธิบาย"}
-                      </p>
+                      {displayProjectDescription(project.description) ? (
+                        <p className="mt-0.5 text-sm text-slate-500">
+                          {displayProjectDescription(project.description)}
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-slate-400">
                         {themeLabel(project.theme)} · {taskCount} task
                       </p>
@@ -203,12 +214,12 @@ export default function ManageProjectsPage() {
                       </LoadingButtonContent>
                     </Button>
                   </div>
-                </div>
+                </GlassPanel>
               );
             })}
           </div>
         )}
-      </main>
+      </PageMain>
 
       <ProjectFormDialog
         open={dialogOpen}
