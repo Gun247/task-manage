@@ -433,13 +433,41 @@ export function themeAccentColor(
   theme: string | null | undefined,
   customThemes: CustomThemeRecord[] = cachedCustomThemes,
 ): string {
+  return themeSwatches(theme, customThemes)[0];
+}
+
+/** Color samples for a project theme (primary, accent, surface…). */
+export function themeSwatches(
+  theme: string | null | undefined,
+  customThemes: CustomThemeRecord[] = cachedCustomThemes,
+): string[] {
   const custom = customThemes.find((item) => item.id === theme);
-  if (custom?.palette?.primary) return String(custom.palette.primary);
-  if (custom?.swatches?.[0]) return custom.swatches[0];
+  if (custom?.palette) {
+    return [
+      String(custom.palette.primary ?? "#334155"),
+      String(custom.palette.accent ?? custom.palette.primary ?? "#64748b"),
+      String(custom.palette.muted ?? "#F1F5F9"),
+      String(custom.palette.canvas ?? custom.palette.background ?? "#FFFFFF"),
+      String(custom.palette.background ?? "#FFFFFF"),
+    ];
+  }
+  if (custom?.swatches?.length) {
+    return [...custom.swatches];
+  }
 
   const id = resolveProjectTheme(theme, customThemes);
   const option = THEMES.find((item) => item.id === id) ?? THEMES[0];
-  return option.swatches[0];
+  return [...option.swatches];
+}
+
+export function themeLabel(
+  theme: string | null | undefined,
+  customThemes: CustomThemeRecord[] = cachedCustomThemes,
+): string {
+  const custom = customThemes.find((item) => item.id === theme);
+  if (custom?.label) return custom.label;
+  const id = resolveProjectTheme(theme, customThemes);
+  return (THEMES.find((item) => item.id === id) ?? THEMES[0]).label;
 }
 
 export function toThemeOption(

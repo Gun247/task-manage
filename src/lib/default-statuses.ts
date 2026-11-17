@@ -13,21 +13,33 @@ export const DEFAULT_STATUSES = [
     description: "กำลังดำเนินการ",
   },
   {
+    name: "HOLD",
+    color: "#EAB308",
+    sortOrder: 2,
+    description: "พักงานชั่วคราว",
+  },
+  {
+    name: "Modify",
+    color: "#A855F7",
+    sortOrder: 3,
+    description: "ต้องแก้หรือปรับหลังขึ้น",
+  },
+  {
     name: "UAT",
     color: "#F97316",
-    sortOrder: 2,
+    sortOrder: 4,
     description: "deploy uat แล้ว",
   },
   {
     name: "PRD",
     color: "#22C55E",
-    sortOrder: 3,
+    sortOrder: 5,
     description: "deploy production แล้ว",
   },
   {
     name: "Done",
     color: "#6BB82A",
-    sortOrder: 4,
+    sortOrder: 6,
     description: "จบ task แล้ว — หลัง PRD 1 วัน จะเป็น Done อัตโนมัติ",
   },
 ] as const;

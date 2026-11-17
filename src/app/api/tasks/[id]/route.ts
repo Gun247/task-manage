@@ -62,14 +62,22 @@ export async function PATCH(request: Request, context: RouteContext) {
         ? { ownerId: body.ownerId ? body.ownerId : null }
         : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
+      ...(body.postReleaseReason !== undefined
+        ? {
+            postReleaseReason:
+              typeof body.postReleaseReason === "string"
+                ? body.postReleaseReason
+                : null,
+          }
+        : {}),
     });
 
     return NextResponse.json(task);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update task" },
-      { status: 500 },
-    );
+    const message =
+      error instanceof Error ? error.message : "Failed to update task";
+    const status = message.includes("เหตุผล") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 

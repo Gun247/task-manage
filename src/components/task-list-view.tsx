@@ -21,10 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog";
 import { Select } from "@/components/ui/input";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { LoadingButtonContent, LoadingOverlay } from "@/components/ui/loading";
 import { TaskInlineCreate } from "@/components/task-inline-create";
+import { isPostReleaseFlowChange } from "@/lib/post-release-change";
 import { taskSourceLabel } from "@/lib/task-source";
 import type { Priority, Status, Task, TaskTypeOption, TeamMember } from "@/lib/types";
 import {
@@ -109,6 +111,12 @@ export function TaskListView({
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<TimelineDraft>(emptyTimelineDraft);
+  const [pendingBulkPayload, setPendingBulkPayload] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [pendingBulkLabel, setPendingBulkLabel] = useState("");
+  const [postReleaseReasonOpen, setPostReleaseReasonOpen] = useState(false);
   const paintRef = useRef<{
     active: boolean;
     mode: boolean;
@@ -235,11 +243,46 @@ export function TaskListView({
     };
   }
 
+  function selectedTasksNeedPostReleaseReason(payload: Record<string, unknown>) {
+    const selected = tasks.filter((task) => selectedIds.has(task.id));
+    return selected.some((task) =>
+      isPostReleaseFlowChange({
+        task,
+        nextStatusId:
+          typeof payload.statusId === "string" ? payload.statusId : undefined,
+        nextUatDate:
+          payload.uatDate === undefined
+            ? undefined
+            : ((payload.uatDate as string | null) ?? null),
+        nextPrdDate:
+          payload.prdDate === undefined
+            ? undefined
+            : ((payload.prdDate as string | null) ?? null),
+        statusProvided: payload.statusId !== undefined,
+        uatDateProvided: payload.uatDate !== undefined,
+        prdDateProvided: payload.prdDate !== undefined,
+      }),
+    );
+  }
+
   async function runBulkUpdate(
     payload: Record<string, unknown>,
     label = "กำลังอัปเดตรายการที่เลือก...",
+    options?: { skipReasonCheck?: boolean },
   ) {
     if (selectedCount === 0 || busy) return false;
+
+    if (
+      !options?.skipReasonCheck &&
+      selectedTasksNeedPostReleaseReason(payload) &&
+      !payload.postReleaseReason
+    ) {
+      setPendingBulkPayload(payload);
+      setPendingBulkLabel(label);
+      setPostReleaseReasonOpen(true);
+      return false;
+    }
+
     setBusy(true);
     setBusyLabel(label);
     setError(null);
@@ -257,6 +300,8 @@ export function TaskListView({
         setError(data.error ?? "อัปเดตหลายรายการไม่สำเร็จ");
         return false;
       }
+      setPostReleaseReasonOpen(false);
+      setPendingBulkPayload(null);
       await onSaved();
       return true;
     } catch (err) {
@@ -641,6 +686,14 @@ export function TaskListView({
                             {sourceLabel}
                           </span>
                         ) : null}
+                        {task.hasPostReleaseChanges ? (
+                          <span
+                            className="rounded-md bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-800"
+                            title="มีการปรับ flow หลังขึ้น UAT/PRD"
+                          >
+                            แก้หลังขึ้น
+                          </span>
+                        ) : null}
                       </div>
                       {task.description?.trim() ? (
                         <p
@@ -922,6 +975,34 @@ export function TaskListView({
         confirmLabel="ลบ"
         loading={busy}
         onConfirm={handleBulkDelete}
+      />
+
+      <PostReleaseReasonDialog
+        open={postReleaseReasonOpen}
+        onOpenChange={(open) => {
+          if (busy) return;
+          setPostReleaseReasonOpen(open);
+          if (!open) {
+            setPendingBulkPayload(null);
+            setPendingBulkLabel("");
+          }
+        }}
+        loading={busy}
+        summary={`จะอัปเดต ${selectedCount.toLocaleString("th-TH")} รายการที่เลือก`}
+        onConfirm={async (reason) => {
+          if (!pendingBulkPayload) return;
+          const ok = await runBulkUpdate(
+            { ...pendingBulkPayload, postReleaseReason: reason },
+            pendingBulkLabel || "กำลังอัปเดตรายการที่เลือก...",
+            { skipReasonCheck: true },
+          );
+          if (ok) {
+            setBulkStatusId("");
+            setTimelineOpen(false);
+            setTimelineDraft(emptyTimelineDraft());
+            setSelectedIds(new Set());
+          }
+        }}
       />
 
       <Dialog open={timelineOpen} onOpenChange={setTimelineOpen}>

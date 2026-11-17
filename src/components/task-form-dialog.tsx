@@ -16,11 +16,17 @@ import {
   PendingSubtasksEditor,
   type PendingSubtask,
 } from "@/components/pending-subtasks-editor";
+import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog";
 import { SubtaskAssigneePicker } from "@/components/subtask-assignee-picker";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { TextLinks } from "@/components/ui/linkified-text";
 import { LoadingButtonContent } from "@/components/ui/loading";
+import {
+  isPostReleaseFlowChange,
+  postReleaseChangeTypeLabel,
+  taskHasReachedRelease,
+} from "@/lib/post-release-change";
 import type {
   Priority,
   Status,
@@ -80,6 +86,11 @@ export function TaskFormDialog({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [postReleaseReasonOpen, setPostReleaseReasonOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
   const [newSubtaskName, setNewSubtaskName] = useState("");
@@ -192,9 +203,44 @@ export function TaskFormDialog({
     }
   }
 
+  async function saveTask(
+    payload: Record<string, unknown>,
+    postReleaseReason?: string,
+  ) {
+    setSaving(true);
+    try {
+      const response = await fetch(
+        task ? `/api/tasks/${task.id}` : "/api/tasks",
+        {
+          method: task ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payload,
+            ...(postReleaseReason
+              ? { postReleaseReason }
+              : {}),
+          }),
+        },
+      );
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        window.alert(data?.error ?? "บันทึก task ไม่สำเร็จ");
+        return false;
+      }
+      setPostReleaseReasonOpen(false);
+      setPendingPayload(null);
+      onSaved();
+      onOpenChange(false);
+      return true;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setSaving(true);
 
     const draftName = newSubtaskName.trim();
     const createSubtasks = !task
@@ -219,18 +265,24 @@ export function TaskFormDialog({
       ownerId: form.ownerId || null,
     };
 
-    const response = await fetch(task ? `/api/tasks/${task.id}` : "/api/tasks", {
-      method: task ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    setSaving(false);
-
-    if (response.ok) {
-      onSaved();
-      onOpenChange(false);
+    if (
+      task &&
+      isPostReleaseFlowChange({
+        task,
+        nextStatusId: form.statusId,
+        nextUatDate: form.uatDate || null,
+        nextPrdDate: form.prdDate || null,
+        statusProvided: true,
+        uatDateProvided: true,
+        prdDateProvided: true,
+      })
+    ) {
+      setPendingPayload(payload);
+      setPostReleaseReasonOpen(true);
+      return;
     }
+
+    await saveTask(payload);
   }
 
   async function addSubtask() {
@@ -675,52 +727,113 @@ export function TaskFormDialog({
             )}
 
             {task ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
-                  <History className="h-4 w-4 text-slate-500" />
-                  ประวัติสถานะ
-                </div>
-                {(task.statusHistory ?? []).length === 0 ? (
-                  <p className="text-xs text-slate-500">
-                    ยังไม่มีประวัติการเปลี่ยนสถานะ
-                  </p>
-                ) : (
-                  <ol className="space-y-2">
-                    {[...(task.statusHistory ?? [])]
-                      .slice()
-                      .reverse()
-                      .map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="flex items-start justify-between gap-3 text-sm"
-                        >
-                          <div className="min-w-0">
-                            {entry.fromStatusName ? (
+              <div className="space-y-3">
+                {(() => {
+                  const reached = taskHasReachedRelease(task);
+                  if (!reached.hasReachedUat && !reached.hasReachedPrd) {
+                    return null;
+                  }
+                  return (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      Task นี้เคยขึ้น UAT/PRD แล้ว — การเปลี่ยนสถานะหรือวันที่
+                      UAT/PRD จะต้องระบุเหตุผล และจะแสดงในประวัติ
+                    </p>
+                  );
+                })()}
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <History className="h-4 w-4 text-slate-500" />
+                    ปรับหลังขึ้น
+                  </div>
+                  {(task.postReleaseChanges ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500">
+                      ยังไม่มีการปรับ flow หลังขึ้น UAT/PRD
+                    </p>
+                  ) : (
+                    <ol className="space-y-2">
+                      {[...(task.postReleaseChanges ?? [])]
+                        .slice()
+                        .reverse()
+                        .map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-start justify-between gap-3 text-sm"
+                          >
+                            <div className="min-w-0">
                               <p className="text-slate-700">
+                                <span className="font-medium">
+                                  {postReleaseChangeTypeLabel(entry.changeType)}
+                                </span>
+                                {": "}
                                 <span className="text-slate-500">
-                                  {entry.fromStatusName}
+                                  {entry.fromValue || "—"}
                                 </span>
                                 {" → "}
                                 <span className="font-medium">
-                                  {entry.toStatusName}
+                                  {entry.toValue || "—"}
                                 </span>
                               </p>
-                            ) : (
-                              <p className="text-slate-700">
-                                เริ่มที่{" "}
-                                <span className="font-medium">
-                                  {entry.toStatusName}
-                                </span>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {entry.reason}
                               </p>
-                            )}
-                          </div>
-                          <time className="shrink-0 text-xs text-slate-500">
-                            {formatDateTime(entry.changedAt)}
-                          </time>
-                        </li>
-                      ))}
-                  </ol>
-                )}
+                            </div>
+                            <time className="shrink-0 text-xs text-slate-500">
+                              {formatDateTime(entry.changedAt)}
+                            </time>
+                          </li>
+                        ))}
+                    </ol>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <History className="h-4 w-4 text-slate-500" />
+                    ประวัติสถานะ
+                  </div>
+                  {(task.statusHistory ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500">
+                      ยังไม่มีประวัติการเปลี่ยนสถานะ
+                    </p>
+                  ) : (
+                    <ol className="space-y-2">
+                      {[...(task.statusHistory ?? [])]
+                        .slice()
+                        .reverse()
+                        .map((entry) => (
+                          <li
+                            key={entry.id}
+                            className="flex items-start justify-between gap-3 text-sm"
+                          >
+                            <div className="min-w-0">
+                              {entry.fromStatusName ? (
+                                <p className="text-slate-700">
+                                  <span className="text-slate-500">
+                                    {entry.fromStatusName}
+                                  </span>
+                                  {" → "}
+                                  <span className="font-medium">
+                                    {entry.toStatusName}
+                                  </span>
+                                </p>
+                              ) : (
+                                <p className="text-slate-700">
+                                  เริ่มที่{" "}
+                                  <span className="font-medium">
+                                    {entry.toStatusName}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                            <time className="shrink-0 text-xs text-slate-500">
+                              {formatDateTime(entry.changedAt)}
+                            </time>
+                          </li>
+                        ))}
+                    </ol>
+                  )}
+                </div>
               </div>
             ) : null}
           </div>
@@ -777,6 +890,20 @@ export function TaskFormDialog({
         confirmLabel="ลบ"
         loading={deleting}
         onConfirm={handleDelete}
+      />
+
+      <PostReleaseReasonDialog
+        open={postReleaseReasonOpen}
+        onOpenChange={(open) => {
+          if (saving) return;
+          setPostReleaseReasonOpen(open);
+          if (!open) setPendingPayload(null);
+        }}
+        loading={saving}
+        onConfirm={async (reason) => {
+          if (!pendingPayload) return;
+          await saveTask(pendingPayload, reason);
+        }}
       />
     </Dialog>
   );

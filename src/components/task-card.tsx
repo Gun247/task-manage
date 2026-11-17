@@ -77,6 +77,14 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
             {sourceLabel}
           </span>
         ) : null}
+        {task.hasPostReleaseChanges ? (
+          <span
+            className="rounded-md bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-800"
+            title="มีการปรับ flow หลังขึ้น UAT/PRD"
+          >
+            แก้หลังขึ้น
+          </span>
+        ) : null}
       </div>
       {task.owner ? (
         <p

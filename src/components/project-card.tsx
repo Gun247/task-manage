@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ClipboardList } from "lucide-react";
-import { themeAccentColor } from "@/lib/themes";
+import { ThemeSwatches } from "@/components/theme-picker";
+import { themeLabel, themeSwatches } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,7 @@ export function ProjectCard({
   showManageLink = false,
 }: ProjectCardProps) {
   const taskCount = project._count?.tasks ?? 0;
-  const accent = themeAccentColor(project.theme) || project.color;
+  const swatches = themeSwatches(project.theme);
 
   return (
     <div
@@ -26,18 +27,23 @@ export function ProjectCard({
       )}
     >
       <div
-        className="h-1.5 w-full"
-        style={{ backgroundColor: accent }}
-      />
+        className="flex h-2 w-full overflow-hidden"
+        aria-hidden
+      >
+        {swatches.map((color, index) => (
+          <span
+            key={`${color}-${index}`}
+            className="h-full flex-1"
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span
-                className="h-3 w-3 shrink-0 rounded-full"
-                style={{ backgroundColor: accent }}
-              />
+              <ThemeSwatches colors={swatches} />
               <h3 className="truncate text-base font-semibold text-slate-900">
                 {project.name}
               </h3>
@@ -49,6 +55,9 @@ export function ProjectCard({
             ) : (
               <p className="mt-1.5 text-sm text-slate-400">ไม่มีคำอธิบาย</p>
             )}
+            <p className="mt-1 text-xs text-slate-400">
+              {themeLabel(project.theme)}
+            </p>
           </div>
         </div>
 

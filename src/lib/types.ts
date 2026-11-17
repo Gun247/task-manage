@@ -79,6 +79,17 @@ export interface StatusHistoryEntry {
   changedAt: string;
 }
 
+export interface PostReleaseChangeEntry {
+  id: string;
+  taskId: string;
+  changeType: "status" | "uatDate" | "prdDate" | string;
+  fromValue: string;
+  toValue: string;
+  reason: string;
+  afterMilestone: "UAT" | "PRD" | string;
+  changedAt: string;
+}
+
 export interface Subtask {
   id: string;
   taskId: string;
@@ -119,6 +130,8 @@ export interface Task {
   assignees: TeamMember[];
   owner: TeamMember | null;
   statusHistory: StatusHistoryEntry[];
+  postReleaseChanges: PostReleaseChangeEntry[];
+  hasPostReleaseChanges: boolean;
   subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;

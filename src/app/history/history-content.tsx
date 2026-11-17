@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { postReleaseChangeTypeLabel } from "@/lib/post-release-change";
 import { themeAccentColor } from "@/lib/themes";
 import type {
   Priority,
@@ -23,6 +24,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 
 type HistoryItem = {
   id: string;
+  kind: "status" | "postRelease";
   taskId: string;
   taskName: string;
   projectId: string;
@@ -36,6 +38,10 @@ type HistoryItem = {
   toStatusColor: string;
   changedAt: string;
   isInitial: boolean;
+  hasPostReleaseChanges: boolean;
+  postReleaseLabel?: string;
+  postReleaseReason?: string;
+  afterMilestone?: string;
 };
 
 function dayKey(iso: string) {
@@ -60,15 +66,30 @@ function dayLabel(iso: string) {
   });
 }
 
+function taskAssignees(task: Task) {
+  return task.assignees?.length > 0
+    ? task.assignees.map((member) => ({
+        nickname: member.nickname,
+        color: member.color,
+      }))
+    : task.assignee
+      ? [
+          {
+            nickname: task.assignee.nickname,
+            color: task.assignee.color,
+          },
+        ]
+      : [];
+}
+
 function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
   const statusColor = new Map(
     statuses.map((status) => [status.name, status.color]),
   );
 
   return tasks
-    .flatMap((task) =>
-      (task.statusHistory ?? []).map((entry) => ({
-        id: entry.id,
+    .flatMap((task) => {
+      const base = {
         taskId: task.id,
         taskName: task.name,
         projectId: task.projectId,
@@ -77,28 +98,44 @@ function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
           themeAccentColor(task.project.theme) || task.project.color,
         priorityLabel: task.priority.label,
         priorityColor: task.priority.color,
-        assignees:
-          task.assignees?.length > 0
-            ? task.assignees.map((member) => ({
-                nickname: member.nickname,
-                color: member.color,
-              }))
-            : task.assignee
-              ? [
-                  {
-                    nickname: task.assignee.nickname,
-                    color: task.assignee.color,
-                  },
-                ]
-              : [],
-        fromStatusName: entry.fromStatusName,
-        toStatusName: entry.toStatusName,
-        toStatusColor:
-          statusColor.get(entry.toStatusName) ?? task.status.color ?? "#6B7280",
+        assignees: taskAssignees(task),
+        hasPostReleaseChanges: Boolean(task.hasPostReleaseChanges),
+      };
+
+      const statusItems: HistoryItem[] = (task.statusHistory ?? []).map(
+        (entry) => ({
+          ...base,
+          id: entry.id,
+          kind: "status" as const,
+          fromStatusName: entry.fromStatusName,
+          toStatusName: entry.toStatusName,
+          toStatusColor:
+            statusColor.get(entry.toStatusName) ??
+            task.status.color ??
+            "#6B7280",
+          changedAt: entry.changedAt,
+          isInitial: !entry.fromStatusName,
+        }),
+      );
+
+      const postReleaseItems: HistoryItem[] = (
+        task.postReleaseChanges ?? []
+      ).map((entry) => ({
+        ...base,
+        id: `post-${entry.id}`,
+        kind: "postRelease" as const,
+        fromStatusName: entry.fromValue,
+        toStatusName: entry.toValue,
+        toStatusColor: "#D97706",
         changedAt: entry.changedAt,
-        isInitial: !entry.fromStatusName,
-      })),
-    )
+        isInitial: false,
+        postReleaseLabel: postReleaseChangeTypeLabel(entry.changeType),
+        postReleaseReason: entry.reason,
+        afterMilestone: entry.afterMilestone,
+      }));
+
+      return [...statusItems, ...postReleaseItems];
+    })
     .sort(
       (a, b) =>
         new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime(),
@@ -121,6 +158,7 @@ export default function HistoryPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [postReleaseOnly, setPostReleaseOnly] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
@@ -209,19 +247,29 @@ export default function HistoryPageContent() {
     const query = search.trim().toLowerCase();
     return historyItems.filter((item) => {
       if (projectFromUrl && item.projectId !== projectFromUrl) return false;
-      if (statusFilter && item.toStatusName !== statusFilter) return false;
+      if (postReleaseOnly && item.kind !== "postRelease") return false;
+      if (
+        statusFilter &&
+        item.kind === "status" &&
+        item.toStatusName !== statusFilter
+      ) {
+        return false;
+      }
+      if (statusFilter && item.kind === "postRelease") return false;
       if (!query) return true;
       return (
         item.taskName.toLowerCase().includes(query) ||
         item.projectName.toLowerCase().includes(query) ||
         item.toStatusName.toLowerCase().includes(query) ||
         item.fromStatusName.toLowerCase().includes(query) ||
+        (item.postReleaseLabel ?? "").toLowerCase().includes(query) ||
+        (item.postReleaseReason ?? "").toLowerCase().includes(query) ||
         item.assignees.some((member) =>
           member.nickname.toLowerCase().includes(query),
         )
       );
     });
-  }, [historyItems, projectFromUrl, statusFilter, search]);
+  }, [historyItems, projectFromUrl, statusFilter, postReleaseOnly, search]);
 
   const grouped = useMemo(() => {
     const groups: { key: string; label: string; items: HistoryItem[] }[] = [];
@@ -248,7 +296,8 @@ export default function HistoryPageContent() {
             <div>
               <h1 className="text-2xl font-bold text-primary">ประวัติ Task</h1>
               <p className="mt-1 text-sm text-slate-500">
-                ไทม์ไลน์การเปลี่ยนสถานะ — คลิกรายการเพื่อแก้ไข task ได้ทันที
+                ไทม์ไลน์สถานะและการปรับ flow หลังขึ้น UAT/PRD —
+                คลิกรายการเพื่อแก้ไข task ได้ทันที
               </p>
             </div>
           </div>
@@ -258,7 +307,7 @@ export default function HistoryPageContent() {
               <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <Input
                 className="h-9 py-0 pl-8 text-sm leading-9"
-                placeholder="ค้นหาชื่อ task, โปรเจกต์, สถานะ..."
+                placeholder="ค้นหาชื่อ task, โปรเจกต์, สถานะ, เหตุผล..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -281,6 +330,7 @@ export default function HistoryPageContent() {
               className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
+              disabled={postReleaseOnly}
             >
               <option value="">ทุกสถานะปลายทาง</option>
               {statuses.map((status) => (
@@ -289,6 +339,18 @@ export default function HistoryPageContent() {
                 </option>
               ))}
             </Select>
+            <label className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 rounded border-slate-300 text-primary accent-primary"
+                checked={postReleaseOnly}
+                onChange={(event) => {
+                  setPostReleaseOnly(event.target.checked);
+                  if (event.target.checked) setStatusFilter("");
+                }}
+              />
+              เฉพาะแก้หลังขึ้น
+            </label>
           </div>
         </div>
       </div>
@@ -333,8 +395,10 @@ export default function HistoryPageContent() {
                         type="button"
                         onClick={() => openEditTask(item.taskId)}
                         className={cn(
-                          "group block w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition",
-                          "hover:border-primary/25 hover:shadow-sm",
+                          "group block w-full rounded-2xl border bg-white p-4 text-left transition",
+                          item.kind === "postRelease"
+                            ? "border-amber-200 hover:border-amber-300 hover:shadow-sm"
+                            : "border-slate-200 hover:border-primary/25 hover:shadow-sm",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
                         )}
                       >
@@ -356,12 +420,34 @@ export default function HistoryPageContent() {
                                 />
                                 {item.projectName}
                               </span>
+                              {item.kind === "postRelease" ||
+                              item.hasPostReleaseChanges ? (
+                                <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-800">
+                                  แก้หลังขึ้น
+                                  {item.afterMilestone
+                                    ? ` · ${item.afterMilestone}`
+                                    : ""}
+                                </span>
+                              ) : null}
                             </div>
                             <p className="truncate text-sm font-semibold text-slate-900">
                               {item.taskName}
                             </p>
                             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
-                              {item.isInitial ? (
+                              {item.kind === "postRelease" ? (
+                                <>
+                                  <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                                    ปรับ {item.postReleaseLabel}
+                                  </span>
+                                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                                    {item.fromStatusName || "—"}
+                                  </span>
+                                  <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                                  <span className="rounded-md bg-amber-500 px-2 py-0.5 text-xs font-medium text-white">
+                                    {item.toStatusName || "—"}
+                                  </span>
+                                </>
+                              ) : item.isInitial ? (
                                 <span className="text-slate-600">
                                   เริ่มที่{" "}
                                   <span className="font-medium text-slate-900">
@@ -385,6 +471,12 @@ export default function HistoryPageContent() {
                                 </>
                               )}
                             </div>
+                            {item.kind === "postRelease" &&
+                            item.postReleaseReason ? (
+                              <p className="mt-2 text-xs text-slate-600">
+                                เหตุผล: {item.postReleaseReason}
+                              </p>
+                            ) : null}
                             {item.assignees.length > 0 ? (
                               <p className="mt-2 flex flex-wrap gap-1.5 text-xs font-medium">
                                 {item.assignees.map((member) => (

@@ -10,6 +10,11 @@ import {
   shouldAutoPromotePrdToDone,
 } from "./default-statuses";
 import {
+  assertPostReleaseReason,
+  buildPostReleaseChangeDrafts,
+  detectReachedMilestones,
+} from "./post-release-change";
+import {
   DEFAULT_TASK_TYPES,
   normalizeTaskTypes,
   parseTaskTypes,
@@ -96,6 +101,19 @@ export type ExcelStatusHistory = {
   fromStatusName: string;
   toStatusId: string;
   toStatusName: string;
+  changedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExcelPostReleaseChange = {
+  id: string;
+  taskId: string;
+  changeType: string;
+  fromValue: string;
+  toValue: string;
+  reason: string;
+  afterMilestone: string;
   changedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -213,6 +231,22 @@ const statusHistoriesTable = new ExcelTable<ExcelStatusHistory>("StatusHistories
   "updatedAt",
 ]);
 
+const postReleaseChangesTable = new ExcelTable<ExcelPostReleaseChange>(
+  "PostReleaseChanges",
+  [
+    "id",
+    "taskId",
+    "changeType",
+    "fromValue",
+    "toValue",
+    "reason",
+    "afterMilestone",
+    "changedAt",
+    "createdAt",
+    "updatedAt",
+  ],
+);
+
 const subtasksTable = new ExcelTable<ExcelSubtask>("Subtasks", [
   "id",
   "taskId",
@@ -251,6 +285,29 @@ function serializeStatusHistory(entry: ExcelStatusHistory) {
     toStatusName: entry.toStatusName,
     changedAt: entry.changedAt,
   };
+}
+
+function serializePostReleaseChange(entry: ExcelPostReleaseChange) {
+  return {
+    id: entry.id,
+    taskId: entry.taskId,
+    changeType: entry.changeType,
+    fromValue: entry.fromValue,
+    toValue: entry.toValue,
+    reason: entry.reason,
+    afterMilestone: entry.afterMilestone,
+    changedAt: entry.changedAt,
+  };
+}
+
+function postReleaseChangesForTask(
+  changes: ExcelPostReleaseChange[],
+  taskId: string,
+) {
+  return changes
+    .filter((entry) => entry.taskId === taskId)
+    .sort((a, b) => a.changedAt.localeCompare(b.changedAt))
+    .map(serializePostReleaseChange);
 }
 
 function serializeSubtask(
@@ -401,7 +458,7 @@ async function loadSubtaskWithAssignees(subtask: ExcelSubtask) {
   return hydrated;
 }
 
-async function assigneesForTask(
+function assigneesForTask(
   assignments: ExcelTaskAssignee[],
   members: ExcelTeamMember[],
   task: ExcelTask,
@@ -454,6 +511,7 @@ async function hydrateTask(
   assignments: ExcelTaskAssignee[] = [],
   members: ExcelTeamMember[] = [],
   subtaskAssignments: ExcelSubtaskAssignee[] = [],
+  postReleaseChanges: ExcelPostReleaseChange[] = [],
 ) {
   const [project, priority, status] = await Promise.all([
     projectsTable.findById(task.projectId),
@@ -465,11 +523,15 @@ async function hydrateTask(
     throw new Error(`Task ${task.id} has missing relations`);
   }
 
-  const assignees = await assigneesForTask(assignments, members, task);
+  const assignees = assigneesForTask(assignments, members, task);
   const assignee = assignees[0] ?? null;
   const owner =
     members.find((member) => member.id === task.ownerId) ?? null;
   const taskTypes = parseTaskTypes(task.taskType);
+  const taskPostReleaseChanges = postReleaseChangesForTask(
+    postReleaseChanges,
+    task.id,
+  );
 
   return {
     ...task,
@@ -489,6 +551,8 @@ async function hydrateTask(
     assignees,
     owner,
     statusHistory: historyForTask(histories, task.id),
+    postReleaseChanges: taskPostReleaseChanges,
+    hasPostReleaseChanges: taskPostReleaseChanges.length > 0,
     subtasks: subtasksForTask(subtasks, task.id, subtaskAssignments, members),
   };
 }
@@ -729,6 +793,8 @@ export async function listTimelineTasks(projectId?: string | null) {
         assignees,
         owner,
         statusHistory: [],
+        postReleaseChanges: [],
+        hasPostReleaseChanges: false,
         subtasks: [],
       };
     });
@@ -872,15 +938,23 @@ export async function getDefaultTaskType() {
 
 export async function listTasks(projectId?: string | null) {
   await promotePrdTasksToDoneIfDue(promotePrdTasksToDone);
-  const [tasks, histories, subtasks, assignments, members, subtaskAssignments] =
-    await Promise.all([
-      tasksTable.getAll(),
-      statusHistoriesTable.getAll(),
-      subtasksTable.getAll(),
-      taskAssigneesTable.getAll(),
-      teamMembersTable.getAll(),
-      subtaskAssigneesTable.getAll(),
-    ]);
+  const [
+    tasks,
+    histories,
+    subtasks,
+    assignments,
+    members,
+    subtaskAssignments,
+    postReleaseChanges,
+  ] = await Promise.all([
+    tasksTable.getAll(),
+    statusHistoriesTable.getAll(),
+    subtasksTable.getAll(),
+    taskAssigneesTable.getAll(),
+    teamMembersTable.getAll(),
+    subtaskAssigneesTable.getAll(),
+    postReleaseChangesTable.getAll(),
+  ]);
 
   // Migrate legacy single assigneeId into TaskAssignees when missing
   for (const task of tasks) {
@@ -911,6 +985,7 @@ export async function listTasks(projectId?: string | null) {
           assignments,
           members,
           subtaskAssignments,
+          postReleaseChanges,
         ),
       ),
   );
@@ -920,14 +995,21 @@ export async function getTaskById(id: string) {
   const task = await tasksTable.findById(id);
   if (!task) return null;
 
-  const [histories, subtasks, assignments, members, subtaskAssignments] =
-    await Promise.all([
-      statusHistoriesTable.getAll(),
-      subtasksTable.getAll(),
-      taskAssigneesTable.getAll(),
-      teamMembersTable.getAll(),
-      subtaskAssigneesTable.getAll(),
-    ]);
+  const [
+    histories,
+    subtasks,
+    assignments,
+    members,
+    subtaskAssignments,
+    postReleaseChanges,
+  ] = await Promise.all([
+    statusHistoriesTable.getAll(),
+    subtasksTable.getAll(),
+    taskAssigneesTable.getAll(),
+    teamMembersTable.getAll(),
+    subtaskAssigneesTable.getAll(),
+    postReleaseChangesTable.getAll(),
+  ]);
 
   let nextAssignments = assignments;
   if (
@@ -950,6 +1032,7 @@ export async function getTaskById(id: string) {
     nextAssignments,
     members,
     subtaskAssignments,
+    postReleaseChanges,
   );
 }
 
@@ -1034,14 +1117,21 @@ export async function createTask(data: {
     toStatusId: data.statusId,
   });
 
-  const [histories, subtasks, assignments, members, subtaskAssignments] =
-    await Promise.all([
-      statusHistoriesTable.getAll(),
-      subtasksTable.getAll(),
-      taskAssigneesTable.getAll(),
-      teamMembersTable.getAll(),
-      subtaskAssigneesTable.getAll(),
-    ]);
+  const [
+    histories,
+    subtasks,
+    assignments,
+    members,
+    subtaskAssignments,
+    postReleaseChanges,
+  ] = await Promise.all([
+    statusHistoriesTable.getAll(),
+    subtasksTable.getAll(),
+    taskAssigneesTable.getAll(),
+    teamMembersTable.getAll(),
+    subtaskAssigneesTable.getAll(),
+    postReleaseChangesTable.getAll(),
+  ]);
   const latest = (await tasksTable.findById(task.id)) ?? task;
   return hydrateTask(
     latest,
@@ -1050,6 +1140,7 @@ export async function createTask(data: {
     assignments,
     members,
     subtaskAssignments,
+    postReleaseChanges,
   );
 }
 
@@ -1072,12 +1163,49 @@ export async function updateTask(
     assigneeIds: string[] | null;
     ownerId: string | null;
     sortOrder: number;
+    postReleaseReason: string | null;
   }>,
 ) {
   const existing = await tasksTable.findById(id);
   if (!existing) {
     throw new Error(`Task not found: ${id}`);
   }
+
+  const [historiesBefore, statuses] = await Promise.all([
+    statusHistoriesTable.getAll(),
+    statusesTable.getAll(),
+  ]);
+  const existingStatus = statuses.find((item) => item.id === existing.statusId);
+  const statusChanged =
+    data.statusId !== undefined && data.statusId !== existing.statusId;
+  const toStatus = statusChanged
+    ? statuses.find((item) => item.id === data.statusId)
+    : existingStatus;
+
+  const reached = detectReachedMilestones({
+    statusHistoryNames: historiesBefore
+      .filter((entry) => entry.taskId === id)
+      .map((entry) => entry.toStatusName),
+    currentStatusName: existingStatus?.name,
+    uatDate: existing.uatDate || null,
+    prdDate: existing.prdDate || null,
+  });
+  const postReleaseDrafts = buildPostReleaseChangeDrafts({
+    ...reached,
+    statusChanged,
+    fromStatusName: existingStatus?.name ?? "",
+    toStatusName: toStatus?.name ?? existingStatus?.name ?? "",
+    fromUatDate: existing.uatDate || null,
+    toUatDate: data.uatDate,
+    uatDateProvided: data.uatDate !== undefined,
+    fromPrdDate: existing.prdDate || null,
+    toPrdDate: data.prdDate,
+    prdDateProvided: data.prdDate !== undefined,
+  });
+  const postReleaseReason = assertPostReleaseReason(
+    postReleaseDrafts,
+    data.postReleaseReason,
+  );
 
   const payload: Partial<ExcelTask> = {};
   if (data.name !== undefined) payload.name = data.name;
@@ -1104,12 +1232,28 @@ export async function updateTask(
     payload.assigneeId = data.assigneeId;
   }
 
-  if (data.statusId !== undefined && data.statusId !== existing.statusId) {
+  if (statusChanged && data.statusId) {
     await recordStatusChange({
       taskId: id,
       fromStatusId: existing.statusId,
       toStatusId: data.statusId,
     });
+  }
+
+  if (postReleaseDrafts.length > 0) {
+    const changedAt = new Date().toISOString();
+    await postReleaseChangesTable.createMany(
+      postReleaseDrafts.map((draft) => ({
+        id: createId(),
+        taskId: id,
+        changeType: draft.changeType,
+        fromValue: draft.fromValue,
+        toValue: draft.toValue,
+        reason: postReleaseReason,
+        afterMilestone: draft.afterMilestone,
+        changedAt,
+      })),
+    );
   }
 
   const task = await tasksTable.update(id, payload);
@@ -1120,14 +1264,21 @@ export async function updateTask(
     await syncTaskAssignees(id, data.assigneeId ? [data.assigneeId] : []);
   }
 
-  const [histories, subtasks, assignments, members, subtaskAssignments] =
-    await Promise.all([
-      statusHistoriesTable.getAll(),
-      subtasksTable.getAll(),
-      taskAssigneesTable.getAll(),
-      teamMembersTable.getAll(),
-      subtaskAssigneesTable.getAll(),
-    ]);
+  const [
+    histories,
+    subtasks,
+    assignments,
+    members,
+    subtaskAssignments,
+    postReleaseChanges,
+  ] = await Promise.all([
+    statusHistoriesTable.getAll(),
+    subtasksTable.getAll(),
+    taskAssigneesTable.getAll(),
+    teamMembersTable.getAll(),
+    subtaskAssigneesTable.getAll(),
+    postReleaseChangesTable.getAll(),
+  ]);
   const latest = (await tasksTable.findById(id)) ?? task;
   return hydrateTask(
     latest,
@@ -1136,6 +1287,7 @@ export async function updateTask(
     assignments,
     members,
     subtaskAssignments,
+    postReleaseChanges,
   );
 }
 
@@ -1155,25 +1307,56 @@ export async function bulkUpdateTasks(
     endDate?: string | null;
     uatDate?: string | null;
     prdDate?: string | null;
+    postReleaseReason?: string | null;
   },
 ) {
   if (ids.length === 0) return { updated: 0 };
 
   const idSet = new Set(ids);
-  const tasks = (await tasksTable.getAll()).filter((task) =>
-    idSet.has(String(task.id)),
-  );
+  const [allTasks, histories, statuses] = await Promise.all([
+    tasksTable.getAll(),
+    statusHistoriesTable.getAll(),
+    statusesTable.getAll(),
+  ]);
+  const tasks = allTasks.filter((task) => idSet.has(String(task.id)));
   if (tasks.length === 0) return { updated: 0 };
 
   let toStatus: ExcelStatus | null = null;
   if (data.statusId !== undefined) {
-    toStatus = await statusesTable.findById(data.statusId);
+    toStatus = statuses.find((item) => item.id === data.statusId) ?? null;
     if (!toStatus) throw new Error("Status not found");
   }
 
-  const statusById = new Map(
-    (await statusesTable.getAll()).map((status) => [status.id, status]),
+  const statusById = new Map(statuses.map((status) => [status.id, status]));
+  const allDrafts = tasks.flatMap((task) => {
+    const fromStatus = statusById.get(task.statusId);
+    const reached = detectReachedMilestones({
+      statusHistoryNames: histories
+        .filter((entry) => entry.taskId === task.id)
+        .map((entry) => entry.toStatusName),
+      currentStatusName: fromStatus?.name,
+      uatDate: task.uatDate || null,
+      prdDate: task.prdDate || null,
+    });
+    return buildPostReleaseChangeDrafts({
+      ...reached,
+      statusChanged:
+        data.statusId !== undefined && data.statusId !== task.statusId,
+      fromStatusName: fromStatus?.name ?? "",
+      toStatusName: toStatus?.name ?? fromStatus?.name ?? "",
+      fromUatDate: task.uatDate || null,
+      toUatDate: data.uatDate,
+      uatDateProvided: data.uatDate !== undefined,
+      fromPrdDate: task.prdDate || null,
+      toPrdDate: data.prdDate,
+      prdDateProvided: data.prdDate !== undefined,
+    }).map((draft) => ({ taskId: task.id, ...draft }));
+  });
+  const postReleaseReason = assertPostReleaseReason(
+    allDrafts,
+    data.postReleaseReason,
   );
+
   const historyRows: Array<Omit<ExcelStatusHistory, "createdAt" | "updatedAt">> =
     [];
   const changedAt = new Date().toISOString();
@@ -1207,6 +1390,20 @@ export async function bulkUpdateTasks(
   if (historyRows.length > 0) {
     await statusHistoriesTable.createMany(historyRows);
   }
+  if (allDrafts.length > 0) {
+    await postReleaseChangesTable.createMany(
+      allDrafts.map((draft) => ({
+        id: createId(),
+        taskId: draft.taskId,
+        changeType: draft.changeType,
+        fromValue: draft.fromValue,
+        toValue: draft.toValue,
+        reason: postReleaseReason,
+        afterMilestone: draft.afterMilestone,
+        changedAt,
+      })),
+    );
+  }
 
   return { updated };
 }
@@ -1222,6 +1419,7 @@ export async function bulkDeleteTasks(ids: string[]) {
 
   await Promise.all([
     statusHistoriesTable.deleteWhere((entry) => idSet.has(entry.taskId)),
+    postReleaseChangesTable.deleteWhere((entry) => idSet.has(entry.taskId)),
     subtaskAssigneesTable.deleteWhere((entry) =>
       subtaskIds.has(entry.subtaskId),
     ),
@@ -1241,6 +1439,7 @@ export async function deleteTask(id: string) {
   const subtaskIds = new Set(taskSubtasks.map((entry) => entry.id));
   await Promise.all([
     statusHistoriesTable.deleteWhere((entry) => entry.taskId === id),
+    postReleaseChangesTable.deleteWhere((entry) => entry.taskId === id),
     subtaskAssigneesTable.deleteWhere((entry) => subtaskIds.has(entry.subtaskId)),
     subtasksTable.deleteWhere((entry) => entry.taskId === id),
     taskAssigneesTable.deleteWhere((entry) => entry.taskId === id),

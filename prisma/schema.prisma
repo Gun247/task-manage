@@ -101,9 +101,10 @@ model Task {
   status      Status          @relation(fields: [statusId], references: [id])
   assignee    TeamMember?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   owner       TeamMember?     @relation("TaskOwner", fields: [ownerId], references: [id])
-  statusHistory StatusHistory[]
-  subtasks      Subtask[]
-  assignments   TaskAssignee[]
+  statusHistory       StatusHistory[]
+  postReleaseChanges  PostReleaseChange[]
+  subtasks            Subtask[]
+  assignments         TaskAssignee[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -119,6 +120,23 @@ model StatusHistory {
   task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   fromStatus     Status?  @relation("StatusHistoryFrom", fields: [fromStatusId], references: [id], onDelete: SetNull)
   toStatus       Status   @relation("StatusHistoryTo", fields: [toStatusId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([taskId, changedAt])
+}
+
+/// Flow adjustments after a task has already reached UAT or PRD.
+model PostReleaseChange {
+  id             String   @id @default(cuid())
+  taskId         String
+  changeType     String
+  fromValue      String   @default("")
+  toValue        String   @default("")
+  reason         String
+  afterMilestone String
+  changedAt      DateTime @default(now())
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

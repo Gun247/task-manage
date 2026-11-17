@@ -10,6 +10,11 @@ import {
   shouldAutoPromotePrdToDone,
 } from "@/lib/default-statuses";
 import {
+  assertPostReleaseReason,
+  buildPostReleaseChangeDrafts,
+  detectReachedMilestones,
+} from "@/lib/post-release-change";
+import {
   DEFAULT_TASK_TYPES,
   normalizeTaskTypes,
   parseTaskTypes,
@@ -35,6 +40,16 @@ function serializeTask(
       fromStatusName: string;
       toStatusId: string;
       toStatusName: string;
+      changedAt: Date;
+    }>;
+    postReleaseChanges?: Array<{
+      id: string;
+      taskId: string;
+      changeType: string;
+      fromValue: string;
+      toValue: string;
+      reason: string;
+      afterMilestone: string;
       changedAt: Date;
     }>;
     subtasks?: Array<{
@@ -108,6 +123,20 @@ function serializeTask(
         toStatusName: entry.toStatusName,
         changedAt: entry.changedAt.toISOString(),
       })),
+    postReleaseChanges: (task.postReleaseChanges ?? [])
+      .slice()
+      .sort((a, b) => a.changedAt.getTime() - b.changedAt.getTime())
+      .map((entry) => ({
+        id: entry.id,
+        taskId: entry.taskId,
+        changeType: entry.changeType,
+        fromValue: entry.fromValue,
+        toValue: entry.toValue,
+        reason: entry.reason,
+        afterMilestone: entry.afterMilestone,
+        changedAt: entry.changedAt.toISOString(),
+      })),
+    hasPostReleaseChanges: (task.postReleaseChanges ?? []).length > 0,
     subtasks: (task.subtasks ?? [])
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -134,6 +163,7 @@ const taskInclude = {
   assignee: true,
   owner: true,
   statusHistory: { orderBy: { changedAt: "asc" as const } },
+  postReleaseChanges: { orderBy: { changedAt: "asc" as const } },
   subtasks: {
     orderBy: { sortOrder: "asc" as const },
     include: {
@@ -656,9 +686,12 @@ export async function listTimelineTasks(projectId?: string | null) {
     ...serializeTask({
       ...task,
       statusHistory: [],
+      postReleaseChanges: [],
       subtasks: [],
     }),
     statusHistory: [],
+    postReleaseChanges: [],
+    hasPostReleaseChanges: false,
     subtasks: [],
   }));
 }
@@ -782,25 +815,77 @@ export async function updateTask(
     assigneeIds: string[] | null;
     ownerId: string | null;
     sortOrder: number;
+    postReleaseReason: string | null;
   }>,
 ) {
   const existing = await prisma.task.findUnique({
     where: { id },
-    include: { status: true },
+    include: {
+      status: true,
+      statusHistory: { select: { toStatusName: true } },
+    },
   });
   if (!existing) throw new Error(`Task not found: ${id}`);
 
-  if (data.statusId !== undefined && data.statusId !== existing.statusId) {
-    const toStatus = await prisma.status.findUnique({ where: { id: data.statusId } });
+  const statusChanged =
+    data.statusId !== undefined && data.statusId !== existing.statusId;
+  let toStatusName = existing.status.name;
+  if (statusChanged) {
+    const toStatus = await prisma.status.findUnique({
+      where: { id: data.statusId! },
+    });
+    toStatusName = toStatus?.name ?? "";
+  }
+
+  const reached = detectReachedMilestones({
+    statusHistoryNames: existing.statusHistory.map((entry) => entry.toStatusName),
+    currentStatusName: existing.status.name,
+    uatDate: existing.uatDate,
+    prdDate: existing.prdDate,
+  });
+
+  const postReleaseDrafts = buildPostReleaseChangeDrafts({
+    ...reached,
+    statusChanged,
+    fromStatusName: existing.status.name,
+    toStatusName,
+    fromUatDate: existing.uatDate,
+    toUatDate: data.uatDate,
+    uatDateProvided: data.uatDate !== undefined,
+    fromPrdDate: existing.prdDate,
+    toPrdDate: data.prdDate,
+    prdDateProvided: data.prdDate !== undefined,
+  });
+  const postReleaseReason = assertPostReleaseReason(
+    postReleaseDrafts,
+    data.postReleaseReason,
+  );
+
+  if (statusChanged) {
     await prisma.statusHistory.create({
       data: {
         taskId: id,
         fromStatusId: existing.statusId,
         fromStatusName: existing.status.name,
-        toStatusId: data.statusId,
-        toStatusName: toStatus?.name ?? "",
+        toStatusId: data.statusId!,
+        toStatusName,
         changedAt: new Date(),
       },
+    });
+  }
+
+  if (postReleaseDrafts.length > 0) {
+    const changedAt = new Date();
+    await prisma.postReleaseChange.createMany({
+      data: postReleaseDrafts.map((draft) => ({
+        taskId: id,
+        changeType: draft.changeType,
+        fromValue: draft.fromValue,
+        toValue: draft.toValue,
+        reason: postReleaseReason,
+        afterMilestone: draft.afterMilestone,
+        changedAt,
+      })),
     });
   }
 
@@ -871,13 +956,17 @@ export async function bulkUpdateTasks(
     endDate?: string | null;
     uatDate?: string | null;
     prdDate?: string | null;
+    postReleaseReason?: string | null;
   },
 ) {
   if (ids.length === 0) return { updated: 0 };
 
   const tasks = await prisma.task.findMany({
     where: { id: { in: ids } },
-    include: { status: true },
+    include: {
+      status: true,
+      statusHistory: { select: { toStatusName: true } },
+    },
   });
   if (tasks.length === 0) return { updated: 0 };
 
@@ -889,6 +978,32 @@ export async function bulkUpdateTasks(
     if (!toStatus) throw new Error("Status not found");
     toStatusName = toStatus.name;
   }
+
+  const allDrafts = tasks.flatMap((task) => {
+    const reached = detectReachedMilestones({
+      statusHistoryNames: task.statusHistory.map((entry) => entry.toStatusName),
+      currentStatusName: task.status.name,
+      uatDate: task.uatDate,
+      prdDate: task.prdDate,
+    });
+    return buildPostReleaseChangeDrafts({
+      ...reached,
+      statusChanged:
+        data.statusId !== undefined && data.statusId !== task.statusId,
+      fromStatusName: task.status.name,
+      toStatusName: toStatusName || task.status.name,
+      fromUatDate: task.uatDate,
+      toUatDate: data.uatDate,
+      uatDateProvided: data.uatDate !== undefined,
+      fromPrdDate: task.prdDate,
+      toPrdDate: data.prdDate,
+      prdDateProvided: data.prdDate !== undefined,
+    }).map((draft) => ({ taskId: task.id, ...draft }));
+  });
+  const postReleaseReason = assertPostReleaseReason(
+    allDrafts,
+    data.postReleaseReason,
+  );
 
   const dateData = {
     ...(data.startDate !== undefined
@@ -930,6 +1045,21 @@ export async function bulkUpdateTasks(
       if (history.length > 0) {
         await tx.statusHistory.createMany({ data: history });
       }
+    }
+
+    if (allDrafts.length > 0) {
+      const changedAt = new Date();
+      await tx.postReleaseChange.createMany({
+        data: allDrafts.map((draft) => ({
+          taskId: draft.taskId,
+          changeType: draft.changeType,
+          fromValue: draft.fromValue,
+          toValue: draft.toValue,
+          reason: postReleaseReason,
+          afterMilestone: draft.afterMilestone,
+          changedAt,
+        })),
+      });
     }
   });
 

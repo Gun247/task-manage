@@ -8,8 +8,9 @@ import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LoadingButtonContent, LoadingCard } from "@/components/ui/loading";
+import { ThemeSwatches } from "@/components/theme-picker";
 import { fetchJsonArray } from "@/lib/fetch-json";
-import { themeAccentColor } from "@/lib/themes";
+import { themeLabel, themeSwatches } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 
 export default function ManageProjectsPage() {
@@ -131,12 +132,10 @@ export default function ManageProjectsPage() {
                   className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 items-start gap-3">
-                    <span
-                      className="mt-1 h-4 w-4 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor:
-                          themeAccentColor(project.theme) || project.color,
-                      }}
+                    <ThemeSwatches
+                      colors={themeSwatches(project.theme)}
+                      size="md"
+                      className="mt-0.5"
                     />
                     <div className="min-w-0">
                       <h3 className="truncate font-semibold text-slate-900">
@@ -146,7 +145,7 @@ export default function ManageProjectsPage() {
                         {project.description || "ไม่มีคำอธิบาย"}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        {taskCount} task
+                        {themeLabel(project.theme)} · {taskCount} task
                       </p>
                     </div>
                   </div>

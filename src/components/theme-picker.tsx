@@ -16,24 +16,38 @@ import {
 import type { ColorTheme } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-function Swatches({
+export function ThemeSwatches({
   colors,
   className,
+  size = "sm",
 }: {
-  colors: ThemeOption["swatches"];
+  colors: readonly string[];
   className?: string;
+  size?: "sm" | "md";
 }) {
+  const dim = size === "md" ? "h-5 w-5" : "h-4 w-4";
   return (
-    <span className={cn("flex shrink-0 -space-x-1", className)}>
+    <span className={cn("flex shrink-0 items-center -space-x-1", className)}>
       {colors.map((color, index) => (
         <span
           key={`${color}-${index}`}
-          className="h-4 w-4 rounded-full ring-2 ring-white"
+          className={cn(dim, "rounded-full ring-2 ring-white")}
           style={{ backgroundColor: color }}
+          title={color}
         />
       ))}
     </span>
   );
+}
+
+function Swatches({
+  colors,
+  className,
+}: {
+  colors: readonly string[];
+  className?: string;
+}) {
+  return <ThemeSwatches colors={colors} className={className} />;
 }
 
 function useCustomThemeOptions() {
@@ -131,20 +145,23 @@ export function ProjectThemeField({
                         : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
                     )}
                   >
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white"
-                      style={{
-                        background: `linear-gradient(135deg, ${theme.swatches[1]}, ${theme.swatches[0]})`,
-                      }}
-                    >
-                      {active ? <Check className="h-3.5 w-3.5" /> : null}
+                    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md">
+                      <span
+                        className="absolute inset-0"
+                        style={{
+                          background: `linear-gradient(135deg, ${theme.swatches[1]}, ${theme.swatches[0]})`,
+                        }}
+                      />
+                      {active ? (
+                        <Check className="relative h-3.5 w-3.5 text-white drop-shadow" />
+                      ) : null}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs font-medium text-slate-800">
                         {theme.label}
                       </span>
-                      <span className="block truncate text-[11px] text-slate-500">
-                        {theme.description}
+                      <span className="mt-1 block">
+                        <Swatches colors={theme.swatches} />
                       </span>
                     </span>
                   </button>
@@ -178,20 +195,23 @@ export function ProjectThemeField({
                           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
                       )}
                     >
-                      <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white"
-                        style={{
-                          background: `linear-gradient(135deg, ${theme.swatches[1]}, ${theme.swatches[0]})`,
-                        }}
-                      >
-                        {active ? <Check className="h-3.5 w-3.5" /> : null}
+                      <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md">
+                        <span
+                          className="absolute inset-0"
+                          style={{
+                            background: `linear-gradient(135deg, ${theme.swatches[1]}, ${theme.swatches[0]})`,
+                          }}
+                        />
+                        {active ? (
+                          <Check className="relative h-3.5 w-3.5 text-white drop-shadow" />
+                        ) : null}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-xs font-medium text-slate-800">
                           {theme.label}
                         </span>
-                        <span className="block truncate text-[11px] text-slate-500">
-                          {theme.description}
+                        <span className="mt-1 block">
+                          <Swatches colors={theme.swatches} />
                         </span>
                       </span>
                     </button>

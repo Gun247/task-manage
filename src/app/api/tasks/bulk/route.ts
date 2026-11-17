@@ -21,6 +21,7 @@ export async function PATCH(request: Request) {
       endDate?: string | null;
       uatDate?: string | null;
       prdDate?: string | null;
+      postReleaseReason?: string | null;
     };
 
     const ids = parseIds(body.ids);
@@ -54,19 +55,22 @@ export async function PATCH(request: Request) {
       ...(body.endDate !== undefined ? { endDate: body.endDate || null } : {}),
       ...(body.uatDate !== undefined ? { uatDate: body.uatDate || null } : {}),
       ...(body.prdDate !== undefined ? { prdDate: body.prdDate || null } : {}),
+      ...(body.postReleaseReason !== undefined
+        ? {
+            postReleaseReason:
+              typeof body.postReleaseReason === "string"
+                ? body.postReleaseReason
+                : null,
+          }
+        : {}),
     });
 
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to bulk update tasks",
-      },
-      { status: 500 },
-    );
+    const message =
+      error instanceof Error ? error.message : "Failed to bulk update tasks";
+    const status = message.includes("เหตุผล") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 

@@ -22,9 +22,11 @@ import { TaskDashboardBar } from "@/components/task-dashboard-bar";
 import { PlanUatImportDialog } from "@/components/plan-uat-import-dialog";
 import { TaskFormDialog } from "@/components/task-form-dialog";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
+import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { isPostReleaseFlowChange } from "@/lib/post-release-change";
 import {
   sortTasks,
   TASK_SORT_OPTIONS,
@@ -90,6 +92,14 @@ export function TasksPageContent() {
     tone: "success" | "error";
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [postReleaseStatusChange, setPostReleaseStatusChange] = useState<{
+    taskId: string;
+    statusId: string;
+    taskName: string;
+    fromStatusName: string;
+    toStatusName: string;
+  } | null>(null);
+  const [postReleaseSaving, setPostReleaseSaving] = useState(false);
 
   const loadTasks = useCallback(async (projectId: string) => {
     if (!projectId) {
@@ -223,11 +233,13 @@ export function TasksPageContent() {
     return sortTasks(filtered, sortMode, statuses);
   }, [tasks, filters, sortMode, statuses, view]);
 
-  async function handleStatusChange(taskId: string, statusId: string) {
-    const previous = tasks.find((task) => task.id === taskId);
-    const nextStatus = statuses.find((item) => item.id === statusId);
-    if (!previous || !nextStatus || previous.statusId === statusId) return;
-
+  async function applyStatusChange(
+    taskId: string,
+    statusId: string,
+    previous: Task,
+    nextStatus: Status,
+    postReleaseReason?: string,
+  ) {
     const changedAt = new Date().toISOString();
     setImportMessage(null);
     setTasks((current) =>
@@ -256,7 +268,10 @@ export function TasksPageContent() {
     const response = await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ statusId }),
+      body: JSON.stringify({
+        statusId,
+        ...(postReleaseReason ? { postReleaseReason } : {}),
+      }),
     });
 
     if (response.ok) {
@@ -267,13 +282,40 @@ export function TasksPageContent() {
       setEditingTask((current) =>
         current?.id === taskId ? updated : current,
       );
-    } else {
-      await loadData();
-      setImportMessage({
-        tone: "error",
-        text: `บันทึกสถานะของ "${previous.name}" ไม่สำเร็จ — คืนค่าเดิมแล้ว`,
-      });
+      return true;
     }
+
+    await loadData();
+    setImportMessage({
+      tone: "error",
+      text: `บันทึกสถานะของ "${previous.name}" ไม่สำเร็จ — คืนค่าเดิมแล้ว`,
+    });
+    return false;
+  }
+
+  async function handleStatusChange(taskId: string, statusId: string) {
+    const previous = tasks.find((task) => task.id === taskId);
+    const nextStatus = statuses.find((item) => item.id === statusId);
+    if (!previous || !nextStatus || previous.statusId === statusId) return;
+
+    if (
+      isPostReleaseFlowChange({
+        task: previous,
+        nextStatusId: statusId,
+        statusProvided: true,
+      })
+    ) {
+      setPostReleaseStatusChange({
+        taskId,
+        statusId,
+        taskName: previous.name,
+        fromStatusName: previous.status.name,
+        toStatusName: nextStatus.name,
+      });
+      return;
+    }
+
+    await applyStatusChange(taskId, statusId, previous, nextStatus);
   }
 
   function openEditTask(task: Task) {
@@ -737,6 +779,46 @@ export function TasksPageContent() {
         onChanged={async () => {
           await loadData();
           await handleSaved();
+        }}
+      />
+
+      <PostReleaseReasonDialog
+        open={Boolean(postReleaseStatusChange)}
+        onOpenChange={(open) => {
+          if (postReleaseSaving) return;
+          if (!open) setPostReleaseStatusChange(null);
+        }}
+        loading={postReleaseSaving}
+        summary={
+          postReleaseStatusChange
+            ? `${postReleaseStatusChange.taskName}: ${postReleaseStatusChange.fromStatusName} → ${postReleaseStatusChange.toStatusName}`
+            : undefined
+        }
+        onConfirm={async (reason) => {
+          if (!postReleaseStatusChange) return;
+          const previous = tasks.find(
+            (task) => task.id === postReleaseStatusChange.taskId,
+          );
+          const nextStatus = statuses.find(
+            (item) => item.id === postReleaseStatusChange.statusId,
+          );
+          if (!previous || !nextStatus) {
+            setPostReleaseStatusChange(null);
+            return;
+          }
+          setPostReleaseSaving(true);
+          try {
+            const ok = await applyStatusChange(
+              postReleaseStatusChange.taskId,
+              postReleaseStatusChange.statusId,
+              previous,
+              nextStatus,
+              reason,
+            );
+            if (ok) setPostReleaseStatusChange(null);
+          } finally {
+            setPostReleaseSaving(false);
+          }
         }}
       />
     </AppShell>
