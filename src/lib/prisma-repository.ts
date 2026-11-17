@@ -1035,6 +1035,82 @@ export async function getProjectById(id: string) {
   return prisma.project.findUnique({ where: { id } });
 }
 
+function serializeColorTheme(row: {
+  id: string;
+  label: string;
+  description: string;
+  paletteJson: string;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: row.id,
+    label: row.label,
+    description: row.description,
+    palette: JSON.parse(row.paletteJson) as unknown,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function listColorThemes() {
+  const rows = await prisma.colorTheme.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map(serializeColorTheme);
+}
+
+export async function getColorThemeById(id: string) {
+  const row = await prisma.colorTheme.findUnique({ where: { id } });
+  return row ? serializeColorTheme(row) : null;
+}
+
+export async function createColorTheme(data: {
+  id: string;
+  label: string;
+  description?: string;
+  palette: unknown;
+}) {
+  const maxOrder = await prisma.colorTheme.aggregate({
+    _max: { sortOrder: true },
+  });
+  const row = await prisma.colorTheme.create({
+    data: {
+      id: data.id,
+      label: data.label,
+      description: data.description ?? "",
+      paletteJson: JSON.stringify(data.palette),
+      sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+    },
+  });
+  return serializeColorTheme(row);
+}
+
+export async function updateColorTheme(
+  id: string,
+  data: Partial<{ label: string; description: string; palette: unknown }>,
+) {
+  const row = await prisma.colorTheme.update({
+    where: { id },
+    data: {
+      ...(data.label !== undefined ? { label: data.label } : {}),
+      ...(data.description !== undefined
+        ? { description: data.description }
+        : {}),
+      ...(data.palette !== undefined
+        ? { paletteJson: JSON.stringify(data.palette) }
+        : {}),
+    },
+  });
+  return serializeColorTheme(row);
+}
+
+export async function deleteColorTheme(id: string) {
+  await prisma.colorTheme.delete({ where: { id } });
+}
+
 export async function ensureSheetStructure() {
   return;
 }

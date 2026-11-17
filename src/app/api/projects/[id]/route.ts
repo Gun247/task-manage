@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
-import { deleteProject, updateProject } from "@/lib/db";
-import { themeAccentColor } from "@/lib/themes";
+import { deleteProject, getColorThemeById, updateProject } from "@/lib/db";
+import { isBuiltinThemeId, themeAccentColor } from "@/lib/themes";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+async function resolveAccent(theme: string) {
+  if (!isBuiltinThemeId(theme)) {
+    const custom = await getColorThemeById(theme);
+    if (custom?.palette && typeof custom.palette === "object") {
+      const primary = (custom.palette as { primary?: string }).primary;
+      if (primary) return primary;
+    }
+  }
+  return themeAccentColor(theme);
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
@@ -15,7 +26,10 @@ export async function PATCH(request: Request, context: RouteContext) {
         ? { description: body.description.trim() }
         : {}),
       ...(body.theme !== undefined
-        ? { theme: body.theme, color: themeAccentColor(body.theme) }
+        ? {
+            theme: body.theme,
+            color: await resolveAccent(String(body.theme)),
+          }
         : {}),
     });
 

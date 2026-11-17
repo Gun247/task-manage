@@ -28,6 +28,7 @@ import { ColorTray, normalizeHex } from "@/components/ui/color-tray";
 import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ThemeManager } from "@/components/theme-manager";
 import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -486,7 +487,7 @@ export function SettingsDialog({
         <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-6 py-4 pr-12">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            จัดการสถานะ ทีม Task Type และ priority ของโปรเจกต์
+            จัดการสถานะ ทีม Task Type priority และธีมสี
           </DialogDescription>
         </DialogHeader>
 
@@ -500,18 +501,21 @@ export function SettingsDialog({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="shrink-0 px-6 pt-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="status" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="status" className="px-1 text-xs sm:px-2 sm:text-sm">
                 สถานะ
               </TabsTrigger>
-              <TabsTrigger value="team" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+              <TabsTrigger value="team" className="px-1 text-xs sm:px-2 sm:text-sm">
                 ทีม
               </TabsTrigger>
-              <TabsTrigger value="type" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+              <TabsTrigger value="type" className="px-1 text-xs sm:px-2 sm:text-sm">
                 Type
               </TabsTrigger>
-              <TabsTrigger value="priority" className="px-1.5 text-xs sm:px-3 sm:text-sm">
+              <TabsTrigger value="priority" className="px-1 text-xs sm:px-2 sm:text-sm">
                 Priority
+              </TabsTrigger>
+              <TabsTrigger value="themes" className="px-1 text-xs sm:px-2 sm:text-sm">
+                ธีมสี
               </TabsTrigger>
             </TabsList>
           </div>
@@ -957,6 +961,13 @@ export function SettingsDialog({
                 </div>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent
+            value="themes"
+            className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
+          >
+            {activeTab === "themes" ? <ThemeManager key="theme-manager" /> : null}
           </TabsContent>
         </Tabs>
       </DialogContent>

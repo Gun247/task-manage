@@ -14,6 +14,29 @@ export interface Project {
   _count?: { tasks: number };
 }
 
+export interface ColorTheme {
+  id: string;
+  label: string;
+  description: string;
+  palette: {
+    primary: string;
+    primaryDark: string;
+    accent: string;
+    background: string;
+    foreground: string;
+    muted: string;
+    border: string;
+    canvas: string;
+    success: string;
+    danger: string;
+    warning: string;
+    slate: Record<string, string>;
+  };
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Priority {
   id: string;
   label: string;

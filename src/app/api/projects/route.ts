@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
-import { createProject, getDatabaseMode, listProjects, seedDefaultData } from "@/lib/db";
-import { themeAccentColor } from "@/lib/themes";
+import {
+  createProject,
+  getColorThemeById,
+  getDatabaseMode,
+  listProjects,
+  seedDefaultData,
+} from "@/lib/db";
+import { isBuiltinThemeId, themeAccentColor } from "@/lib/themes";
+
+async function resolveAccent(theme: string | undefined) {
+  if (theme && !isBuiltinThemeId(theme)) {
+    const custom = await getColorThemeById(theme);
+    if (custom?.palette && typeof custom.palette === "object") {
+      const primary = (custom.palette as { primary?: string }).primary;
+      if (primary) return primary;
+    }
+  }
+  return themeAccentColor(theme);
+}
 
 export async function GET() {
   try {
@@ -34,7 +51,7 @@ export async function POST(request: Request) {
       name: body.name.trim(),
       description: body.description?.trim(),
       theme,
-      color: themeAccentColor(theme),
+      color: await resolveAccent(theme),
     });
 
     return NextResponse.json(project, { status: 201 });

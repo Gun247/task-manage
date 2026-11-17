@@ -1,3 +1,9 @@
+import {
+  THEME_CSS_VAR_KEYS,
+  paletteToCssVars,
+  type ThemePalette,
+} from "@/lib/theme-definition";
+
 export type ThemeGroup = "default" | "combination" | "colorful" | "new";
 
 export type ThemeOption = {
@@ -315,38 +321,138 @@ export const THEMES: ThemeOption[] = [
   },
 ];
 
-const THEME_IDS = new Set(THEMES.map((theme) => theme.id));
+export const BUILTIN_THEME_IDS = THEMES.map((theme) => theme.id);
 
+const BUILTIN_THEME_ID_SET = new Set(BUILTIN_THEME_IDS);
+
+export type CustomThemeRecord = {
+  id: string;
+  label: string;
+  description?: string;
+  palette: {
+    primary: string;
+    accent: string;
+    muted?: string;
+    [key: string]: unknown;
+  };
+  swatches?: [string, string, string];
+};
+
+let cachedCustomThemes: CustomThemeRecord[] = [];
+
+export function setCachedCustomThemes(themes: CustomThemeRecord[]) {
+  cachedCustomThemes = themes;
+}
+
+export function getCachedCustomThemes() {
+  return cachedCustomThemes;
+}
+
+export function isBuiltinThemeId(value: unknown): value is string {
+  return typeof value === "string" && BUILTIN_THEME_ID_SET.has(value);
+}
+
+/** @deprecated use isBuiltinThemeId — kept for older call sites */
 export function isThemeId(value: unknown): value is string {
-  return typeof value === "string" && THEME_IDS.has(value);
+  return isBuiltinThemeId(value);
+}
+
+function clearCustomThemeVars(root: HTMLElement) {
+  for (const key of THEME_CSS_VAR_KEYS) {
+    root.style.removeProperty(key);
+  }
+  delete root.dataset.customTheme;
+  delete root.dataset.themeId;
+}
+
+function applyCustomPalette(
+  root: HTMLElement,
+  palette: ThemePalette,
+  themeId: string,
+) {
+  const vars = paletteToCssVars(palette);
+  for (const [key, value] of Object.entries(vars)) {
+    root.style.setProperty(key, value);
+  }
+  root.dataset.customTheme = "1";
+  root.dataset.themeId = themeId;
+  delete root.dataset.theme;
 }
 
 /** Clears legacy browser-stored themes so aggregate pages always start clean white. */
-export const THEME_INIT_SCRIPT = `try{document.documentElement.removeAttribute("data-theme");localStorage.removeItem(${JSON.stringify(
+export const THEME_INIT_SCRIPT = `try{document.documentElement.removeAttribute("data-theme");document.documentElement.removeAttribute("data-custom-theme");localStorage.removeItem(${JSON.stringify(
   THEME_STORAGE_KEY,
 )})}catch(e){}`;
 
+export type ApplyThemeOptions = {
+  customThemes?: CustomThemeRecord[];
+};
+
 /** Apply a theme for the current visit (project pages). Does not persist to localStorage. */
-export function applyTheme(id: string) {
+export function applyTheme(id: string, options?: ApplyThemeOptions) {
   const root = document.documentElement;
-  const next = isThemeId(id) ? id : DEFAULT_THEME_ID;
+  const customs = options?.customThemes ?? cachedCustomThemes;
+  const custom = customs.find((theme) => theme.id === id);
+
+  if (custom?.palette && typeof custom.palette.primary === "string") {
+    applyCustomPalette(root, custom.palette as ThemePalette, custom.id);
+    return;
+  }
+
+  clearCustomThemeVars(root);
+  const next = isBuiltinThemeId(id) ? id : DEFAULT_THEME_ID;
   if (next === DEFAULT_THEME_ID) delete root.dataset.theme;
   else root.dataset.theme = next;
 }
 
 export function readTheme(): string {
   if (typeof document === "undefined") return DEFAULT_THEME_ID;
+  if (document.documentElement.dataset.customTheme === "1") {
+    return document.documentElement.dataset.themeId || DEFAULT_THEME_ID;
+  }
   const current = document.documentElement.dataset.theme;
-  return isThemeId(current) ? current : DEFAULT_THEME_ID;
+  return isBuiltinThemeId(current) ? current : DEFAULT_THEME_ID;
 }
 
-export function resolveProjectTheme(theme: string | null | undefined): string {
-  return isThemeId(theme) ? theme : DEFAULT_THEME_ID;
+export function resolveProjectTheme(
+  theme: string | null | undefined,
+  customThemes: CustomThemeRecord[] = cachedCustomThemes,
+): string {
+  if (typeof theme === "string" && isBuiltinThemeId(theme)) return theme;
+  if (
+    typeof theme === "string" &&
+    customThemes.some((item) => item.id === theme)
+  ) {
+    return theme;
+  }
+  return DEFAULT_THEME_ID;
 }
 
 /** Primary accent from a theme — used as the project badge/dot color. */
-export function themeAccentColor(theme: string | null | undefined): string {
-  const id = resolveProjectTheme(theme);
+export function themeAccentColor(
+  theme: string | null | undefined,
+  customThemes: CustomThemeRecord[] = cachedCustomThemes,
+): string {
+  const custom = customThemes.find((item) => item.id === theme);
+  if (custom?.palette?.primary) return String(custom.palette.primary);
+  if (custom?.swatches?.[0]) return custom.swatches[0];
+
+  const id = resolveProjectTheme(theme, customThemes);
   const option = THEMES.find((item) => item.id === id) ?? THEMES[0];
   return option.swatches[0];
+}
+
+export function toThemeOption(
+  theme: CustomThemeRecord,
+): ThemeOption {
+  const primary = String(theme.palette.primary ?? "#334155");
+  const accent = String(theme.palette.accent ?? primary);
+  const muted = String(theme.palette.muted ?? "#F1F5F9");
+  return {
+    id: theme.id,
+    label: theme.label,
+    description: theme.description || "ธีมที่สร้างเอง",
+    group: "default",
+    swatches: theme.swatches ?? [primary, accent, muted],
+  };
 }

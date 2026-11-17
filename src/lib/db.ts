@@ -209,6 +209,34 @@ export async function getProjectById(
   return resolveBackend().getProjectById(...args);
 }
 
+export async function listColorThemes() {
+  return resolveBackend().listColorThemes();
+}
+
+export async function getColorThemeById(
+  ...args: Parameters<typeof prismaRepo.getColorThemeById>
+) {
+  return resolveBackend().getColorThemeById(...args);
+}
+
+export async function createColorTheme(
+  ...args: Parameters<typeof prismaRepo.createColorTheme>
+) {
+  return resolveBackend().createColorTheme(...args);
+}
+
+export async function updateColorTheme(
+  ...args: Parameters<typeof prismaRepo.updateColorTheme>
+) {
+  return resolveBackend().updateColorTheme(...args);
+}
+
+export async function deleteColorTheme(
+  ...args: Parameters<typeof prismaRepo.deleteColorTheme>
+) {
+  return resolveBackend().deleteColorTheme(...args);
+}
+
 export async function ensureSheetStructure() {
   return resolveBackend().ensureSheetStructure();
 }

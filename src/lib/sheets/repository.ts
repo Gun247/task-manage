@@ -1281,6 +1281,85 @@ export async function getProjectById(id: string) {
   return projectsTable.findById(id);
 }
 
+type SheetColorTheme = {
+  id: string;
+  label: string;
+  description: string;
+  paletteJson: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const colorThemesTable = new SheetTable<SheetColorTheme>("ColorThemes", [
+  "id",
+  "label",
+  "description",
+  "paletteJson",
+  "sortOrder",
+  "createdAt",
+  "updatedAt",
+]);
+
+function serializeSheetColorTheme(row: SheetColorTheme) {
+  return {
+    id: row.id,
+    label: row.label,
+    description: row.description,
+    palette: JSON.parse(row.paletteJson) as unknown,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export async function listColorThemes() {
+  const rows = await colorThemesTable.getAll();
+  return rows
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
+    .map(serializeSheetColorTheme);
+}
+
+export async function getColorThemeById(id: string) {
+  const row = await colorThemesTable.findById(id);
+  return row ? serializeSheetColorTheme(row) : null;
+}
+
+export async function createColorTheme(data: {
+  id: string;
+  label: string;
+  description?: string;
+  palette: unknown;
+}) {
+  const sortOrder = (await colorThemesTable.maxOf("sortOrder")) + 1;
+  const row = await colorThemesTable.create({
+    id: data.id,
+    label: data.label,
+    description: data.description ?? "",
+    paletteJson: JSON.stringify(data.palette),
+    sortOrder,
+  });
+  return serializeSheetColorTheme(row);
+}
+
+export async function updateColorTheme(
+  id: string,
+  data: Partial<{ label: string; description: string; palette: unknown }>,
+) {
+  const row = await colorThemesTable.update(id, {
+    ...(data.label !== undefined ? { label: data.label } : {}),
+    ...(data.description !== undefined ? { description: data.description } : {}),
+    ...(data.palette !== undefined
+      ? { paletteJson: JSON.stringify(data.palette) }
+      : {}),
+  });
+  return serializeSheetColorTheme(row);
+}
+
+export async function deleteColorTheme(id: string) {
+  await colorThemesTable.delete(id);
+}
+
 export async function ensureSheetStructure() {
   await Promise.all([
     projectsTable.ensureHeader(),
