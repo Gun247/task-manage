@@ -17,6 +17,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       ...(body.employeeId !== undefined
         ? { employeeId: String(body.employeeId).trim() }
         : {}),
+      ...(body.role !== undefined ? { role: String(body.role) } : {}),
       ...(body.color !== undefined ? { color: body.color } : {}),
       ...(body.isActive !== undefined ? { isActive: body.isActive } : {}),
       ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ProjectFormDialog } from "@/components/project-form-dialog";
@@ -10,10 +11,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LoadingButtonContent, LoadingCard } from "@/components/ui/loading";
 import { ThemeSwatches } from "@/components/theme-picker";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { readMemberSession } from "@/lib/current-member";
+import { canManageProjects } from "@/lib/roles";
 import { themeLabel, themeSwatches } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 
 export default function ManageProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +25,7 @@ export default function ManageProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
+  const [allowed, setAllowed] = useState(false);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -35,8 +40,14 @@ export default function ManageProjectsPage() {
   }, []);
 
   useEffect(() => {
+    const session = readMemberSession();
+    if (!session || !canManageProjects(session.role)) {
+      router.replace("/projects");
+      return;
+    }
+    setAllowed(true);
     loadProjects();
-  }, [loadProjects]);
+  }, [loadProjects, router]);
 
   function openCreate() {
     setEditingProject(null);
@@ -76,6 +87,14 @@ export default function ManageProjectsPage() {
 
     const data = await response.json();
     alert(data.error ?? "ไม่สามารถลบโปรเจกต์ได้");
+  }
+
+  if (!allowed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-canvas text-sm text-slate-500">
+        ตรวจสอบสิทธิ์...
+      </div>
+    );
   }
 
   return (

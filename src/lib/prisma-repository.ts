@@ -25,6 +25,7 @@ import {
 import { parseWipLimits, serializeWipLimits } from "@/lib/current-member";
 import { notifyTaskWatchers } from "@/lib/collaboration-repository";
 import { MODIFY_STATUS_NAME } from "@/lib/default-statuses";
+import { parseMemberRole } from "@/lib/roles";
 
 function toIso(value: Date | null | undefined) {
   return value ? value.toISOString() : null;
@@ -519,11 +520,65 @@ export async function deleteStatus(id: string, moveToStatusId?: string) {
   await prisma.status.delete({ where: { id } });
 }
 
-export async function listTeamMembers() {
-  return prisma.teamMember.findMany({
+async function ensureAdministratorExists() {
+  const adminCount = await prisma.teamMember.count({
+    where: { isActive: true, role: "administrator" },
+  });
+  if (adminCount > 0) return;
+  const first = await prisma.teamMember.findFirst({
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },
   });
+  if (first) {
+    await prisma.teamMember.update({
+      where: { id: first.id },
+      data: { role: "administrator" },
+    });
+  }
+}
+
+function serializeTeamMember(member: {
+  id: string;
+  name: string;
+  nickname: string;
+  email: string;
+  employeeId: string;
+  role: string;
+  color: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}) {
+  return {
+    ...member,
+    role: parseMemberRole(member.role),
+    createdAt: member.createdAt?.toISOString?.() ?? member.createdAt,
+    updatedAt: member.updatedAt?.toISOString?.() ?? member.updatedAt,
+  };
+}
+
+export async function listTeamMembers() {
+  await ensureAdministratorExists();
+  const members = await prisma.teamMember.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  return members.map(serializeTeamMember);
+}
+
+export async function findTeamMemberByEmployeeId(employeeId: string) {
+  await ensureAdministratorExists();
+  const needle = employeeId.trim();
+  if (!needle) return null;
+  const members = await prisma.teamMember.findMany({
+    where: { isActive: true },
+  });
+  const match = members.find(
+    (member) =>
+      member.employeeId.trim().toLowerCase() === needle.toLowerCase(),
+  );
+  return match ? serializeTeamMember(match) : null;
 }
 
 export async function createTeamMember(data: {
@@ -531,19 +586,22 @@ export async function createTeamMember(data: {
   nickname: string;
   email?: string;
   employeeId?: string;
+  role?: string;
   color?: string;
 }) {
   const maxOrder = await prisma.teamMember.aggregate({ _max: { sortOrder: true } });
-  return prisma.teamMember.create({
+  const member = await prisma.teamMember.create({
     data: {
       name: data.name?.trim() ?? "",
       nickname: data.nickname,
       email: data.email?.trim() ?? "",
       employeeId: data.employeeId?.trim() ?? "",
+      role: parseMemberRole(data.role),
       color: data.color ?? "#3B82F6",
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
+  return serializeTeamMember(member);
 }
 
 export async function updateTeamMember(
@@ -553,12 +611,21 @@ export async function updateTeamMember(
     nickname: string;
     email: string;
     employeeId: string;
+    role: string;
     color: string;
     isActive: boolean;
     sortOrder: number;
   }>,
 ) {
-  return prisma.teamMember.update({ where: { id }, data });
+  const { role, ...rest } = data;
+  const member = await prisma.teamMember.update({
+    where: { id },
+    data: {
+      ...rest,
+      ...(role !== undefined ? { role: parseMemberRole(role) } : {}),
+    },
+  });
+  return serializeTeamMember(member);
 }
 
 export async function deleteTeamMember(id: string) {

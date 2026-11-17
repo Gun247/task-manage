@@ -1,14 +1,63 @@
+import { parseMemberRole, type MemberRole } from "@/lib/roles";
+
 const STORAGE_KEY = "fwf-current-member-id";
+const SESSION_KEY = "fwf-session";
+
+export type MemberSession = {
+  id: string;
+  nickname: string;
+  employeeId: string;
+  role: MemberRole;
+  color: string;
+};
 
 export function readCurrentMemberId() {
   if (typeof window === "undefined") return "";
+  const session = readMemberSession();
+  if (session?.id) return session.id;
   return window.localStorage.getItem(STORAGE_KEY) ?? "";
 }
 
+export function readMemberSession(): MemberSession | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SESSION_KEY);
+    if (!raw) {
+      const legacyId = window.localStorage.getItem(STORAGE_KEY);
+      if (!legacyId) return null;
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<MemberSession>;
+    if (!parsed.id || !parsed.nickname) return null;
+    return {
+      id: parsed.id,
+      nickname: parsed.nickname,
+      employeeId: parsed.employeeId ?? "",
+      role: parseMemberRole(parsed.role),
+      color: parsed.color ?? "#6BB82A",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeMemberSession(session: MemberSession | null) {
+  if (typeof window === "undefined") return;
+  if (!session) {
+    window.localStorage.removeItem(SESSION_KEY);
+    window.localStorage.removeItem(STORAGE_KEY);
+  } else {
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    window.localStorage.setItem(STORAGE_KEY, session.id);
+  }
+  window.dispatchEvent(new Event("fwf-current-member-changed"));
+}
+
+/** @deprecated prefer writeMemberSession */
 export function writeCurrentMemberId(id: string) {
   if (typeof window === "undefined") return;
   if (!id) {
-    window.localStorage.removeItem(STORAGE_KEY);
+    writeMemberSession(null);
     return;
   }
   window.localStorage.setItem(STORAGE_KEY, id);

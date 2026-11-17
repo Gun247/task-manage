@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       nickname,
       email: typeof body.email === "string" ? body.email : "",
       employeeId: typeof body.employeeId === "string" ? body.employeeId : "",
+      role: typeof body.role === "string" ? body.role : "member",
       color: body.color,
     });
     return NextResponse.json(member, { status: 201 });

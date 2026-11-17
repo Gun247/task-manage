@@ -59,6 +59,7 @@ export type ExcelTeamMember = {
   nickname: string;
   email: string;
   employeeId: string;
+  role?: string;
   color: string;
   isActive: boolean;
   sortOrder: number;
@@ -185,6 +186,7 @@ const teamMembersTable = new ExcelTable<ExcelTeamMember>("TeamMembers", [
   "nickname",
   "email",
   "employeeId",
+  "role",
   "color",
   "isActive",
   "sortOrder",
@@ -367,6 +369,7 @@ function subtasksForTask(
           nickname: member!.nickname,
           email: member!.email ?? "",
           employeeId: member!.employeeId ?? "",
+          role: (member!.role as "viewer" | "member" | "administrator") || "member",
           color: member!.color,
           isActive: Boolean(member!.isActive),
           sortOrder: Number(member!.sortOrder) || 0,
@@ -772,7 +775,11 @@ export async function listTeamMembers() {
   const members = await teamMembersTable.getAll();
   return members
     .filter((member) => member.isActive)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((member) => ({
+      ...member,
+      role: member.role || "member",
+    }));
 }
 
 export async function listTimelineTasks(projectId?: string | null) {
@@ -842,6 +849,7 @@ export async function createTeamMember(data: {
   nickname: string;
   email?: string;
   employeeId?: string;
+  role?: string;
   color?: string;
 }) {
   const sortOrder = (await teamMembersTable.maxOf("sortOrder")) + 1;
@@ -851,6 +859,7 @@ export async function createTeamMember(data: {
     nickname: data.nickname,
     email: data.email?.trim() ?? "",
     employeeId: data.employeeId?.trim() ?? "",
+    role: data.role ?? "member",
     color: data.color ?? "#3B82F6",
     isActive: true,
     sortOrder,
@@ -866,6 +875,7 @@ export async function updateTeamMember(
       | "nickname"
       | "email"
       | "employeeId"
+      | "role"
       | "color"
       | "isActive"
       | "sortOrder"

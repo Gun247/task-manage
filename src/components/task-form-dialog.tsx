@@ -25,11 +25,18 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { TextLinks } from "@/components/ui/linkified-text";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { readCurrentMemberId } from "@/lib/current-member";
+import {
+  readCurrentMemberId,
+  readMemberSession,
+} from "@/lib/current-member";
 import {
   HOLD_STATUS_NAME,
   MODIFY_STATUS_NAME,
 } from "@/lib/default-statuses";
+import {
+  canCreateOrEditTasks,
+  canDeleteTasks,
+} from "@/lib/roles";
 import {
   getPostReleaseReworkGateError,
   isPostReleaseFlowChange,
@@ -115,6 +122,9 @@ export function TaskFormDialog({
   const [dialogTab, setDialogTab] = useState("details");
   const [watching, setWatching] = useState(false);
   const [watchBusy, setWatchBusy] = useState(false);
+  const session = readMemberSession();
+  const canEdit = canCreateOrEditTasks(session?.role ?? "viewer");
+  const canDelete = canDeleteTasks(session?.role ?? "viewer");
 
   const parentAssignees = teamMembers.filter((member) =>
     form.assigneeIds.includes(member.id),
@@ -894,7 +904,7 @@ export function TaskFormDialog({
           </div>
 
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3">
-            {task ? (
+            {task && canDelete ? (
               <Button
                 type="button"
                 variant="outline"
@@ -924,14 +934,20 @@ export function TaskFormDialog({
               >
                 ยกเลิก
               </Button>
-              <Button type="submit" size="sm" disabled={saving || deleting}>
-                <LoadingButtonContent
-                  loading={saving}
-                  loadingText="กำลังบันทึก..."
-                >
-                  บันทึก
-                </LoadingButtonContent>
-              </Button>
+              {canEdit ? (
+                <Button type="submit" size="sm" disabled={saving || deleting}>
+                  <LoadingButtonContent
+                    loading={saving}
+                    loadingText="กำลังบันทึก..."
+                  >
+                    บันทึก
+                  </LoadingButtonContent>
+                </Button>
+              ) : (
+                <p className="self-center text-xs text-slate-500">
+                  Viewer ดูได้อย่างเดียว
+                </p>
+              )}
             </div>
           </div>
         </form>

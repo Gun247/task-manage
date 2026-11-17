@@ -17,7 +17,10 @@ import {
   Settings2,
   X,
 } from "lucide-react";
+import { AuthGate } from "@/components/auth-gate";
 import { ProjectThemeSync } from "@/components/project-theme-sync";
+import { readMemberSession } from "@/lib/current-member";
+import { canManageProjects } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_COLLAPSED_KEY = "fwf-sidebar-collapsed";
@@ -97,6 +100,25 @@ function SidebarNav({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const projectId = searchParams.get("project");
+  const [showManage, setShowManage] = useState(false);
+
+  useEffect(() => {
+    const sync = () => {
+      const session = readMemberSession();
+      setShowManage(session ? canManageProjects(session.role) : false);
+    };
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener("fwf-current-member-changed", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("fwf-current-member-changed", sync);
+    };
+  }, []);
+
+  const visibleNavItems = navItems.filter(
+    (item) => item.id !== "manage" || showManage,
+  );
 
   return (
     <aside
@@ -119,7 +141,7 @@ function SidebarNav({
             "flex items-center",
             collapsed ? "justify-center" : "gap-2.5",
           )}
-          title="FWF Task Manager"
+          title="TIM TaskManage"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <FolderKanban className="h-5 w-5" />
@@ -127,10 +149,7 @@ function SidebarNav({
           {!collapsed ? (
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-primary">
-                FWF Task Manager
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                Foreigner Worker Fund
+                TIM TaskManage
               </p>
             </div>
           ) : null}
@@ -143,7 +162,7 @@ function SidebarNav({
             เมนู
           </p>
         ) : null}
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.match(pathname);
           const href = resolveHref(item.id, pathname, projectId);
@@ -279,10 +298,7 @@ function SidebarFallback({
           {!collapsed ? (
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-primary">
-                FWF Task Manager
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                Foreigner Worker Fund
+                TIM TaskManage
               </p>
             </div>
           ) : null}
@@ -320,65 +336,67 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-svh overflow-hidden bg-canvas">
-      <Suspense fallback={null}>
-        <ProjectThemeSync />
-      </Suspense>
-      <div className="relative z-40 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0">
-        <Suspense
-          fallback={
-            <SidebarFallback collapsed={hydrated ? collapsed : false} />
-          }
-        >
-          <SidebarNav
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-          />
+    <AuthGate>
+      <div className="flex h-svh overflow-hidden bg-canvas">
+        <Suspense fallback={null}>
+          <ProjectThemeSync />
         </Suspense>
-      </div>
+        <div className="relative z-40 hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:shrink-0">
+          <Suspense
+            fallback={
+              <SidebarFallback collapsed={hydrated ? collapsed : false} />
+            }
+          >
+            <SidebarNav
+              collapsed={collapsed}
+              onToggleCollapsed={toggleCollapsed}
+            />
+          </Suspense>
+        </div>
 
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 bg-slate-900/40"
-            aria-label="ปิดเมนู"
-            onClick={() => setMobileOpen(false)}
-          />
-          <div className="relative h-full w-72 max-w-[85vw] shadow-xl">
-            <Suspense fallback={<SidebarFallback />}>
-              <SidebarNav onNavigate={() => setMobileOpen(false)} />
-            </Suspense>
+        {mobileOpen ? (
+          <div className="fixed inset-0 z-50 lg:hidden">
             <button
               type="button"
-              className="absolute top-3 right-3 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+              className="absolute inset-0 bg-slate-900/40"
+              aria-label="ปิดเมนู"
               onClick={() => setMobileOpen(false)}
-              aria-label="ปิด"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            />
+            <div className="relative h-full w-72 max-w-[85vw] shadow-xl">
+              <Suspense fallback={<SidebarFallback />}>
+                <SidebarNav onNavigate={() => setMobileOpen(false)} />
+              </Suspense>
+              <button
+                type="button"
+                className="absolute top-3 right-3 rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                onClick={() => setMobileOpen(false)}
+                aria-label="ปิด"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
-          <button
-            type="button"
-            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
-            onClick={() => setMobileOpen(true)}
-            aria-label="เปิดเมนู"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-primary">
-              FWF Task Manager
-            </p>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+            <button
+              type="button"
+              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+              onClick={() => setMobileOpen(true)}
+              aria-label="เปิดเมนู"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-primary">
+                TIM TaskManage
+              </p>
+            </div>
           </div>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
         </div>
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
-    </div>
+    </AuthGate>
   );
 }

@@ -35,6 +35,8 @@ model TeamMember {
   nickname   String   @unique
   email      String   @default("")
   employeeId String   @default("")
+  /// Jira-style role: viewer | member | administrator
+  role       String   @default("member")
   color      String
   isActive   Boolean  @default(true)
   sortOrder  Int      @default(0)

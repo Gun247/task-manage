@@ -45,6 +45,12 @@ import {
   MODIFY_STATUS_NAME,
 } from "@/lib/default-statuses";
 import {
+  MEMBER_ROLES,
+  ROLE_LABELS,
+  parseMemberRole,
+  type MemberRole,
+} from "@/lib/roles";
+import {
   Check,
   GripVertical,
   Pencil,
@@ -228,6 +234,7 @@ export function SettingsDialog({
     nickname: "",
     email: "",
     employeeId: "",
+    role: "member" as MemberRole,
     color: COLOR_OPTIONS[2] as string,
   });
   const [newTypeName, setNewTypeName] = useState("");
@@ -260,6 +267,7 @@ export function SettingsDialog({
         nickname: "",
         email: "",
         employeeId: "",
+        role: "member",
         color: COLOR_OPTIONS[2],
       });
       setEditingStatusId(null);
@@ -411,6 +419,7 @@ export function SettingsDialog({
       nickname: "",
       email: "",
       employeeId: "",
+      role: "member",
       color: COLOR_OPTIONS[2],
     });
   }
@@ -422,6 +431,7 @@ export function SettingsDialog({
       nickname: member.nickname,
       email: member.email ?? "",
       employeeId: member.employeeId ?? "",
+      role: parseMemberRole(member.role),
       color: member.color,
     });
   }
@@ -436,6 +446,7 @@ export function SettingsDialog({
       nickname,
       email: memberForm.email.trim(),
       employeeId: memberForm.employeeId.trim(),
+      role: memberForm.role,
       color,
     };
 
@@ -722,7 +733,12 @@ export function SettingsDialog({
               ) : (
                 teamMembers.map((member) => {
                   const selected = editingMemberId === member.id;
-                  const secondary = [member.name, member.employeeId, member.email]
+                  const secondary = [
+                    ROLE_LABELS[parseMemberRole(member.role)],
+                    member.name,
+                    member.employeeId,
+                    member.email,
+                  ]
                     .map((value) => value?.trim())
                     .filter(Boolean)
                     .join(" · ");
@@ -867,11 +883,11 @@ export function SettingsDialog({
                     }
                   />
                 </Field>
-                <Field id="member-employee" label="รหัสพนักงาน">
+                <Field id="member-employee" label="เลขพนักงาน">
                   <Input
                     id="member-employee"
                     className="h-9 bg-white"
-                    placeholder="รหัสพนักงาน"
+                    placeholder="ใช้ตอนเข้าสู่ระบบ"
                     value={memberForm.employeeId}
                     onChange={(event) =>
                       setMemberForm((current) => ({
@@ -880,6 +896,25 @@ export function SettingsDialog({
                       }))
                     }
                   />
+                </Field>
+                <Field id="member-role" label="Role (แบบ Jira)">
+                  <select
+                    id="member-role"
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700"
+                    value={memberForm.role}
+                    onChange={(event) =>
+                      setMemberForm((current) => ({
+                        ...current,
+                        role: parseMemberRole(event.target.value),
+                      }))
+                    }
+                  >
+                    {MEMBER_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
 

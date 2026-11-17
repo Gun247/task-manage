@@ -13,9 +13,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { MemberLogin } from "@/components/member-login";
-import { NotificationBell } from "@/components/notification-bell";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { SessionControls } from "@/components/session-controls";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Select } from "@/components/ui/input";
@@ -30,6 +29,7 @@ import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog
 import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
+import { readMemberSession } from "@/lib/current-member";
 import {
   HOLD_STATUS_NAME,
   MODIFY_STATUS_NAME,
@@ -38,6 +38,12 @@ import {
   getPostReleaseReworkGateError,
   isPostReleaseFlowChange,
 } from "@/lib/post-release-change";
+import {
+  canCreateOrEditTasks,
+  canManageSettings,
+  canTransitionTasks,
+  type MemberRole,
+} from "@/lib/roles";
 import {
   sortTasks,
   TASK_SORT_OPTIONS,
@@ -96,6 +102,7 @@ export function TasksPageContent() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sessionRole, setSessionRole] = useState<MemberRole>("member");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [focusCreateTrigger, setFocusCreateTrigger] = useState(0);
   const [createDefaultStatusId, setCreateDefaultStatusId] = useState<
@@ -173,6 +180,16 @@ export function TasksPageContent() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const refreshRole = () => {
+      setSessionRole(readMemberSession()?.role ?? "member");
+    };
+    refreshRole();
+    window.addEventListener("fwf-current-member-changed", refreshRole);
+    return () =>
+      window.removeEventListener("fwf-current-member-changed", refreshRole);
   }, []);
 
   useEffect(() => {
@@ -400,6 +417,13 @@ export function TasksPageContent() {
   }
 
   async function handleStatusChange(taskId: string, statusId: string) {
+    if (!canTransitionTasks(sessionRole)) {
+      setImportMessage({
+        tone: "error",
+        text: "Role Viewer ไม่สามารถเปลี่ยนสถานะได้",
+      });
+      return;
+    }
     const previous = tasks.find((task) => task.id === taskId);
     const nextStatus = statuses.find((item) => item.id === statusId);
     if (!previous || !nextStatus || previous.statusId === statusId) return;
@@ -441,12 +465,26 @@ export function TasksPageContent() {
   }
 
   function openCreateTask(statusId?: string) {
+    if (!canCreateOrEditTasks(sessionRole)) {
+      setImportMessage({
+        tone: "error",
+        text: "Role Viewer ไม่สามารถสร้าง task ได้",
+      });
+      return;
+    }
     setEditingTask(null);
     setCreateDefaultStatusId(statusId ?? statuses[0]?.id);
     setTaskDialogOpen(true);
   }
 
   function focusCreateTask(statusId?: string) {
+    if (!canCreateOrEditTasks(sessionRole)) {
+      setImportMessage({
+        tone: "error",
+        text: "Role Viewer ไม่สามารถสร้าง task ได้",
+      });
+      return;
+    }
     if (view === "kanban") {
       openCreateTask(statusId);
       return;
@@ -517,7 +555,11 @@ export function TasksPageContent() {
                   projects={projects}
                   selectedProjectId={selectedProjectId}
                   onSelect={setSelectedProjectId}
-                  onCreateNew={() => setProjectDialogOpen(true)}
+                  onCreateNew={
+                    canManageSettings(sessionRole)
+                      ? () => setProjectDialogOpen(true)
+                      : undefined
+                  }
                 />
                 {selectedProject?.description ? (
                   <p className="hidden text-sm text-slate-500 lg:block">
@@ -527,7 +569,7 @@ export function TasksPageContent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <div className="inline-flex h-9 items-center rounded-lg bg-slate-100 p-0.5">
                 {views.map((item) => (
                   <button
@@ -535,7 +577,7 @@ export function TasksPageContent() {
                     type="button"
                     onClick={() => setView(item.id)}
                     className={cn(
-                      "inline-flex h-full items-center rounded-md px-3 text-sm font-medium transition sm:px-4",
+                      "inline-flex h-full items-center rounded-md px-3 text-sm font-medium transition sm:px-3.5",
                       view === item.id
                         ? "bg-white text-primary shadow-sm"
                         : "text-slate-500 hover:text-slate-700",
@@ -546,40 +588,54 @@ export function TasksPageContent() {
                 ))}
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 rounded-lg px-3 text-sm"
-                onClick={() => {
-                  setImportMessage(null);
-                  setPlanUatOpen(true);
-                }}
-                disabled={!selectedProjectId}
-                title="เลือกช่วงวันที่ ดูตัวอย่าง และแก้สถานะก่อนนำเข้าจากชีท Plan UAT"
-              >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">ดึงจาก Plan UAT</span>
-              </Button>
-              <MemberLogin teamMembers={teamMembers} />
-              <NotificationBell />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 rounded-lg px-3 text-sm"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Settings</span>
-              </Button>
-              <Button
-                type="button"
-                className="h-9 rounded-lg px-3 text-sm"
-                onClick={() => focusCreateTask()}
-                disabled={!selectedProjectId}
-              >
-                <Plus className="h-4 w-4" />
-                New Task
-              </Button>
+              <div className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
+
+              <div className="flex items-center gap-0.5">
+                {canCreateOrEditTasks(sessionRole) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 rounded-lg px-2.5 text-sm text-slate-600"
+                    onClick={() => {
+                      setImportMessage(null);
+                      setPlanUatOpen(true);
+                    }}
+                    disabled={!selectedProjectId}
+                    title="ดึงจาก Plan UAT"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="hidden lg:inline">Plan UAT</span>
+                  </Button>
+                ) : null}
+                {canManageSettings(sessionRole) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 rounded-lg px-2.5 text-sm text-slate-600"
+                    onClick={() => setSettingsOpen(true)}
+                    title="Settings · WIP"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden lg:inline">Settings</span>
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="hidden h-5 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
+
+              <SessionControls />
+
+              {canCreateOrEditTasks(sessionRole) ? (
+                <Button
+                  type="button"
+                  className="h-9 rounded-lg px-3 text-sm shadow-sm"
+                  onClick={() => focusCreateTask()}
+                  disabled={!selectedProjectId}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Task
+                </Button>
+              ) : null}
             </div>
           </div>
 

@@ -11,7 +11,7 @@ interface ProjectSwitcherProps {
   projects: Project[];
   selectedProjectId: string;
   onSelect: (projectId: string) => void;
-  onCreateNew: () => void;
+  onCreateNew?: () => void;
 }
 
 export function ProjectSwitcher({
@@ -123,17 +123,19 @@ export function ProjectSwitcher({
           </div>
 
           <div className="border-t border-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => {
-                onCreateNew();
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-primary transition hover:bg-slate-50"
-            >
-              <Plus className="h-4 w-4" />
-              สร้างโปรเจกต์ใหม่
-            </button>
+            {onCreateNew ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onCreateNew();
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-primary transition hover:bg-slate-50"
+              >
+                <Plus className="h-4 w-4" />
+                สร้างโปรเจกต์ใหม่
+              </button>
+            ) : null}
             <Link
               href="/projects"
               onClick={() => setOpen(false)}

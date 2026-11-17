@@ -1,3 +1,7 @@
+import type { MemberRole } from "@/lib/roles";
+
+export type { MemberRole };
+
 export type TaskType = string;
 
 export type ViewMode = "list" | "kanban" | "calendar";
@@ -66,6 +70,8 @@ export interface TeamMember {
   nickname: string;
   email: string;
   employeeId: string;
+  /** Jira-style: viewer | member | administrator */
+  role: MemberRole;
   color: string;
   isActive: boolean;
   sortOrder: number;

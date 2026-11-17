@@ -14,8 +14,11 @@ const notoSansThai = Noto_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "FWF Task Manager",
-  description: "ระบบจัดการ Task สำหรับโปรเจกต์ Foreigner Worker Fund",
+  title: {
+    default: "TIM TaskManage",
+    template: "%s · TIM TaskManage",
+  },
+  description: "ระบบจัดการ Task สำหรับทีม — TIM TaskManage",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

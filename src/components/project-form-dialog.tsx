@@ -116,7 +116,7 @@ export function ProjectFormDialog({
             <Input
               id="project-name"
               required
-              placeholder="เช่น FWF Task Manager"
+              placeholder="เช่น TIM TaskManage"
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -126,7 +126,7 @@ export function ProjectFormDialog({
             <Label htmlFor="project-description">คำอธิบาย (ไม่บังคับ)</Label>
             <Input
               id="project-description"
-              placeholder="เช่น Foreigner Worker Fund"
+              placeholder="เช่น คำอธิบายโปรเจกต์"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />

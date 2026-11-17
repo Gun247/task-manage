@@ -88,6 +88,21 @@ export async function updateTeamMember(
   return resolveBackend().updateTeamMember(...args);
 }
 
+export async function findTeamMemberByEmployeeId(employeeId: string) {
+  if (getDatabaseMode() !== "sqlite") {
+    const members = await listTeamMembers();
+    const needle = employeeId.trim().toLowerCase();
+    return (
+      members.find(
+        (member: { employeeId?: string; isActive?: boolean }) =>
+          member.isActive !== false &&
+          (member.employeeId ?? "").trim().toLowerCase() === needle,
+      ) ?? null
+    );
+  }
+  return prismaRepo.findTeamMemberByEmployeeId(employeeId);
+}
+
 export async function deleteTeamMember(
   ...args: Parameters<typeof sheetsRepo.deleteTeamMember>
 ) {
