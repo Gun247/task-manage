@@ -9,8 +9,12 @@ import {
   Search,
   ChevronRight,
   Download,
+  Bookmark,
+  Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { MemberLogin } from "@/components/member-login";
+import { NotificationBell } from "@/components/notification-bell";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { Button } from "@/components/ui/button";
 import { DateInput } from "@/components/ui/date-input";
@@ -26,7 +30,14 @@ import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog
 import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
-import { isPostReleaseFlowChange } from "@/lib/post-release-change";
+import {
+  HOLD_STATUS_NAME,
+  MODIFY_STATUS_NAME,
+} from "@/lib/default-statuses";
+import {
+  getPostReleaseReworkGateError,
+  isPostReleaseFlowChange,
+} from "@/lib/post-release-change";
 import {
   sortTasks,
   TASK_SORT_OPTIONS,
@@ -35,6 +46,7 @@ import {
 import type {
   Priority,
   Project,
+  SavedFilter,
   Status,
   Task,
   TaskDateFilterField,
@@ -45,6 +57,8 @@ import type {
   ViewMode,
 } from "@/lib/types";
 import { cn, isTaskOverdue, taskMatchesDateFilter } from "@/lib/utils";
+
+type FilterScope = "" | "postRelease" | "rework";
 
 const views: { id: ViewMode; label: string }[] = [
   { id: "list", label: "รายการ" },
@@ -75,6 +89,9 @@ export function TasksPageContent() {
     dateField: "",
     overdue: "",
   });
+  const [filterScope, setFilterScope] = useState<FilterScope>("");
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [selectedSavedFilterId, setSelectedSavedFilterId] = useState("");
   const [sortMode, setSortMode] = useState<TaskSortMode>("default");
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -174,12 +191,32 @@ export function TasksPageContent() {
     });
   }, [loadData, projectFromUrl]);
 
+  const loadSavedFilters = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      setSavedFilters([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/saved-filters?projectId=${encodeURIComponent(projectId)}`,
+      );
+      if (!response.ok) {
+        setSavedFilters([]);
+        return;
+      }
+      setSavedFilters((await response.json()) as SavedFilter[]);
+    } catch {
+      setSavedFilters([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedProjectId) {
       loadTasks(selectedProjectId);
+      void loadSavedFilters(selectedProjectId);
       router.replace(`/tasks?project=${selectedProjectId}`, { scroll: false });
     }
-  }, [selectedProjectId, loadTasks, router]);
+  }, [selectedProjectId, loadTasks, loadSavedFilters, router]);
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId),
@@ -227,11 +264,80 @@ export function TasksPageContent() {
       if (filters.overdue === "overdue" && !isTaskOverdue(task)) {
         return false;
       }
+      if (filterScope === "postRelease" && !task.hasPostReleaseChanges) {
+        return false;
+      }
+      if (filterScope === "rework") {
+        const name = task.status?.name ?? "";
+        if (
+          name !== MODIFY_STATUS_NAME &&
+          name !== HOLD_STATUS_NAME
+        ) {
+          return false;
+        }
+      }
       return true;
     });
 
     return sortTasks(filtered, sortMode, statuses);
-  }, [tasks, filters, sortMode, statuses, view]);
+  }, [tasks, filters, filterScope, sortMode, statuses, view]);
+
+  function applySavedFilter(saved: SavedFilter) {
+    const next = saved.filters;
+    setFilters({
+      search: next.search ?? "",
+      statusId: next.statusId ?? "",
+      priorityId: next.priorityId ?? "",
+      assigneeId: next.assigneeId ?? "",
+      taskType: next.taskType ?? "",
+      date: next.date ?? "",
+      dateField: (next.dateField ?? "") as TaskDateFilterField,
+      overdue: (next.overdue ?? "") as TaskOverdueFilter,
+    });
+    setFilterScope((next.scope as FilterScope) || "");
+    setSelectedSavedFilterId(saved.id);
+  }
+
+  async function handleSaveCurrentFilter() {
+    if (!selectedProjectId) return;
+    const name = window.prompt("ชื่อฟิลเตอร์ที่บันทึก");
+    if (!name?.trim()) return;
+    const response = await fetch("/api/saved-filters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        projectId: selectedProjectId,
+        filters: { ...filters, scope: filterScope },
+      }),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      window.alert(data?.error ?? "บันทึกฟิลเตอร์ไม่สำเร็จ");
+      return;
+    }
+    const saved = (await response.json()) as SavedFilter;
+    setSavedFilters((current) => [saved, ...current]);
+    setSelectedSavedFilterId(saved.id);
+  }
+
+  async function handleDeleteSavedFilter() {
+    if (!selectedSavedFilterId) return;
+    const response = await fetch(
+      `/api/saved-filters/${selectedSavedFilterId}`,
+      { method: "DELETE" },
+    );
+    if (!response.ok) {
+      window.alert("ลบฟิลเตอร์ไม่สำเร็จ");
+      return;
+    }
+    setSavedFilters((current) =>
+      current.filter((item) => item.id !== selectedSavedFilterId),
+    );
+    setSelectedSavedFilterId("");
+  }
 
   async function applyStatusChange(
     taskId: string,
@@ -297,6 +403,16 @@ export function TasksPageContent() {
     const previous = tasks.find((task) => task.id === taskId);
     const nextStatus = statuses.find((item) => item.id === statusId);
     if (!previous || !nextStatus || previous.statusId === statusId) return;
+
+    const gateError = getPostReleaseReworkGateError({
+      task: previous,
+      nextStatusName: nextStatus.name,
+      statusChanged: true,
+    });
+    if (gateError) {
+      setImportMessage({ tone: "error", text: gateError });
+      return;
+    }
 
     if (
       isPostReleaseFlowChange({
@@ -444,6 +560,8 @@ export function TasksPageContent() {
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">ดึงจาก Plan UAT</span>
               </Button>
+              <MemberLogin teamMembers={teamMembers} />
+              <NotificationBell />
               <Button
                 type="button"
                 variant="outline"
@@ -594,6 +712,17 @@ export function TasksPageContent() {
               <option value="overdue">เกินกำหนด</option>
             </Select>
             <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
+              value={filterScope}
+              onChange={(event) =>
+                setFilterScope(event.target.value as FilterScope)
+              }
+            >
+              <option value="">ขอบเขต</option>
+              <option value="postRelease">เคยปรับหลังขึ้น</option>
+              <option value="rework">Modify / HOLD</option>
+            </Select>
+            <Select
               className="h-9 w-full py-0 text-sm leading-9 sm:w-auto sm:min-w-[11rem]"
               value={sortMode}
               onChange={(event) =>
@@ -606,6 +735,46 @@ export function TasksPageContent() {
                 </option>
               ))}
             </Select>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-44"
+              value={selectedSavedFilterId}
+              onChange={(event) => {
+                const id = event.target.value;
+                setSelectedSavedFilterId(id);
+                const saved = savedFilters.find((item) => item.id === id);
+                if (saved) applySavedFilter(saved);
+              }}
+            >
+              <option value="">Saved filter</option>
+              {savedFilters.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={() => void handleSaveCurrentFilter()}
+              disabled={!selectedProjectId}
+              title="บันทึกฟิลเตอร์ปัจจุบัน"
+            >
+              <Bookmark className="h-3.5 w-3.5" />
+              บันทึก
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 px-2 text-slate-500"
+              onClick={() => void handleDeleteSavedFilter()}
+              disabled={!selectedSavedFilterId}
+              title="ลบ saved filter ที่เลือก"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </div>
@@ -717,6 +886,7 @@ export function TasksPageContent() {
                 <TaskKanbanView
                   tasks={filteredTasks}
                   statuses={statuses}
+                  wipLimits={selectedProject?.wipLimits ?? {}}
                   onStatusChange={handleStatusChange}
                   onEditTask={openEditTask}
                   onStartCreate={openCreateTask}
@@ -764,6 +934,7 @@ export function TasksPageContent() {
         priorities={priorities}
         teamMembers={teamMembers}
         taskTypes={taskTypes}
+        projectTasks={tasks}
         projectId={selectedProjectId}
         defaultStatusId={createDefaultStatusId}
         onSaved={handleSaved}
@@ -776,6 +947,7 @@ export function TasksPageContent() {
         teamMembers={teamMembers}
         priorities={priorities}
         taskTypes={taskTypes}
+        project={selectedProject}
         onChanged={async () => {
           await loadData();
           await handleSaved();

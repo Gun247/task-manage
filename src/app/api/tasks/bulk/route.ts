@@ -69,7 +69,12 @@ export async function PATCH(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to bulk update tasks";
-    const status = message.includes("เหตุผล") ? 400 : 500;
+    const status =
+      message.includes("เหตุผล") ||
+      message.includes("Modify") ||
+      message.includes("HOLD")
+        ? 400
+        : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

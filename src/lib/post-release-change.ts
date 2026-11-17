@@ -1,4 +1,7 @@
 import {
+  DONE_STATUS_NAME,
+  HOLD_STATUS_NAME,
+  MODIFY_STATUS_NAME,
   PRD_STATUS_NAME,
   UAT_STATUS_NAME,
 } from "@/lib/default-statuses";
@@ -8,6 +11,18 @@ export type PostReleaseMilestone = "UAT" | "PRD";
 
 export const POST_RELEASE_REASON_REQUIRED =
   "กรุณาระบุเหตุผลของการปรับ flow หลังขึ้น UAT/PRD";
+
+export const POST_RELEASE_REWORK_GATE_MESSAGE =
+  `หลังขึ้น ${UAT_STATUS_NAME}/${PRD_STATUS_NAME} แล้ว หากต้องการย้อนไปแก้ ให้เปลี่ยนเป็น ${MODIFY_STATUS_NAME} ก่อน (เหมือน Reopen ใน Jira)`;
+
+export const HOLD_TRANSITION_GATE_MESSAGE =
+  `เปลี่ยนเป็น ${HOLD_STATUS_NAME} ได้เฉพาะจาก Backlog, In Progress หรือ ${UAT_STATUS_NAME} เท่านั้น`;
+
+const HOLD_ALLOWED_FROM = new Set([
+  "backlog",
+  "in progress",
+  UAT_STATUS_NAME.toLowerCase(),
+]);
 
 export type PostReleaseChangeDraft = {
   changeType: PostReleaseChangeType;
@@ -25,6 +40,29 @@ function dateKey(value: string | Date | null | undefined) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   return trimmed.slice(0, 10);
+}
+
+function normStatus(name: string | null | undefined) {
+  return (name ?? "").trim().toLowerCase();
+}
+
+/** Statuses that mean the task is (or was) live / closed after release. */
+export function isReleasedLaneStatus(name: string | null | undefined) {
+  const value = normStatus(name);
+  return (
+    value === UAT_STATUS_NAME.toLowerCase() ||
+    value === PRD_STATUS_NAME.toLowerCase() ||
+    value === DONE_STATUS_NAME.toLowerCase()
+  );
+}
+
+/** Allowed reopen targets after UAT/PRD (Jira-style gate). */
+export function isReworkGateStatus(name: string | null | undefined) {
+  const value = normStatus(name);
+  return (
+    value === MODIFY_STATUS_NAME.toLowerCase() ||
+    value === HOLD_STATUS_NAME.toLowerCase()
+  );
 }
 
 export function normalizePostReleaseReason(reason: string | null | undefined) {
@@ -48,8 +86,6 @@ export function detectReachedMilestones(input: {
   /** Ignored — planned UAT/PRD dates do not mean the task has gone live. */
   prdDate?: string | Date | null;
 }) {
-  // Only status history / current status count as "เคยขึ้น" — having a planned
-  // uatDate/prdDate on Backlog must not require a post-release reason.
   const names = new Set(
     [
       ...input.statusHistoryNames,
@@ -59,6 +95,58 @@ export function detectReachedMilestones(input: {
   const hasReachedUat = names.has(UAT_STATUS_NAME.toLowerCase());
   const hasReachedPrd = names.has(PRD_STATUS_NAME.toLowerCase());
   return { hasReachedUat, hasReachedPrd };
+}
+
+/** HOLD may only be entered from Backlog, In Progress, or UAT. */
+export function assertHoldTransitionGate(input: {
+  fromStatusName: string;
+  toStatusName: string;
+  statusChanged: boolean;
+}) {
+  if (!input.statusChanged) return;
+  if (normStatus(input.toStatusName) !== HOLD_STATUS_NAME.toLowerCase()) {
+    return;
+  }
+  if (HOLD_ALLOWED_FROM.has(normStatus(input.fromStatusName))) return;
+  throw new Error(HOLD_TRANSITION_GATE_MESSAGE);
+}
+
+/**
+ * After a task has been to UAT/PRD, leaving the released lane
+ * (UAT / PRD / Done) must go through Modify — not straight back to
+ * Backlog / In Progress. (HOLD is only allowed from UAT among released
+ * statuses — enforced separately by assertHoldTransitionGate.)
+ */
+export function assertPostReleaseReworkGate(input: {
+  hasReachedUat: boolean;
+  hasReachedPrd: boolean;
+  fromStatusName: string;
+  toStatusName: string;
+  statusChanged: boolean;
+}) {
+  if (!input.statusChanged) return;
+  if (!input.hasReachedUat && !input.hasReachedPrd) return;
+  if (!isReleasedLaneStatus(input.fromStatusName)) return;
+  if (isReleasedLaneStatus(input.toStatusName)) return;
+  // UAT → HOLD is allowed by the HOLD gate; PRD/Done → HOLD is blocked there.
+  if (normStatus(input.toStatusName) === HOLD_STATUS_NAME.toLowerCase()) {
+    return;
+  }
+  if (normStatus(input.toStatusName) === MODIFY_STATUS_NAME.toLowerCase()) {
+    return;
+  }
+  throw new Error(POST_RELEASE_REWORK_GATE_MESSAGE);
+}
+
+export function assertStatusTransitionGates(input: {
+  hasReachedUat: boolean;
+  hasReachedPrd: boolean;
+  fromStatusName: string;
+  toStatusName: string;
+  statusChanged: boolean;
+}) {
+  assertHoldTransitionGate(input);
+  assertPostReleaseReworkGate(input);
 }
 
 export function buildPostReleaseChangeDrafts(input: {
@@ -139,6 +227,25 @@ export function taskHasReachedRelease(task: {
   });
 }
 
+export function taskHasPostReleaseRework(task: {
+  statusHistory?: Array<{ toStatusName: string }>;
+  postReleaseChanges?: Array<{ toValue?: string; changeType?: string }>;
+  status?: { name: string } | null;
+}) {
+  if (isReworkGateStatus(task.status?.name)) return true;
+  if (
+    (task.statusHistory ?? []).some((entry) =>
+      isReworkGateStatus(entry.toStatusName),
+    )
+  ) {
+    return true;
+  }
+  return (task.postReleaseChanges ?? []).some(
+    (entry) =>
+      entry.changeType === "status" && isReworkGateStatus(entry.toValue),
+  );
+}
+
 export function isPostReleaseFlowChange(input: {
   task: {
     statusHistory?: Array<{ toStatusName: string }>;
@@ -148,6 +255,7 @@ export function isPostReleaseFlowChange(input: {
     prdDate?: string | null;
   };
   nextStatusId?: string;
+  nextStatusName?: string | null;
   nextUatDate?: string | null;
   nextPrdDate?: string | null;
   statusProvided?: boolean;
@@ -178,6 +286,31 @@ export function isPostReleaseFlowChange(input: {
     return true;
   }
   return false;
+}
+
+/** Client-side preview of status transition gates (same rules as server). */
+export function getPostReleaseReworkGateError(input: {
+  task: {
+    statusHistory?: Array<{ toStatusName: string }>;
+    status?: { name: string } | null;
+  };
+  nextStatusName: string;
+  statusChanged: boolean;
+}) {
+  const reached = taskHasReachedRelease(input.task);
+  try {
+    assertStatusTransitionGates({
+      ...reached,
+      fromStatusName: input.task.status?.name ?? "",
+      toStatusName: input.nextStatusName,
+      statusChanged: input.statusChanged,
+    });
+    return null;
+  } catch (error) {
+    return error instanceof Error
+      ? error.message
+      : POST_RELEASE_REWORK_GATE_MESSAGE;
+  }
 }
 
 export function postReleaseChangeTypeLabel(changeType: string) {

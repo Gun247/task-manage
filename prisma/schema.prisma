@@ -42,6 +42,9 @@ model TeamMember {
   ownedTasks Task[]   @relation("TaskOwner")
   taskAssignments TaskAssignee[]
   subtaskAssignments SubtaskAssignee[]
+  comments   TaskComment[]
+  watches    TaskWatcher[]
+  notifications Notification[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
@@ -61,8 +64,11 @@ model Project {
   description String   @default("")
   color       String   @default("#1E3A5F")
   theme       String   @default("clean")
+  /// JSON map of status name → WIP limit (0 = unlimited)
+  wipLimitsJson String @default("{}")
   sortOrder   Int      @default(0)
   tasks       Task[]
+  savedFilters SavedFilter[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -103,10 +109,88 @@ model Task {
   owner       TeamMember?     @relation("TaskOwner", fields: [ownerId], references: [id])
   statusHistory       StatusHistory[]
   postReleaseChanges  PostReleaseChange[]
+  comments            TaskComment[]
+  linksFrom           TaskLink[]          @relation("TaskLinkFrom")
+  linksTo             TaskLink[]          @relation("TaskLinkTo")
+  watchers            TaskWatcher[]
+  notifications       Notification[]
   subtasks            Subtask[]
   assignments         TaskAssignee[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+}
+
+model TaskComment {
+  id             String      @id @default(cuid())
+  taskId         String
+  body           String
+  authorId       String?
+  authorNickname String      @default("")
+  task           Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author         TeamMember? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([taskId, createdAt])
+}
+
+model TaskLink {
+  id         String   @id @default(cuid())
+  fromTaskId String
+  toTaskId   String
+  /// blocks | relates
+  linkType   String   @default("relates")
+  fromTask   Task     @relation("TaskLinkFrom", fields: [fromTaskId], references: [id], onDelete: Cascade)
+  toTask     Task     @relation("TaskLinkTo", fields: [toTaskId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([fromTaskId, toTaskId, linkType])
+  @@index([fromTaskId])
+  @@index([toTaskId])
+}
+
+model TaskWatcher {
+  id           String     @id @default(cuid())
+  taskId       String
+  teamMemberId String
+  task         Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([taskId, teamMemberId])
+  @@index([teamMemberId])
+}
+
+model SavedFilter {
+  id          String   @id @default(cuid())
+  name        String
+  projectId   String?
+  /// JSON TaskFilters (+ optional scope flags)
+  filtersJson String
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model Notification {
+  id           String      @id @default(cuid())
+  teamMemberId String?
+  taskId       String?
+  title        String
+  body         String      @default("")
+  kind         String      @default("info")
+  readAt       DateTime?
+  teamMember   TeamMember? @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  task         Task?       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([teamMemberId, createdAt])
+  @@index([readAt])
 }
 
 model StatusHistory {

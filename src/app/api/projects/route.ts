@@ -52,6 +52,11 @@ export async function POST(request: Request) {
       description: body.description?.trim(),
       theme,
       color: await resolveAccent(theme),
+      ...(body.wipLimits !== undefined &&
+      typeof body.wipLimits === "object" &&
+      body.wipLimits !== null
+        ? { wipLimits: body.wipLimits as Record<string, number> }
+        : {}),
     });
 
     return NextResponse.json(project, { status: 201 });

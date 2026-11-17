@@ -28,6 +28,7 @@ type DoneViewMode = "dates" | "cards";
 interface TaskKanbanViewProps {
   tasks: Task[];
   statuses: Status[];
+  wipLimits?: Record<string, number>;
   onStatusChange: (taskId: string, statusId: string) => void;
   onEditTask: (task: Task) => void;
   onStartCreate?: (statusId: string) => void;
@@ -147,6 +148,7 @@ function DraggableDoneRow({
 function KanbanColumn({
   status,
   tasks,
+  wipLimit,
   onStartCreate,
   onEditTask,
   doneView,
@@ -154,6 +156,7 @@ function KanbanColumn({
 }: {
   status: Status;
   tasks: Task[];
+  wipLimit?: number;
   onStartCreate: (statusId: string) => void;
   onEditTask: (task: Task) => void;
   doneView: DoneViewMode;
@@ -166,20 +169,36 @@ function KanbanColumn({
     [showDateSummary, tasks],
   );
   const tint = status.color || "#94A3B8";
+  const overWip =
+    typeof wipLimit === "number" && wipLimit > 0 && tasks.length > wipLimit;
 
   return (
     <div
       ref={setNodeRef}
-      className="flex h-full w-[280px] shrink-0 flex-col rounded-2xl border p-3 transition"
+      className={cn(
+        "flex h-full w-[280px] shrink-0 flex-col rounded-2xl border p-3 transition",
+        overWip && "ring-2 ring-red-300",
+      )}
       style={{
         backgroundColor: withAlpha(tint, isOver ? "28" : "16"),
-        borderColor: withAlpha(tint, isOver ? "80" : "40"),
+        borderColor: overWip
+          ? withAlpha("#EF4444", "90")
+          : withAlpha(tint, isOver ? "80" : "40"),
       }}
     >
       <div className="mb-3 flex shrink-0 items-center justify-between gap-1">
         <div className="flex min-w-0 items-center gap-2">
           <Badge color={status.color}>{status.name}</Badge>
-          <span className="text-xs text-slate-400">{tasks.length}</span>
+          <span
+            className={cn(
+              "text-xs",
+              overWip ? "font-semibold text-red-600" : "text-slate-400",
+            )}
+          >
+            {typeof wipLimit === "number" && wipLimit > 0
+              ? `${tasks.length}/${wipLimit}`
+              : tasks.length}
+          </span>
         </div>
         <div className="flex shrink-0 items-center">
           {isDoneStatus(status) ? (
@@ -266,6 +285,7 @@ function KanbanColumn({
 export function TaskKanbanView({
   tasks,
   statuses,
+  wipLimits = {},
   onStatusChange,
   onEditTask,
   onStartCreate,
@@ -324,6 +344,17 @@ export function TaskKanbanView({
     const task = tasks.find((item) => item.id === taskId);
     if (!task || task.statusId === targetStatus.id) return;
 
+    const limit = wipLimits[targetStatus.name];
+    if (typeof limit === "number" && limit > 0) {
+      const count = (tasksByStatus.get(targetStatus.id) ?? []).length;
+      if (count >= limit) {
+        window.alert(
+          `คอลัมน์ ${targetStatus.name} เกิน WIP limit (${limit})`,
+        );
+        return;
+      }
+    }
+
     onStatusChange(taskId, targetStatus.id);
   }
 
@@ -344,6 +375,7 @@ export function TaskKanbanView({
                 key={status.id}
                 status={status}
                 tasks={tasksByStatus.get(status.id) ?? []}
+                wipLimit={wipLimits[status.name]}
                 onStartCreate={onStartCreate ?? (() => {})}
                 onEditTask={onEditTask}
                 doneView={doneView}

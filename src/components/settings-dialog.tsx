@@ -29,12 +29,20 @@ import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeManager } from "@/components/theme-manager";
-import type { Priority, Status, TaskTypeOption, TeamMember } from "@/lib/types";
+import type {
+  Priority,
+  Project,
+  Status,
+  TaskTypeOption,
+  TeamMember,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   getReservedStatusNameError,
   getStatusDescription,
+  HOLD_STATUS_NAME,
   isDefaultStatusName,
+  MODIFY_STATUS_NAME,
 } from "@/lib/default-statuses";
 import {
   Check,
@@ -64,6 +72,7 @@ interface SettingsDialogProps {
   teamMembers: TeamMember[];
   priorities: Priority[];
   taskTypes: TaskTypeOption[];
+  project?: Project | null;
   onChanged: () => void;
 }
 
@@ -207,6 +216,7 @@ export function SettingsDialog({
   teamMembers,
   priorities,
   taskTypes,
+  project,
   onChanged,
 }: SettingsDialogProps) {
   const [orderedStatuses, setOrderedStatuses] = useState(statuses);
@@ -233,6 +243,10 @@ export function SettingsDialog({
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [deletingTypeId, setDeletingTypeId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [wipInProgress, setWipInProgress] = useState("");
+  const [wipModify, setWipModify] = useState("");
+  const [wipHold, setWipHold] = useState("");
+  const [savingWip, setSavingWip] = useState(false);
 
   useEffect(() => {
     setOrderedStatuses(statuses);
@@ -252,8 +266,20 @@ export function SettingsDialog({
       setNewStatusName("");
       setNewStatusColor(COLOR_OPTIONS[3]);
       setActiveTab("status");
+      return;
     }
-  }, [open]);
+
+    const limits = project?.wipLimits ?? {};
+    setWipInProgress(
+      limits["In Progress"] ? String(limits["In Progress"]) : "",
+    );
+    setWipModify(
+      limits[MODIFY_STATUS_NAME] ? String(limits[MODIFY_STATUS_NAME]) : "",
+    );
+    setWipHold(
+      limits[HOLD_STATUS_NAME] ? String(limits[HOLD_STATUS_NAME]) : "",
+    );
+  }, [open, project]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -481,13 +507,55 @@ export function SettingsDialog({
 
   const memberBusy = addingMember || savingMemberId !== null;
 
+  function buildWipLimits() {
+    const limits: Record<string, number> = {};
+    const inProgress = Number(wipInProgress);
+    const modify = Number(wipModify);
+    const hold = Number(wipHold);
+    if (Number.isFinite(inProgress) && inProgress > 0) {
+      limits["In Progress"] = Math.floor(inProgress);
+    }
+    if (Number.isFinite(modify) && modify > 0) {
+      limits[MODIFY_STATUS_NAME] = Math.floor(modify);
+    }
+    if (Number.isFinite(hold) && hold > 0) {
+      limits[HOLD_STATUS_NAME] = Math.floor(hold);
+    }
+    return limits;
+  }
+
+  async function saveWipLimits() {
+    if (!project || savingWip) return;
+    setSavingWip(true);
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wipLimits: buildWipLimits() }),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        window.alert(data?.error ?? "บันทึก WIP ไม่สำเร็จ");
+        return;
+      }
+      onChanged();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("fwf-projects-changed"));
+      }
+    } finally {
+      setSavingWip(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[min(90vh,720px)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-6 py-4 pr-12">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            จัดการสถานะ ทีม Task Type priority และธีมสี
+            จัดการสถานะ ทีม Task Type priority ธีมสี และ WIP
           </DialogDescription>
         </DialogHeader>
 
@@ -501,7 +569,7 @@ export function SettingsDialog({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="shrink-0 px-6 pt-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="status" className="px-1 text-xs sm:px-2 sm:text-sm">
                 สถานะ
               </TabsTrigger>
@@ -516,6 +584,9 @@ export function SettingsDialog({
               </TabsTrigger>
               <TabsTrigger value="themes" className="px-1 text-xs sm:px-2 sm:text-sm">
                 ธีมสี
+              </TabsTrigger>
+              <TabsTrigger value="wip" className="px-1 text-xs sm:px-2 sm:text-sm">
+                WIP
               </TabsTrigger>
             </TabsList>
           </div>
@@ -968,6 +1039,92 @@ export function SettingsDialog({
             className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
           >
             {activeTab === "themes" ? <ThemeManager key="theme-manager" /> : null}
+          </TabsContent>
+
+          <TabsContent
+            value="wip"
+            className="mt-0 min-h-0 flex-1 overflow-y-auto px-6 py-4 data-[state=active]:block"
+          >
+            {!project ? (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center">
+                <p className="text-sm font-medium text-slate-700">
+                  ยังไม่ได้เลือกโปรเจกต์
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  เปิด Settings จากหน้า tasks ของโปรเจกต์เพื่อตั้ง WIP limit
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    WIP limit · {project.name}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    เว้นว่าง = ไม่จำกัด · ลากการ์ดบน Kanban เกิน limit จะถูกบล็อก
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="settings-wip-ip" className="text-xs text-slate-500">
+                      In Progress
+                    </Label>
+                    <Input
+                      id="settings-wip-ip"
+                      type="number"
+                      min={1}
+                      placeholder="ไม่จำกัด"
+                      value={wipInProgress}
+                      onChange={(event) => setWipInProgress(event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="settings-wip-modify"
+                      className="text-xs text-slate-500"
+                    >
+                      {MODIFY_STATUS_NAME}
+                    </Label>
+                    <Input
+                      id="settings-wip-modify"
+                      type="number"
+                      min={1}
+                      placeholder="ไม่จำกัด"
+                      value={wipModify}
+                      onChange={(event) => setWipModify(event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="settings-wip-hold"
+                      className="text-xs text-slate-500"
+                    >
+                      {HOLD_STATUS_NAME}
+                    </Label>
+                    <Input
+                      id="settings-wip-hold"
+                      type="number"
+                      min={1}
+                      placeholder="ไม่จำกัด"
+                      value={wipHold}
+                      onChange={(event) => setWipHold(event.target.value)}
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => void saveWipLimits()}
+                  disabled={savingWip}
+                >
+                  <LoadingButtonContent
+                    loading={savingWip}
+                    loadingText="กำลังบันทึก..."
+                  >
+                    บันทึก WIP
+                  </LoadingButtonContent>
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>

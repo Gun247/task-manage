@@ -11,6 +11,7 @@ import {
 } from "@/lib/default-statuses";
 import {
   assertPostReleaseReason,
+  assertStatusTransitionGates,
   buildPostReleaseChangeDrafts,
   detectReachedMilestones,
 } from "@/lib/post-release-change";
@@ -21,9 +22,38 @@ import {
   rewriteTaskTypeList,
   serializeTaskTypes,
 } from "@/lib/task-types";
+import { parseWipLimits, serializeWipLimits } from "@/lib/current-member";
+import { notifyTaskWatchers } from "@/lib/collaboration-repository";
+import { MODIFY_STATUS_NAME } from "@/lib/default-statuses";
 
 function toIso(value: Date | null | undefined) {
   return value ? value.toISOString() : null;
+}
+
+function serializeProjectFields(project: {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  theme: string;
+  wipLimitsJson?: string;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  _count?: { tasks: number };
+}) {
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    color: project.color,
+    theme: project.theme,
+    wipLimits: parseWipLimits(project.wipLimitsJson),
+    sortOrder: project.sortOrder,
+    createdAt: project.createdAt.toISOString(),
+    updatedAt: project.updatedAt.toISOString(),
+    ...(project._count ? { _count: project._count } : {}),
+  };
 }
 
 function serializeTask(
@@ -101,11 +131,7 @@ function serializeTask(
     ownerId: task.owner?.id ?? task.ownerId ?? null,
     taskType: taskTypes[0],
     taskTypes,
-    project: {
-      ...task.project,
-      createdAt: task.project.createdAt.toISOString(),
-      updatedAt: task.project.updatedAt.toISOString(),
-    },
+    project: serializeProjectFields(task.project),
     priority: task.priority,
     status: task.status,
     assignee,
@@ -137,6 +163,9 @@ function serializeTask(
         changedAt: entry.changedAt.toISOString(),
       })),
     hasPostReleaseChanges: (task.postReleaseChanges ?? []).length > 0,
+    comments: [],
+    links: [],
+    watchers: [],
     subtasks: (task.subtasks ?? [])
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -298,11 +327,7 @@ export async function listProjects() {
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     include: { _count: { select: { tasks: true } } },
   });
-  return projects.map((project) => ({
-    ...project,
-    createdAt: project.createdAt.toISOString(),
-    updatedAt: project.updatedAt.toISOString(),
-  }));
+  return projects.map((project) => serializeProjectFields(project));
 }
 
 export async function createProject(data: {
@@ -310,6 +335,7 @@ export async function createProject(data: {
   description?: string;
   color?: string;
   theme?: string;
+  wipLimits?: Record<string, number>;
 }) {
   const maxOrder = await prisma.project.aggregate({ _max: { sortOrder: true } });
   const project = await prisma.project.create({
@@ -318,14 +344,11 @@ export async function createProject(data: {
       description: data.description ?? "",
       color: data.color ?? "#6BB82A",
       theme: data.theme ?? "clean",
+      wipLimitsJson: serializeWipLimits(data.wipLimits ?? {}),
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
-  return {
-    ...project,
-    createdAt: project.createdAt.toISOString(),
-    updatedAt: project.updatedAt.toISOString(),
-  };
+  return serializeProjectFields(project);
 }
 
 export async function updateProject(
@@ -336,14 +359,20 @@ export async function updateProject(
     color: string;
     theme: string;
     sortOrder: number;
+    wipLimits: Record<string, number>;
   }>,
 ) {
-  const project = await prisma.project.update({ where: { id }, data });
-  return {
-    ...project,
-    createdAt: project.createdAt.toISOString(),
-    updatedAt: project.updatedAt.toISOString(),
-  };
+  const { wipLimits, ...rest } = data;
+  const project = await prisma.project.update({
+    where: { id },
+    data: {
+      ...rest,
+      ...(wipLimits !== undefined
+        ? { wipLimitsJson: serializeWipLimits(wipLimits) }
+        : {}),
+    },
+  });
+  return serializeProjectFields(project);
 }
 
 export async function deleteProject(id: string) {
@@ -844,6 +873,13 @@ export async function updateTask(
     prdDate: existing.prdDate,
   });
 
+  assertStatusTransitionGates({
+    ...reached,
+    fromStatusName: existing.status.name,
+    toStatusName,
+    statusChanged,
+  });
+
   const postReleaseDrafts = buildPostReleaseChangeDrafts({
     ...reached,
     statusChanged,
@@ -932,6 +968,18 @@ export async function updateTask(
     await syncTaskAssignees(id, data.assigneeId ? [data.assigneeId] : []);
   }
 
+  if (
+    statusChanged &&
+    toStatusName.trim().toLowerCase() === MODIFY_STATUS_NAME.toLowerCase()
+  ) {
+    await notifyTaskWatchers({
+      taskId: id,
+      title: `เข้า ${MODIFY_STATUS_NAME}: ${existing.name}`,
+      body: `${existing.status.name} → ${toStatusName}`,
+      kind: "status",
+    });
+  }
+
   const refreshed = await prisma.task.findUniqueOrThrow({
     where: { id },
     include: taskInclude,
@@ -986,10 +1034,17 @@ export async function bulkUpdateTasks(
       uatDate: task.uatDate,
       prdDate: task.prdDate,
     });
+    const statusChanged =
+      data.statusId !== undefined && data.statusId !== task.statusId;
+    assertStatusTransitionGates({
+      ...reached,
+      fromStatusName: task.status.name,
+      toStatusName: toStatusName || task.status.name,
+      statusChanged,
+    });
     return buildPostReleaseChangeDrafts({
       ...reached,
-      statusChanged:
-        data.statusId !== undefined && data.statusId !== task.statusId,
+      statusChanged,
       fromStatusName: task.status.name,
       toStatusName: toStatusName || task.status.name,
       fromUatDate: task.uatDate,
@@ -1162,7 +1217,9 @@ export async function getDefaultProject() {
 }
 
 export async function getProjectById(id: string) {
-  return prisma.project.findUnique({ where: { id } });
+  const project = await prisma.project.findUnique({ where: { id } });
+  if (!project) return null;
+  return serializeProjectFields(project);
 }
 
 function serializeColorTheme(row: {

@@ -85,6 +85,14 @@ export function TaskCard({ task, draggable = false, onClick }: TaskCardProps) {
             แก้หลังขึ้น
           </span>
         ) : null}
+        {task.status?.name === "Modify" || task.status?.name === "HOLD" ? (
+          <span
+            className="rounded-md bg-violet-50 px-1.5 py-0.5 text-micro font-semibold text-violet-800"
+            title="กำลัง reopen / พักหลังขึ้น"
+          >
+            {task.status.name}
+          </span>
+        ) : null}
       </div>
       {task.owner ? (
         <p

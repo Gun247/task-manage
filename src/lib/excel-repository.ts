@@ -11,6 +11,7 @@ import {
 } from "./default-statuses";
 import {
   assertPostReleaseReason,
+  assertStatusTransitionGates,
   buildPostReleaseChangeDrafts,
   detectReachedMilestones,
 } from "./post-release-change";
@@ -28,6 +29,7 @@ export type ExcelProject = {
   description: string;
   color: string;
   theme: string;
+  wipLimitsJson?: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -153,6 +155,7 @@ const projectsTable = new ExcelTable<ExcelProject>("Projects", [
   "description",
   "color",
   "theme",
+  "wipLimitsJson",
   "sortOrder",
   "createdAt",
   "updatedAt",
@@ -533,6 +536,15 @@ async function hydrateTask(
     task.id,
   );
 
+  let wipLimits: Record<string, number> = {};
+  try {
+    if (project.wipLimitsJson) {
+      wipLimits = JSON.parse(project.wipLimitsJson) as Record<string, number>;
+    }
+  } catch {
+    wipLimits = {};
+  }
+
   return {
     ...task,
     source: task.source || "",
@@ -544,7 +556,7 @@ async function hydrateTask(
     ownerId: owner?.id ?? null,
     taskType: taskTypes[0],
     taskTypes,
-    project,
+    project: { ...project, wipLimits },
     priority,
     status,
     assignee,
@@ -553,8 +565,23 @@ async function hydrateTask(
     statusHistory: historyForTask(histories, task.id),
     postReleaseChanges: taskPostReleaseChanges,
     hasPostReleaseChanges: taskPostReleaseChanges.length > 0,
+    comments: [],
+    links: [],
+    watchers: [],
     subtasks: subtasksForTask(subtasks, task.id, subtaskAssignments, members),
   };
+}
+
+function withProjectWipLimits(project: ExcelProject) {
+  let wipLimits: Record<string, number> = {};
+  try {
+    if (project.wipLimitsJson) {
+      wipLimits = JSON.parse(project.wipLimitsJson) as Record<string, number>;
+    }
+  } catch {
+    wipLimits = {};
+  }
+  return { ...project, wipLimits };
 }
 
 export async function listProjects() {
@@ -563,7 +590,7 @@ export async function listProjects() {
   return projects
     .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
     .map((project) => ({
-      ...project,
+      ...withProjectWipLimits(project),
       _count: { tasks: tasks.filter((task) => task.projectId === project.id).length },
     }));
 }
@@ -573,25 +600,35 @@ export async function createProject(data: {
   description?: string;
   color?: string;
   theme?: string;
+  wipLimits?: Record<string, number>;
 }) {
   const sortOrder = (await projectsTable.maxOf("sortOrder")) + 1;
-  return projectsTable.create({
+  const project = await projectsTable.create({
     id: createId(),
     name: data.name,
     description: data.description ?? "",
     color: data.color ?? "#6BB82A",
     theme: data.theme ?? "clean",
+    wipLimitsJson: JSON.stringify(data.wipLimits ?? {}),
     sortOrder,
   });
+  return withProjectWipLimits(project);
 }
 
 export async function updateProject(
   id: string,
   data: Partial<
     Pick<ExcelProject, "name" | "description" | "color" | "theme" | "sortOrder">
-  >,
+  > & { wipLimits?: Record<string, number> },
 ) {
-  return projectsTable.update(id, data);
+  const { wipLimits, ...rest } = data;
+  const project = await projectsTable.update(id, {
+    ...rest,
+    ...(wipLimits !== undefined
+      ? { wipLimitsJson: JSON.stringify(wipLimits) }
+      : {}),
+  });
+  return withProjectWipLimits(project);
 }
 
 export async function deleteProject(id: string) {
@@ -1190,6 +1227,12 @@ export async function updateTask(
     uatDate: existing.uatDate || null,
     prdDate: existing.prdDate || null,
   });
+  assertStatusTransitionGates({
+    ...reached,
+    fromStatusName: existingStatus?.name ?? "",
+    toStatusName: toStatus?.name ?? existingStatus?.name ?? "",
+    statusChanged,
+  });
   const postReleaseDrafts = buildPostReleaseChangeDrafts({
     ...reached,
     statusChanged,
@@ -1338,10 +1381,17 @@ export async function bulkUpdateTasks(
       uatDate: task.uatDate || null,
       prdDate: task.prdDate || null,
     });
+    const statusChanged =
+      data.statusId !== undefined && data.statusId !== task.statusId;
+    assertStatusTransitionGates({
+      ...reached,
+      fromStatusName: fromStatus?.name ?? "",
+      toStatusName: toStatus?.name ?? fromStatus?.name ?? "",
+      statusChanged,
+    });
     return buildPostReleaseChangeDrafts({
       ...reached,
-      statusChanged:
-        data.statusId !== undefined && data.statusId !== task.statusId,
+      statusChanged,
       fromStatusName: fromStatus?.name ?? "",
       toStatusName: toStatus?.name ?? fromStatus?.name ?? "",
       fromUatDate: task.uatDate || null,

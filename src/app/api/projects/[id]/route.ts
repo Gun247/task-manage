@@ -31,6 +31,11 @@ export async function PATCH(request: Request, context: RouteContext) {
             color: await resolveAccent(String(body.theme)),
           }
         : {}),
+      ...(body.wipLimits !== undefined &&
+      typeof body.wipLimits === "object" &&
+      body.wipLimits !== null
+        ? { wipLimits: body.wipLimits as Record<string, number> }
+        : {}),
     });
 
     return NextResponse.json(project);

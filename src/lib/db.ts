@@ -3,6 +3,7 @@ import {
   getSheetsSetupHint,
   isSheetsConfigured,
 } from "@/lib/db-config";
+import * as collabRepo from "./collaboration-repository";
 import * as excelRepo from "./excel-repository";
 import * as prismaRepo from "./prisma-repository";
 import * as sheetsRepo from "./sheets/repository";
@@ -243,6 +244,117 @@ export async function ensureSheetStructure() {
 
 export async function seedDefaultData() {
   return resolveBackend().seedDefaultData();
+}
+
+function requirePrismaCollaboration() {
+  if (getDatabaseMode() !== "sqlite") {
+    throw new Error("ฟีเจอร์นี้รองรับเฉพาะโหมด SQLite / Prisma");
+  }
+}
+
+export async function listTaskComments(
+  ...args: Parameters<typeof collabRepo.listTaskComments>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.listTaskComments(...args);
+}
+
+export async function createTaskComment(
+  ...args: Parameters<typeof collabRepo.createTaskComment>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.createTaskComment(...args);
+}
+
+export async function deleteTaskComment(
+  ...args: Parameters<typeof collabRepo.deleteTaskComment>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.deleteTaskComment(...args);
+}
+
+export async function listTaskLinks(
+  ...args: Parameters<typeof collabRepo.listTaskLinks>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.listTaskLinks(...args);
+}
+
+export async function createTaskLink(
+  ...args: Parameters<typeof collabRepo.createTaskLink>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.createTaskLink(...args);
+}
+
+export async function deleteTaskLink(
+  ...args: Parameters<typeof collabRepo.deleteTaskLink>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.deleteTaskLink(...args);
+}
+
+export async function listTaskWatchers(
+  ...args: Parameters<typeof collabRepo.listTaskWatchers>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.listTaskWatchers(...args);
+}
+
+export async function setTaskWatching(
+  ...args: Parameters<typeof collabRepo.setTaskWatching>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.setTaskWatching(...args);
+}
+
+export async function getTaskCollaboration(
+  ...args: Parameters<typeof collabRepo.getTaskCollaboration>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.getTaskCollaboration(...args);
+}
+
+export async function listNotifications(
+  ...args: Parameters<typeof collabRepo.listNotifications>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.listNotifications(...args);
+}
+
+export async function markNotificationRead(
+  ...args: Parameters<typeof collabRepo.markNotificationRead>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.markNotificationRead(...args);
+}
+
+export async function markAllNotificationsRead(
+  ...args: Parameters<typeof collabRepo.markAllNotificationsRead>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.markAllNotificationsRead(...args);
+}
+
+export async function listSavedFilters(
+  ...args: Parameters<typeof collabRepo.listSavedFilters>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.listSavedFilters(...args);
+}
+
+export async function createSavedFilter(
+  ...args: Parameters<typeof collabRepo.createSavedFilter>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.createSavedFilter(...args);
+}
+
+export async function deleteSavedFilter(
+  ...args: Parameters<typeof collabRepo.deleteSavedFilter>
+) {
+  requirePrismaCollaboration();
+  return collabRepo.deleteSavedFilter(...args);
 }
 
 export { getDatabaseMode } from "@/lib/db-config";

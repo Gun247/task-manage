@@ -95,6 +95,8 @@ export function getStatusDescription(name: string) {
 export const UAT_STATUS_NAME = "UAT";
 export const PRD_STATUS_NAME = "PRD";
 export const DONE_STATUS_NAME = "Done";
+export const HOLD_STATUS_NAME = "HOLD";
+export const MODIFY_STATUS_NAME = "Modify";
 export const PRD_TO_DONE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 export function shouldAutoPromotePrdToDone(params: {

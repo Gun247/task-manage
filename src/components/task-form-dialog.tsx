@@ -18,13 +18,22 @@ import {
 } from "@/components/pending-subtasks-editor";
 import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog";
 import { SubtaskAssigneePicker } from "@/components/subtask-assignee-picker";
+import { TaskActivityPanel } from "@/components/task-activity-panel";
+import { TaskLinksPanel } from "@/components/task-links-panel";
 import { TaskTypeMultiSelect } from "@/components/task-type-multi-select";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { TextLinks } from "@/components/ui/linkified-text";
 import { LoadingButtonContent } from "@/components/ui/loading";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { readCurrentMemberId } from "@/lib/current-member";
 import {
+  HOLD_STATUS_NAME,
+  MODIFY_STATUS_NAME,
+} from "@/lib/default-statuses";
+import {
+  getPostReleaseReworkGateError,
   isPostReleaseFlowChange,
-  postReleaseChangeTypeLabel,
+  isReleasedLaneStatus,
   taskHasReachedRelease,
 } from "@/lib/post-release-change";
 import type {
@@ -38,8 +47,8 @@ import type {
 } from "@/lib/types";
 import { parseTaskTypes } from "@/lib/task-types";
 import { taskSourceLabel } from "@/lib/task-source";
-import { cn, formatDateTime } from "@/lib/utils";
-import { CheckSquare, History, Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Bell, BellOff, CheckSquare, Plus, Trash2 } from "lucide-react";
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -49,6 +58,7 @@ interface TaskFormDialogProps {
   priorities: Priority[];
   teamMembers: TeamMember[];
   taskTypes: TaskTypeOption[];
+  projectTasks?: Task[];
   projectId?: string;
   defaultStatusId?: string;
   onSaved: () => void;
@@ -78,6 +88,7 @@ export function TaskFormDialog({
   priorities,
   teamMembers,
   taskTypes,
+  projectTasks = [],
   projectId,
   defaultStatusId,
   onSaved,
@@ -101,6 +112,9 @@ export function TaskFormDialog({
   const [updatingSubtaskId, setUpdatingSubtaskId] = useState<string | null>(
     null,
   );
+  const [dialogTab, setDialogTab] = useState("details");
+  const [watching, setWatching] = useState(false);
+  const [watchBusy, setWatchBusy] = useState(false);
 
   const parentAssignees = teamMembers.filter((member) =>
     form.assigneeIds.includes(member.id),
@@ -109,6 +123,8 @@ export function TaskFormDialog({
 
   useEffect(() => {
     if (!open) return;
+
+    setDialogTab("details");
 
     if (task) {
       setForm({
@@ -143,6 +159,20 @@ export function TaskFormDialog({
       setPendingSubtasks([]);
       setNewSubtaskName("");
       setNewSubtaskAssigneeIds([]);
+
+      const currentId = readCurrentMemberId();
+      if (currentId) {
+        void fetch(`/api/tasks/${task.id}/watch`)
+          .then(async (response) => {
+            if (!response.ok) return [] as TeamMember[];
+            return (await response.json()) as TeamMember[];
+          })
+          .then((watchers) => {
+            setWatching(watchers.some((member) => member.id === currentId));
+          });
+      } else {
+        setWatching(false);
+      }
       return;
     }
 
@@ -157,7 +187,38 @@ export function TaskFormDialog({
     setPendingSubtasks([]);
     setNewSubtaskName("");
     setNewSubtaskAssigneeIds([]);
+    setWatching(false);
   }, [open, task, priorities, statuses, taskTypes, defaultStatusId]);
+
+  async function toggleWatch() {
+    if (!task || watchBusy) return;
+    const currentId = readCurrentMemberId();
+    if (!currentId) {
+      window.alert("เข้าสู่ระบบด้วยเลขพนักงานก่อน Watch");
+      return;
+    }
+    setWatchBusy(true);
+    try {
+      const response = await fetch(`/api/tasks/${task.id}/watch`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamMemberId: currentId,
+          watching: !watching,
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        window.alert(data?.error ?? "อัปเดต Watch ไม่สำเร็จ");
+        return;
+      }
+      setWatching(!watching);
+    } finally {
+      setWatchBusy(false);
+    }
+  }
 
   useEffect(() => {
     const allowed = new Set(form.assigneeIds);
@@ -265,21 +326,34 @@ export function TaskFormDialog({
       ownerId: form.ownerId || null,
     };
 
-    if (
-      task &&
-      isPostReleaseFlowChange({
+    if (task) {
+      const nextStatus =
+        statuses.find((item) => item.id === form.statusId)?.name ?? "";
+      const gateError = getPostReleaseReworkGateError({
         task,
-        nextStatusId: form.statusId,
-        nextUatDate: form.uatDate || null,
-        nextPrdDate: form.prdDate || null,
-        statusProvided: true,
-        uatDateProvided: true,
-        prdDateProvided: true,
-      })
-    ) {
-      setPendingPayload(payload);
-      setPostReleaseReasonOpen(true);
-      return;
+        nextStatusName: nextStatus,
+        statusChanged: form.statusId !== task.statusId,
+      });
+      if (gateError) {
+        window.alert(gateError);
+        return;
+      }
+
+      if (
+        isPostReleaseFlowChange({
+          task,
+          nextStatusId: form.statusId,
+          nextUatDate: form.uatDate || null,
+          nextPrdDate: form.prdDate || null,
+          statusProvided: true,
+          uatDateProvided: true,
+          prdDateProvided: true,
+        })
+      ) {
+        setPendingPayload(payload);
+        setPostReleaseReasonOpen(true);
+        return;
+      }
     }
 
     await saveTask(payload);
@@ -377,23 +451,79 @@ export function TaskFormDialog({
           onSubmit={handleSubmit}
         >
           <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-5 py-4 pr-12">
-            <DialogTitle className="flex flex-wrap items-center gap-2">
-              <span>{task ? "แก้ไข Task" : "สร้าง Task ใหม่"}</span>
-              {task && taskSourceLabel(task.source) ? (
-                <span
-                  className="rounded-md bg-sky-50 px-1.5 py-0.5 text-micro font-semibold text-sky-700"
-                  title="นำเข้าจาก Google Sheet"
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <DialogTitle className="flex flex-wrap items-center gap-2">
+                  <span>{task ? "แก้ไข Task" : "สร้าง Task ใหม่"}</span>
+                  {task && taskSourceLabel(task.source) ? (
+                    <span
+                      className="rounded-md bg-sky-50 px-1.5 py-0.5 text-micro font-semibold text-sky-700"
+                      title="นำเข้าจาก Google Sheet"
+                    >
+                      {taskSourceLabel(task.source)}
+                    </span>
+                  ) : null}
+                </DialogTitle>
+                <DialogDescription>
+                  กรอกรายละเอียดงานตามโครงสร้าง FWF Task Tracker
+                </DialogDescription>
+              </div>
+              {task ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={watchBusy}
+                  onClick={() => void toggleWatch()}
                 >
-                  {taskSourceLabel(task.source)}
-                </span>
+                  {watching ? (
+                    <>
+                      <Bell className="h-3.5 w-3.5" />
+                      Watching
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="h-3.5 w-3.5" />
+                      Watch
+                    </>
+                  )}
+                </Button>
               ) : null}
-            </DialogTitle>
-            <DialogDescription>
-              กรอกรายละเอียดงานตามโครงสร้าง FWF Task Tracker
-            </DialogDescription>
+            </div>
           </DialogHeader>
 
+          {task ? (
+            <div className="shrink-0 border-b border-slate-100 px-5 pt-2">
+              <Tabs value={dialogTab} onValueChange={setDialogTab}>
+                <TabsList className="h-9">
+                  <TabsTrigger value="details" className="text-xs">
+                    รายละเอียด
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="text-xs">
+                    Activity
+                  </TabsTrigger>
+                  <TabsTrigger value="links" className="text-xs">
+                    Links
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          ) : null}
+
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
+            {task && dialogTab === "activity" ? (
+              <TaskActivityPanel task={task} />
+            ) : null}
+            {task && dialogTab === "links" ? (
+              <TaskLinksPanel task={task} projectTasks={projectTasks} />
+            ) : null}
+            <div
+              className={cn(
+                "space-y-3",
+                task && dialogTab !== "details" ? "hidden" : "",
+              )}
+            >
             <div>
               <Label htmlFor="name" className={fieldLabelClass}>
                 Task Name
@@ -453,6 +583,22 @@ export function TaskFormDialog({
                     </option>
                   ))}
                 </Select>
+                {(() => {
+                  if (!task || !isReleasedLaneStatus(task.status?.name)) {
+                    return null;
+                  }
+                  const reached = taskHasReachedRelease(task);
+                  if (!reached.hasReachedUat && !reached.hasReachedPrd) {
+                    return null;
+                  }
+                  return (
+                    <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                      ถ้าจะย้อนไปแก้ ให้เลือก {MODIFY_STATUS_NAME} ก่อน
+                      — {HOLD_STATUS_NAME} ใช้ได้เฉพาะจาก Backlog / In Progress /{" "}
+                      UAT
+                    </p>
+                  );
+                })()}
               </div>
               <div>
                 <Label htmlFor="owner" className={fieldLabelClass}>
@@ -735,107 +881,16 @@ export function TaskFormDialog({
                   }
                   return (
                     <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      Task นี้เคยขึ้น UAT/PRD แล้ว — การเปลี่ยนสถานะหรือวันที่
-                      UAT/PRD จะต้องระบุเหตุผล และจะแสดงในประวัติ
+                      Task นี้เคยขึ้น UAT/PRD แล้ว — การปรับสถานะ/วันที่ต้องใส่เหตุผล
+                      และถ้าจะย้อนไปแก้ต้องเข้า {MODIFY_STATUS_NAME} ก่อน
+                      ({HOLD_STATUS_NAME} ได้เฉพาะจาก Backlog / In Progress / UAT)
+                      — ดู Comment/History ที่แท็บ Activity
                     </p>
                   );
                 })()}
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
-                    <History className="h-4 w-4 text-slate-500" />
-                    ปรับหลังขึ้น
-                  </div>
-                  {(task.postReleaseChanges ?? []).length === 0 ? (
-                    <p className="text-xs text-slate-500">
-                      ยังไม่มีการปรับ flow หลังขึ้น UAT/PRD
-                    </p>
-                  ) : (
-                    <ol className="space-y-2">
-                      {[...(task.postReleaseChanges ?? [])]
-                        .slice()
-                        .reverse()
-                        .map((entry) => (
-                          <li
-                            key={entry.id}
-                            className="flex items-start justify-between gap-3 text-sm"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-slate-700">
-                                <span className="font-medium">
-                                  {postReleaseChangeTypeLabel(entry.changeType)}
-                                </span>
-                                {": "}
-                                <span className="text-slate-500">
-                                  {entry.fromValue || "—"}
-                                </span>
-                                {" → "}
-                                <span className="font-medium">
-                                  {entry.toValue || "—"}
-                                </span>
-                              </p>
-                              <p className="mt-0.5 text-xs text-slate-500">
-                                {entry.reason}
-                              </p>
-                            </div>
-                            <time className="shrink-0 text-xs text-slate-500">
-                              {formatDateTime(entry.changedAt)}
-                            </time>
-                          </li>
-                        ))}
-                    </ol>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
-                    <History className="h-4 w-4 text-slate-500" />
-                    ประวัติสถานะ
-                  </div>
-                  {(task.statusHistory ?? []).length === 0 ? (
-                    <p className="text-xs text-slate-500">
-                      ยังไม่มีประวัติการเปลี่ยนสถานะ
-                    </p>
-                  ) : (
-                    <ol className="space-y-2">
-                      {[...(task.statusHistory ?? [])]
-                        .slice()
-                        .reverse()
-                        .map((entry) => (
-                          <li
-                            key={entry.id}
-                            className="flex items-start justify-between gap-3 text-sm"
-                          >
-                            <div className="min-w-0">
-                              {entry.fromStatusName ? (
-                                <p className="text-slate-700">
-                                  <span className="text-slate-500">
-                                    {entry.fromStatusName}
-                                  </span>
-                                  {" → "}
-                                  <span className="font-medium">
-                                    {entry.toStatusName}
-                                  </span>
-                                </p>
-                              ) : (
-                                <p className="text-slate-700">
-                                  เริ่มที่{" "}
-                                  <span className="font-medium">
-                                    {entry.toStatusName}
-                                  </span>
-                                </p>
-                              )}
-                            </div>
-                            <time className="shrink-0 text-xs text-slate-500">
-                              {formatDateTime(entry.changedAt)}
-                            </time>
-                          </li>
-                        ))}
-                    </ol>
-                  )}
-                </div>
               </div>
             ) : null}
+            </div>
           </div>
 
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3">

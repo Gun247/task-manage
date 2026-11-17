@@ -68,8 +68,9 @@ export function PostReleaseReasonDialog({
             บันทึกเหตุผลหลังขึ้น UAT/PRD
           </DialogTitle>
           <DialogDescription className="whitespace-pre-line">
-            Task นี้เคยขึ้น UAT หรือ PRD แล้ว การปรับสถานะหรือวันที่ UAT/PRD
-            จะถูกบันทึกเป็นประวัติ — สถานะจะไม่ถูกย้อนอัตโนมัติ
+            Task นี้เคยขึ้น UAT หรือ PRD แล้ว การเปลี่ยนสถานะ/วันที่จะถูกบันทึกเป็นประวัติ
+            แบบ Jira — ถ้าจะย้อนไปแก้ ให้เข้า Modify ก่อน
+            (HOLD ได้เฉพาะจาก Backlog / In Progress / UAT)
             {summary ? `\n\n${summary}` : ""}
           </DialogDescription>
         </DialogHeader>

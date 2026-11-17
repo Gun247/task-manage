@@ -8,6 +8,8 @@ export interface Project {
   description: string;
   color: string;
   theme: string;
+  /** status name → WIP limit; 0 or missing = unlimited */
+  wipLimits: Record<string, number>;
   sortOrder: number;
   createdAt?: string;
   updatedAt?: string;
@@ -90,6 +92,47 @@ export interface PostReleaseChangeEntry {
   changedAt: string;
 }
 
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  body: string;
+  authorId: string | null;
+  authorNickname: string;
+  createdAt: string;
+}
+
+export type TaskLinkType = "blocks" | "relates";
+
+export interface TaskLink {
+  id: string;
+  fromTaskId: string;
+  toTaskId: string;
+  linkType: TaskLinkType | string;
+  otherTask: { id: string; name: string; statusName: string };
+  direction: "out" | "in";
+  createdAt: string;
+}
+
+export interface SavedFilter {
+  id: string;
+  name: string;
+  projectId: string | null;
+  filters: TaskFilters & { scope?: "postRelease" | "rework" | "" };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppNotification {
+  id: string;
+  teamMemberId: string | null;
+  taskId: string | null;
+  title: string;
+  body: string;
+  kind: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
 export interface Subtask {
   id: string;
   taskId: string;
@@ -132,6 +175,9 @@ export interface Task {
   statusHistory: StatusHistoryEntry[];
   postReleaseChanges: PostReleaseChangeEntry[];
   hasPostReleaseChanges: boolean;
+  comments: TaskComment[];
+  links: TaskLink[];
+  watchers: TeamMember[];
   subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;

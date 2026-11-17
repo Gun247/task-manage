@@ -9,7 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { LoadingCard } from "@/components/ui/loading";
 import { fetchJsonArray } from "@/lib/fetch-json";
-import { postReleaseChangeTypeLabel } from "@/lib/post-release-change";
+import {
+  isReworkGateStatus,
+  postReleaseChangeTypeLabel,
+  taskHasPostReleaseRework,
+} from "@/lib/post-release-change";
 import { themeAccentColor } from "@/lib/themes";
 import type {
   Priority,
@@ -39,6 +43,7 @@ type HistoryItem = {
   changedAt: string;
   isInitial: boolean;
   hasPostReleaseChanges: boolean;
+  isRework: boolean;
   postReleaseLabel?: string;
   postReleaseReason?: string;
   afterMilestone?: string;
@@ -82,6 +87,22 @@ function taskAssignees(task: Task) {
       : [];
 }
 
+function findMatchingStatusReason(
+  task: Task,
+  fromStatusName: string,
+  toStatusName: string,
+  changedAt: string,
+) {
+  const target = new Date(changedAt).getTime();
+  return (task.postReleaseChanges ?? []).find((entry) => {
+    if (entry.changeType !== "status") return false;
+    if (entry.fromValue !== fromStatusName || entry.toValue !== toStatusName) {
+      return false;
+    }
+    return Math.abs(new Date(entry.changedAt).getTime() - target) < 5000;
+  });
+}
+
 function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
   const statusColor = new Map(
     statuses.map((status) => [status.name, status.color]),
@@ -89,6 +110,7 @@ function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
 
   return tasks
     .flatMap((task) => {
+      const rework = taskHasPostReleaseRework(task);
       const base = {
         taskId: task.id,
         taskName: task.name,
@@ -100,39 +122,66 @@ function buildHistoryItems(tasks: Task[], statuses: Status[]): HistoryItem[] {
         priorityColor: task.priority.color,
         assignees: taskAssignees(task),
         hasPostReleaseChanges: Boolean(task.hasPostReleaseChanges),
+        isRework: rework,
       };
 
+      const matchedStatusReasonIds = new Set<string>();
+
       const statusItems: HistoryItem[] = (task.statusHistory ?? []).map(
-        (entry) => ({
-          ...base,
-          id: entry.id,
-          kind: "status" as const,
-          fromStatusName: entry.fromStatusName,
-          toStatusName: entry.toStatusName,
-          toStatusColor:
-            statusColor.get(entry.toStatusName) ??
-            task.status.color ??
-            "#6B7280",
-          changedAt: entry.changedAt,
-          isInitial: !entry.fromStatusName,
-        }),
+        (entry) => {
+          const matched = findMatchingStatusReason(
+            task,
+            entry.fromStatusName,
+            entry.toStatusName,
+            entry.changedAt,
+          );
+          if (matched) matchedStatusReasonIds.add(matched.id);
+          return {
+            ...base,
+            id: entry.id,
+            kind: "status" as const,
+            fromStatusName: entry.fromStatusName,
+            toStatusName: entry.toStatusName,
+            toStatusColor:
+              statusColor.get(entry.toStatusName) ??
+              task.status.color ??
+              "#6B7280",
+            changedAt: entry.changedAt,
+            isInitial: !entry.fromStatusName,
+            postReleaseReason: matched?.reason,
+            afterMilestone: matched?.afterMilestone,
+            isRework:
+              rework ||
+              isReworkGateStatus(entry.toStatusName) ||
+              Boolean(matched),
+          };
+        },
       );
 
-      const postReleaseItems: HistoryItem[] = (
-        task.postReleaseChanges ?? []
-      ).map((entry) => ({
-        ...base,
-        id: `post-${entry.id}`,
-        kind: "postRelease" as const,
-        fromStatusName: entry.fromValue,
-        toStatusName: entry.toValue,
-        toStatusColor: "#D97706",
-        changedAt: entry.changedAt,
-        isInitial: false,
-        postReleaseLabel: postReleaseChangeTypeLabel(entry.changeType),
-        postReleaseReason: entry.reason,
-        afterMilestone: entry.afterMilestone,
-      }));
+      // Date-only adjustments (and unmatched status reasons) stay as separate rows.
+      const postReleaseItems: HistoryItem[] = (task.postReleaseChanges ?? [])
+        .filter(
+          (entry) =>
+            entry.changeType !== "status" ||
+            !matchedStatusReasonIds.has(entry.id),
+        )
+        .map((entry) => ({
+          ...base,
+          id: `post-${entry.id}`,
+          kind: "postRelease" as const,
+          fromStatusName: entry.fromValue,
+          toStatusName: entry.toValue,
+          toStatusColor: "#D97706",
+          changedAt: entry.changedAt,
+          isInitial: false,
+          postReleaseLabel: postReleaseChangeTypeLabel(entry.changeType),
+          postReleaseReason: entry.reason,
+          afterMilestone: entry.afterMilestone,
+          isRework:
+            rework ||
+            (entry.changeType === "status" &&
+              isReworkGateStatus(entry.toValue)),
+        }));
 
       return [...statusItems, ...postReleaseItems];
     })
@@ -158,7 +207,9 @@ export default function HistoryPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [postReleaseOnly, setPostReleaseOnly] = useState(false);
+  const [historyScope, setHistoryScope] = useState<
+    "all" | "postRelease" | "rework"
+  >("all");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
@@ -247,7 +298,15 @@ export default function HistoryPageContent() {
     const query = search.trim().toLowerCase();
     return historyItems.filter((item) => {
       if (projectFromUrl && item.projectId !== projectFromUrl) return false;
-      if (postReleaseOnly && item.kind !== "postRelease") return false;
+      if (historyScope === "postRelease") {
+        if (item.kind !== "postRelease" && !item.postReleaseReason) return false;
+      }
+      if (historyScope === "rework") {
+        const isModifyHold = isReworkGateStatus(item.toStatusName);
+        if (!isModifyHold && !item.postReleaseReason && item.kind !== "postRelease") {
+          return false;
+        }
+      }
       if (
         statusFilter &&
         item.kind === "status" &&
@@ -269,7 +328,7 @@ export default function HistoryPageContent() {
         )
       );
     });
-  }, [historyItems, projectFromUrl, statusFilter, postReleaseOnly, search]);
+  }, [historyItems, projectFromUrl, statusFilter, historyScope, search]);
 
   const grouped = useMemo(() => {
     const groups: { key: string; label: string; items: HistoryItem[] }[] = [];
@@ -330,7 +389,7 @@ export default function HistoryPageContent() {
               className="h-9 w-full py-0 text-sm leading-9 sm:w-40"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              disabled={postReleaseOnly}
+              disabled={historyScope !== "all"}
             >
               <option value="">ทุกสถานะปลายทาง</option>
               {statuses.map((status) => (
@@ -339,18 +398,22 @@ export default function HistoryPageContent() {
                 </option>
               ))}
             </Select>
-            <label className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5 rounded border-slate-300 text-primary accent-primary"
-                checked={postReleaseOnly}
-                onChange={(event) => {
-                  setPostReleaseOnly(event.target.checked);
-                  if (event.target.checked) setStatusFilter("");
-                }}
-              />
-              เฉพาะแก้หลังขึ้น
-            </label>
+            <Select
+              className="h-9 w-full py-0 text-sm leading-9 sm:w-52"
+              value={historyScope}
+              onChange={(event) => {
+                const value = event.target.value as
+                  | "all"
+                  | "postRelease"
+                  | "rework";
+                setHistoryScope(value);
+                if (value !== "all") setStatusFilter("");
+              }}
+            >
+              <option value="all">ทุกประเภทประวัติ</option>
+              <option value="postRelease">เฉพาะแก้หลังขึ้น</option>
+              <option value="rework">เคยเข้า Modify / HOLD</option>
+            </Select>
           </div>
         </div>
       </div>
@@ -421,12 +484,18 @@ export default function HistoryPageContent() {
                                 {item.projectName}
                               </span>
                               {item.kind === "postRelease" ||
+                              item.postReleaseReason ||
                               item.hasPostReleaseChanges ? (
                                 <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-micro font-semibold text-amber-800">
                                   แก้หลังขึ้น
                                   {item.afterMilestone
                                     ? ` · ${item.afterMilestone}`
                                     : ""}
+                                </span>
+                              ) : null}
+                              {isReworkGateStatus(item.toStatusName) ? (
+                                <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-micro font-semibold text-violet-800">
+                                  Reopen · {item.toStatusName}
                                 </span>
                               ) : null}
                             </div>
@@ -456,6 +525,9 @@ export default function HistoryPageContent() {
                                 </span>
                               ) : (
                                 <>
+                                  <span className="text-xs font-medium text-slate-500">
+                                    สถานะ
+                                  </span>
                                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
                                     {item.fromStatusName}
                                   </span>
@@ -471,8 +543,7 @@ export default function HistoryPageContent() {
                                 </>
                               )}
                             </div>
-                            {item.kind === "postRelease" &&
-                            item.postReleaseReason ? (
+                            {item.postReleaseReason ? (
                               <p className="mt-2 text-xs text-slate-600">
                                 เหตุผล: {item.postReleaseReason}
                               </p>
