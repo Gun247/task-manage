@@ -234,10 +234,12 @@ export default function TimelinePageContent() {
 
   return (
     <AppShell>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <PageHeader
-        icon={<CalendarRange className="h-5 w-5" />}
+        icon={<CalendarRange className="h-4 w-4" />}
         title="สรุป Timeline"
         description="แสดงเฉพาะวันที่ตั้ง Timeline UAT หรือ PRD ไว้ — จัดกลุ่มรายวันให้อ่านและคัดลอกง่าย"
+        className="shrink-0"
       >
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="flex flex-wrap items-center gap-2">
@@ -330,7 +332,7 @@ export default function TimelinePageContent() {
         </div>
       </PageHeader>
 
-      <PageMain width="6xl">
+      <PageMain className="flex min-h-0 flex-1 flex-col overflow-hidden py-3 sm:py-3">
         {error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
             {error}
@@ -343,7 +345,7 @@ export default function TimelinePageContent() {
         ) : statsLoading ? (
           <LoadingCard label="กำลังโหลด timeline..." />
         ) : (
-          <div className="relative">
+          <div className="relative flex min-h-0 flex-1 flex-col">
             {tasksLoading || editorLoading ? (
               <LoadingOverlay
                 label={
@@ -377,6 +379,7 @@ export default function TimelinePageContent() {
           void reloadTasks();
         }}
       />
+      </div>
     </AppShell>
   );
 }

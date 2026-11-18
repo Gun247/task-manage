@@ -1,6 +1,13 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { AssigneesDisplay } from "@/components/assignee-multi-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,58 +23,7 @@ import {
   type TimelineKind,
 } from "@/lib/timeline-summary";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Check, Copy, Loader2 } from "lucide-react";
-
-const INITIAL_GROUPS = 2;
-const GROUP_BATCH = 3;
-
-function useProgressiveGroups(groups: TimelineDayGroup[]) {
-  const groupsKey = useMemo(
-    () => groups.map((group) => group.dateKey).join("|"),
-    [groups],
-  );
-  const [visibleCount, setVisibleCount] = useState(INITIAL_GROUPS);
-
-  useEffect(() => {
-    setVisibleCount(INITIAL_GROUPS);
-  }, [groupsKey]);
-
-  useEffect(() => {
-    if (visibleCount >= groups.length) return;
-
-    let cancelled = false;
-    const scheduleNext = () => {
-      if (cancelled) return;
-      setVisibleCount((current) => Math.min(current + GROUP_BATCH, groups.length));
-    };
-
-    const idleId = window.requestIdleCallback?.(scheduleNext, { timeout: 120 });
-    const timeoutId =
-      idleId === undefined ? window.setTimeout(scheduleNext, 16) : undefined;
-
-    return () => {
-      cancelled = true;
-      if (idleId !== undefined) window.cancelIdleCallback(idleId);
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-    };
-  }, [visibleCount, groups.length, groupsKey]);
-
-  const ensureVisible = useCallback(
-    (dateKey: string) => {
-      const index = groups.findIndex((group) => group.dateKey === dateKey);
-      if (index >= 0) {
-        setVisibleCount((current) => Math.max(current, index + 1));
-      }
-    },
-    [groups],
-  );
-
-  return {
-    visibleGroups: groups.slice(0, visibleCount),
-    ensureVisible,
-    hasMore: visibleCount < groups.length,
-  };
-}
+import { CalendarDays, Check, Copy } from "lucide-react";
 
 interface TimelineSummaryViewProps {
   groups: TimelineDayGroup[];
@@ -233,7 +189,9 @@ const KindSection = memo(function KindSection({
           <span
             className={cn(
               "rounded-full px-2 py-0.5 text-micro font-medium",
-              isUat ? "bg-amber-200/80 text-amber-800" : "bg-emerald-200/80 text-emerald-800",
+              isUat
+                ? "bg-amber-200/80 text-amber-800"
+                : "bg-emerald-200/80 text-emerald-800",
             )}
           >
             {tasks.length}
@@ -265,29 +223,24 @@ const DayGroupArticle = memo(function DayGroupArticle({
   onCopied: () => void;
 }) {
   return (
-    <article
-      id={`timeline-day-${group.dateKey}`}
-      className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm [contain-intrinsic-size:auto_420px] [content-visibility:auto]"
-    >
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-lg font-semibold text-slate-900">
-            {group.date.toLocaleDateString("th-TH", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-          <p className="text-xs text-slate-500">
-            {relativeDayLabel(group.date)}
-            {group.uatTasks.length > 0 ? ` · UAT ${group.uatTasks.length}` : ""}
-            {group.prdTasks.length > 0 ? ` · PRD ${group.prdTasks.length}` : ""}
-          </p>
-        </div>
+    <article className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="shrink-0 px-4 pt-4 pb-3">
+        <p className="text-lg font-semibold text-slate-900">
+          {group.date.toLocaleDateString("th-TH", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+        <p className="text-xs text-slate-500">
+          {relativeDayLabel(group.date)}
+          {group.uatTasks.length > 0 ? ` · UAT ${group.uatTasks.length}` : ""}
+          {group.prdTasks.length > 0 ? ` · PRD ${group.prdTasks.length}` : ""}
+        </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4">
         <KindSection
           date={group.date}
           kind="uat"
@@ -307,109 +260,309 @@ const DayGroupArticle = memo(function DayGroupArticle({
   );
 });
 
+const NAV_ITEM_WIDTH = 112;
+
+function formatFocusDayLabel(date: Date, active: boolean) {
+  if (active) return formatDayChip(date);
+  return date.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 export function TimelineSummaryView({
   groups,
   onTaskClick,
 }: TimelineSummaryViewProps) {
   const [copied, setCopied] = useState(false);
-  const { visibleGroups, ensureVisible, hasMore } = useProgressiveGroups(groups);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [navEdgePad, setNavEdgePad] = useState(0);
+  const navRef = useRef<HTMLDivElement>(null);
+  const isNavDrivingRef = useRef(false);
+  const skipNavCenterRef = useRef(false);
+  const activeIndexRef = useRef(0);
+  const navScrollEndTimer = useRef<number | null>(null);
+  const groupsKey = groups.map((group) => group.dateKey).join("|");
+  const activeGroup = groups[activeIndex] ?? groups[0] ?? null;
 
   const markCopied = useCallback(() => {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }, []);
 
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+    activeIndexRef.current = 0;
+  }, [groupsKey]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const updatePad = () => {
+      setNavEdgePad(Math.max(0, (nav.clientWidth - NAV_ITEM_WIDTH) / 2));
+    };
+
+    updatePad();
+    const observer = new ResizeObserver(updatePad);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [groupsKey]);
+
+  const centerNavOnIndex = useCallback(
+    (index: number, behavior: ScrollBehavior = "smooth") => {
+      const nav = navRef.current;
+      if (!nav || groups.length === 0) return;
+      isNavDrivingRef.current = true;
+      nav.scrollTo({ left: Math.max(0, index * NAV_ITEM_WIDTH), behavior });
+      window.setTimeout(
+        () => {
+          isNavDrivingRef.current = false;
+        },
+        behavior === "smooth" ? 420 : 40,
+      );
+    },
+    [groups.length],
+  );
+
+  const setActiveFromIndex = useCallback(
+    (index: number, options?: { centerNav?: boolean; behavior?: ScrollBehavior }) => {
+      const clamped = Math.max(0, Math.min(index, groups.length - 1));
+      if (groups.length === 0) return;
+      const shouldCenter = options?.centerNav ?? true;
+      if (!shouldCenter) skipNavCenterRef.current = true;
+      activeIndexRef.current = clamped;
+      setActiveIndex(clamped);
+      if (shouldCenter) {
+        centerNavOnIndex(clamped, options?.behavior ?? "smooth");
+      }
+    },
+    [centerNavOnIndex, groups.length],
+  );
+
+  useLayoutEffect(() => {
+    if (skipNavCenterRef.current) {
+      skipNavCenterRef.current = false;
+      return;
+    }
+    centerNavOnIndex(activeIndex, "smooth");
+  }, [activeIndex, centerNavOnIndex, groupsKey]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const settleActiveFromScroll = () => {
+      if (isNavDrivingRef.current || groups.length === 0) return;
+      const nextIndex = Math.round(nav.scrollLeft / NAV_ITEM_WIDTH);
+      const clamped = Math.max(0, Math.min(nextIndex, groups.length - 1));
+      if (clamped === activeIndexRef.current) return;
+      skipNavCenterRef.current = true;
+      activeIndexRef.current = clamped;
+      setActiveIndex(clamped);
+    };
+
+    const onNavScroll = () => {
+      if (isNavDrivingRef.current) return;
+      if (navScrollEndTimer.current !== null) {
+        window.clearTimeout(navScrollEndTimer.current);
+      }
+      // Update focus while dragging, snap label after scroll settles.
+      const liveIndex = Math.round(nav.scrollLeft / NAV_ITEM_WIDTH);
+      const clamped = Math.max(0, Math.min(liveIndex, groups.length - 1));
+      if (clamped !== activeIndexRef.current) {
+        skipNavCenterRef.current = true;
+        activeIndexRef.current = clamped;
+        setActiveIndex(clamped);
+      }
+      navScrollEndTimer.current = window.setTimeout(() => {
+        settleActiveFromScroll();
+        if (!isNavDrivingRef.current) {
+          centerNavOnIndex(activeIndexRef.current, "smooth");
+        }
+      }, 90);
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      if (nav.scrollWidth <= nav.clientWidth) return;
+      event.preventDefault();
+      nav.scrollLeft += event.deltaY;
+    };
+
+    const keepActiveAligned = () => {
+      centerNavOnIndex(activeIndexRef.current, "auto");
+    };
+
+    nav.addEventListener("scroll", onNavScroll, { passive: true });
+    nav.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("resize", keepActiveAligned);
+    return () => {
+      if (navScrollEndTimer.current !== null) {
+        window.clearTimeout(navScrollEndTimer.current);
+      }
+      nav.removeEventListener("scroll", onNavScroll);
+      nav.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", keepActiveAligned);
+    };
+  }, [centerNavOnIndex, groups.length, groupsKey]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setActiveFromIndex(activeIndex - 1);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setActiveFromIndex(activeIndex + 1);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeIndex, setActiveFromIndex]);
+
   async function copyAll() {
     await copyText(buildTimelineSummaryText(groups));
     markCopied();
   }
 
-  const jumpToDay = useCallback(
-    (dateKey: string) => {
-      ensureVisible(dateKey);
-      window.requestAnimationFrame(() => {
-        document
-          .getElementById(`timeline-day-${dateKey}`)
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    },
-    [ensureVisible],
-  );
-
   if (groups.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
-        <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-        <h3 className="text-base font-semibold text-slate-800">
-          ยังไม่มีวันที่มี Timeline
-        </h3>
-        <p className="mt-2 text-sm text-slate-500">
-          หน้านี้แสดงเฉพาะวันที่ถูกตั้ง Timeline UAT หรือ Timeline PRD ไว้
-        </p>
+      <div className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
+        <div>
+          <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <h3 className="text-base font-semibold text-slate-800">
+            ยังไม่มีวันที่มี Timeline
+          </h3>
+          <p className="mt-2 text-sm text-slate-500">
+            หน้านี้แสดงเฉพาะวันที่ถูกตั้ง Timeline UAT หรือ Timeline PRD ไว้
+          </p>
+        </div>
       </div>
     );
   }
 
+  const lineWidth = Math.max(groups.length - 1, 0) * NAV_ITEM_WIDTH;
+
   return (
-    <div className="space-y-5">
-      <div className="sticky top-3 z-10 rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm backdrop-blur">
-        <div className="flex items-start gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 items-start gap-2 pt-1">
+        <div
+          ref={navRef}
+          className="min-w-0 flex-1 touch-pan-x snap-x snap-mandatory overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="เลื่อน timeline เพื่อเลือกวัน"
+          role="tablist"
+        >
           <div
-            className="grid min-w-0 flex-1 auto-cols-max grid-flow-col grid-rows-2 gap-x-1.5 gap-y-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200"
-            aria-label="กระโดดไปวันที่"
+            className="relative flex w-max items-start"
+            style={{ paddingInline: navEdgePad }}
           >
-            {groups.map((group) => (
-              <button
-                key={group.dateKey}
-                type="button"
-                onClick={() => jumpToDay(group.dateKey)}
-                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-caption font-medium text-slate-600 transition hover:border-primary/40 hover:bg-white hover:text-primary"
-              >
-                {formatDayChip(group.date)}
-                <span className="text-slate-400">
-                  {group.uatTasks.length + group.prdTasks.length}
-                </span>
-              </button>
-            ))}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute top-[22px] h-[3px] rounded-full bg-slate-200"
+              style={{
+                left: navEdgePad + NAV_ITEM_WIDTH / 2,
+                width: lineWidth,
+              }}
+            />
+            {groups.map((group, index) => {
+              const active = index === activeIndex;
+              const distance = Math.abs(index - activeIndex);
+              const taskCount = group.uatTasks.length + group.prdTasks.length;
+              return (
+                <button
+                  key={group.dateKey}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={`${formatFocusDayLabel(group.date, true)}, ${taskCount} tasks`}
+                  onClick={() => setActiveFromIndex(index)}
+                  className={cn(
+                    "relative z-[1] flex shrink-0 snap-center flex-col items-center px-1 transition-opacity duration-150",
+                    active ? "opacity-100" : distance === 1 ? "opacity-90" : "opacity-45",
+                  )}
+                  style={{ width: NAV_ITEM_WIDTH }}
+                >
+                  <span className="flex h-[44px] items-center justify-center">
+                    <span
+                      className={cn(
+                        "block rounded-full border-[3px] border-slate-300 bg-white transition-all duration-150",
+                        active
+                          ? "h-5 w-5 border-primary bg-primary shadow-[0_0_0_5px_color-mix(in_srgb,var(--primary)_20%,transparent)]"
+                          : distance === 1
+                            ? "h-3.5 w-3.5"
+                            : "h-3 w-3",
+                      )}
+                    />
+                  </span>
+                  <span
+                    className={cn(
+                      "block min-h-[2.5rem] text-center leading-tight whitespace-nowrap",
+                      active
+                        ? "text-sm font-semibold text-primary"
+                        : distance === 1
+                          ? "text-xs font-medium text-slate-600"
+                          : "text-[11px] font-medium text-slate-400",
+                    )}
+                  >
+                    {formatFocusDayLabel(group.date, active)}
+                    {active ? (
+                      <span className="mt-0.5 block text-[11px] font-medium text-slate-400">
+                        {taskCount} tasks
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 shrink-0 gap-1.5"
-            onClick={copyAll}
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-primary" />
-                คัดลอกแล้ว
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                คัดลอกทั้งหมด
-              </>
-            )}
-          </Button>
         </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 h-8 shrink-0 gap-1.5"
+          onClick={copyAll}
+        >
+          {copied ? (
+            <>
+              <Check className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">คัดลอกแล้ว</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">คัดลอกทั้งหมด</span>
+            </>
+          )}
+        </Button>
       </div>
 
-      <div className="space-y-4">
-        {visibleGroups.map((group) => (
-          <DayGroupArticle
-            key={group.dateKey}
-            group={group}
-            onTaskClick={onTaskClick}
-            onCopied={markCopied}
-          />
-        ))}
-        {hasMore ? (
-          <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-white py-4 text-sm text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            กำลังแสดงรายการ...
-          </div>
-        ) : null}
-      </div>
+      {activeGroup ? (
+        <DayGroupArticle
+          group={activeGroup}
+          onTaskClick={onTaskClick}
+          onCopied={markCopied}
+        />
+      ) : null}
     </div>
   );
 }

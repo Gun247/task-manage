@@ -113,7 +113,7 @@ export default function DashboardPageContent() {
   return (
     <AppShell>
       <PageHeader
-        icon={<LayoutDashboard className="h-5 w-5" />}
+        icon={<LayoutDashboard className="h-4 w-4" />}
         title="Dashboard"
         description="ภาพรวมงานทุกโปรเจกต์และสถานะ"
       />
@@ -126,7 +126,7 @@ export default function DashboardPageContent() {
         ) : loading ? (
           <LoadingCard />
         ) : (
-          <div className="space-y-5 sm:space-y-6">
+          <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryCard
                 icon={<FolderKanban className="h-4 w-4" />}

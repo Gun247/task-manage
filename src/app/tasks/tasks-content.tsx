@@ -13,7 +13,7 @@ import {
   Settings,
   Plus,
   Search,
-  ChevronRight,
+  ArrowLeft,
   Download,
   Bookmark,
   Trash2,
@@ -34,6 +34,7 @@ import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
+import { pageInsetX, pageInsetYHeader, pageInsetYMain } from "@/components/page-layout";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import { readMemberSession } from "@/lib/current-member";
 import {
@@ -554,37 +555,28 @@ export function TasksPageContent() {
         )}
       >
       <div className="shrink-0 border-b border-slate-200/70 bg-white">
-        <div className="w-full px-4 py-3 sm:px-5">
+        <div className={cn("w-full", pageInsetX, pageInsetYHeader)}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <nav className="mb-1 flex items-center gap-1 text-xs text-slate-500">
-                <Link href="/projects" className="hover:text-primary">
-                  โปรเจกต์
-                </Link>
-                <ChevronRight className="h-3 w-3" />
-                <span className="truncate font-medium text-slate-700">
-                  {selectedProject?.name ?? "Task"}
-                </span>
-              </nav>
-
-              <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-                <div className="w-full sm:w-auto">
-                  <ProjectSwitcher
-                    projects={projects}
-                    selectedProjectId={selectedProjectId}
-                    onSelect={setSelectedProjectId}
-                    onCreateNew={
-                      canManageSettings(sessionRole)
-                        ? () => setProjectDialogOpen(true)
-                        : undefined
-                    }
-                  />
-                </div>
-                {displayProjectDescription(selectedProject?.description) ? (
-                  <p className="hidden text-sm text-slate-500 lg:block">
-                    {displayProjectDescription(selectedProject?.description)}
-                  </p>
-                ) : null}
+            <div className="flex min-w-0 items-center gap-2">
+              <Link
+                href="/projects"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                title="กลับไปโปรเจกต์ทั้งหมด"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">โปรเจกต์</span>
+              </Link>
+              <div className="min-w-0 lg:hidden">
+                <ProjectSwitcher
+                  projects={projects}
+                  selectedProjectId={selectedProjectId}
+                  onSelect={setSelectedProjectId}
+                  onCreateNew={
+                    canManageSettings(sessionRole)
+                      ? () => setProjectDialogOpen(true)
+                      : undefined
+                  }
+                />
               </div>
             </div>
 
@@ -876,9 +868,11 @@ export function TasksPageContent() {
 
       <main
         className={cn(
-          "relative w-full px-4 py-4 sm:px-5",
+          "relative w-full",
+          pageInsetX,
+          pageInsetYMain,
           (view === "kanban" || view === "list" || view === "calendar") &&
-            "flex min-h-0 flex-1 flex-col overflow-hidden py-4",
+            "flex min-h-0 flex-1 flex-col overflow-hidden",
         )}
       >
         {importMessage ? (

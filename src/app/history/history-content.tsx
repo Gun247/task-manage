@@ -348,7 +348,7 @@ export default function HistoryPageContent() {
   return (
     <AppShell>
       <PageHeader
-        icon={<History className="h-5 w-5" />}
+        icon={<History className="h-4 w-4" />}
         title="ประวัติ Task"
         description="ไทม์ไลน์สถานะและการปรับ flow หลังขึ้น UAT/PRD — คลิกรายการเพื่อแก้ไข task ได้ทันที"
       >
@@ -408,7 +408,7 @@ export default function HistoryPageContent() {
         </div>
       </PageHeader>
 
-      <PageMain width="5xl">
+      <PageMain>
         {error ? (
           <div className="rounded-[1.35rem] border border-red-200 bg-red-50/90 p-6 text-center text-sm text-red-700">
             {error}

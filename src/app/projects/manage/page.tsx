@@ -102,13 +102,13 @@ export default function ManageProjectsPage() {
   return (
     <AppShell>
       <PageHeader
-        icon={<Settings2 className="h-5 w-5" />}
+        icon={<Settings2 className="h-4 w-4" />}
         title="จัดการโปรเจกต์"
         description="แก้ไข ลบ หรือสร้างโปรเจกต์ใหม่"
         actions={
           <Button
             type="button"
-            className="h-10 rounded-lg px-4 shadow-[0_8px_20px_rgba(59,130,246,0.25)]"
+            className="h-9 rounded-xl px-3.5 shadow-sm"
             onClick={openCreate}
           >
             <Plus className="h-4 w-4" />
@@ -125,7 +125,7 @@ export default function ManageProjectsPage() {
         </Link>
       </PageHeader>
 
-      <PageMain width="4xl">
+      <PageMain>
         {error ? (
           <div className="rounded-[1.35rem] border border-red-200 bg-red-50/90 p-6 text-center text-sm text-red-700">
             {error}

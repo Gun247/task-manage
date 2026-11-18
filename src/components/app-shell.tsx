@@ -15,11 +15,29 @@ import {
   Settings2,
 } from "lucide-react";
 import { AuthGate } from "@/components/auth-gate";
+import { ProjectSwitcher } from "@/components/project-switcher";
 import { ProjectThemeSync } from "@/components/project-theme-sync";
+import {
+  ShellHeaderProvider,
+  ShellPageHeader,
+  ShellPageHeaderIcon,
+} from "@/components/page-layout";
 import { SessionControls, SidebarProfile } from "@/components/session-controls";
+import { fetchJsonArray } from "@/lib/fetch-json";
 import { readMemberSession } from "@/lib/current-member";
 import { canManageProjects } from "@/lib/roles";
+import { themeAccentColor, themeSwatches } from "@/lib/themes";
+import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+function projectIconGradient(project?: Project | null) {
+  if (!project) return "linear-gradient(160deg, #1e293b 0%, #0f172a 100%)";
+  const swatches = themeSwatches(project.theme);
+  const a = swatches[0] ?? themeAccentColor(project.theme) ?? project.color ?? "#0f172a";
+  const b = swatches[1] ?? a;
+  const c = swatches[2] ?? b;
+  return `linear-gradient(160deg, ${a} 0%, ${b} 55%, ${c} 100%)`;
+}
 
 const SIDEBAR_COLLAPSED_KEY = "fwf-sidebar-collapsed";
 
@@ -213,9 +231,9 @@ function NavLink({
         aria-label={label}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "mx-auto flex h-11 w-11 items-center justify-center rounded-2xl transition duration-200",
+          "mx-auto flex h-9 w-9 items-center justify-center rounded-xl transition duration-200",
           active
-            ? "bg-slate-900 text-white shadow-[0_8px_20px_rgba(15,23,42,0.18)]"
+            ? "bg-slate-900 text-white shadow-[0_6px_16px_rgba(15,23,42,0.16)]"
             : "text-slate-600 hover:bg-white/70 hover:text-slate-900",
         )}
       >
@@ -250,11 +268,114 @@ function NavLink({
   );
 }
 
-function DesktopSidebar({ showManage }: { showManage: boolean }) {
+function SidebarBrand({
+  collapsed,
+  projects,
+  projectId,
+  onSelectProject,
+}: {
+  collapsed: boolean;
+  projects: Project[];
+  projectId: string | null;
+  onSelectProject: (projectId: string) => void;
+}) {
+  const selectedProject = projects.find((project) => project.id === projectId);
+  const iconGradient = projectIconGradient(selectedProject);
+
+  if (collapsed) {
+    return (
+      <Link
+        href={projectId ? `/tasks?project=${projectId}` : "/dashboard"}
+        className="flex justify-center"
+        title={selectedProject?.name ?? "TIM TaskManage"}
+      >
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]"
+          style={{ backgroundImage: iconGradient }}
+        >
+          {selectedProject ? (
+            <span className="text-[11px] font-bold">
+              {selectedProject.name.slice(0, 2).toUpperCase()}
+            </span>
+          ) : (
+            <FolderKanban className="h-4 w-4" />
+          )}
+        </span>
+      </Link>
+    );
+  }
+
+  if (selectedProject) {
+    return (
+      <div className="flex min-w-0 flex-1 items-start gap-2 px-0.5">
+        <span
+          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]"
+          style={{ backgroundImage: iconGradient }}
+        >
+          <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
+        </span>
+        <ProjectSwitcher
+          variant="sidebar"
+          className="min-w-0 flex-1"
+          projects={projects}
+          selectedProjectId={selectedProject.id}
+          onSelect={onSelectProject}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href="/dashboard"
+      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-1.5 py-0.5"
+      title="TIM TaskManage"
+    >
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]"
+        style={{ backgroundImage: projectIconGradient(null) }}
+      >
+        <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
+          TIM TaskManage
+        </span>
+        <span className="block text-[11px] text-slate-500">Workspace</span>
+      </span>
+    </Link>
+  );
+}
+
+function DesktopSidebar({
+  showManage,
+  collapsed,
+  onToggleCollapsed,
+}: {
+  showManage: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = searchParams.get("project");
-  const { collapsed, toggle } = useSidebarCollapsed();
+  const toggle = onToggleCollapsed;
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchJsonArray<Project>("/api/projects")
+      .then((data) => {
+        if (!cancelled) setProjects(data);
+      })
+      .catch(() => {
+        if (!cancelled) setProjects([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const itemById = Object.fromEntries(
     navItems.map((item) => [item.id, item]),
@@ -263,49 +384,51 @@ function DesktopSidebar({ showManage }: { showManage: boolean }) {
   return (
     <aside
       className={cn(
-        "relative z-20 hidden shrink-0 flex-col p-3 transition-[width] duration-300 ease-out lg:flex",
-        collapsed ? "w-[5.75rem]" : "w-[17.5rem]",
+        "relative z-20 hidden h-full min-h-0 shrink-0 flex-col transition-[width] duration-300 ease-out lg:flex",
+        collapsed ? "w-[4rem]" : "w-[16rem]",
       )}
     >
-      <div className="flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/70 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55">
+      <div
+        className={cn(
+          "flex h-full min-h-0 flex-col border border-white/70 bg-white/70 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55",
+          collapsed
+            ? "items-center overflow-hidden rounded-[1.25rem] px-1.5 py-2.5"
+            : "overflow-visible rounded-[1.5rem] p-3",
+        )}
+      >
         <div
           className={cn(
-            "mb-3 flex items-center gap-2",
-            collapsed ? "flex-col" : "justify-between px-1",
+            "relative z-40 mb-2.5 flex items-center gap-1",
+            collapsed ? "w-full flex-col gap-1" : "justify-between",
           )}
         >
-          <Link
-            href="/dashboard"
-            className={cn(
-              "flex min-w-0 items-center gap-2.5 rounded-2xl py-1",
-              collapsed ? "justify-center px-0" : "px-1.5",
-            )}
-            title="TIM TaskManage"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]">
-              <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
-            </span>
-            {!collapsed ? (
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
-                  TIM TaskManage
-                </span>
-                <span className="block text-[11px] text-slate-500">
-                  Workspace
-                </span>
-              </span>
-            ) : null}
-          </Link>
+          <SidebarBrand
+            collapsed={collapsed}
+            projects={projects}
+            projectId={projectId}
+            onSelectProject={(id) => {
+              if (pathname.startsWith("/timeline")) {
+                router.push(`/timeline?project=${id}`);
+              } else if (pathname.startsWith("/history")) {
+                router.push(`/history?project=${id}`);
+              } else {
+                router.push(`/tasks?project=${id}`);
+              }
+            }}
+          />
 
           <button
             type="button"
             onClick={toggle}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white/80 hover:text-slate-800"
+            className={cn(
+              "flex shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white/80 hover:text-slate-800",
+              collapsed ? "h-7 w-7" : "h-9 w-9",
+            )}
             aria-label={collapsed ? "ขยายแถบด้านข้าง" : "ย่อแถบด้านข้าง"}
             title={collapsed ? "ขยาย" : "ย่อ"}
           >
             {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             ) : (
               <ChevronLeft className="h-4 w-4" />
             )}
@@ -314,7 +437,10 @@ function DesktopSidebar({ showManage }: { showManage: boolean }) {
 
         <nav
           aria-label="เมนูหลัก"
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain"
+          className={cn(
+            "relative z-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain",
+            collapsed ? "w-full items-center gap-2.5" : "gap-4",
+          )}
         >
           {navGroups.map((group) => {
             const items = group.itemIds
@@ -323,10 +449,15 @@ function DesktopSidebar({ showManage }: { showManage: boolean }) {
             if (items.length === 0) return null;
 
             return (
-              <div key={group.id} className="space-y-1.5">
+              <div
+                key={group.id}
+                className={cn(
+                  collapsed ? "flex w-full flex-col items-center gap-1" : "space-y-1.5",
+                )}
+              >
                 {collapsed ? (
                   <div
-                    className="mx-auto h-px w-6 bg-slate-200/90 first:hidden"
+                    className="mx-auto h-px w-4 bg-slate-200/90 first:hidden"
                     aria-hidden
                   />
                 ) : (
@@ -334,7 +465,12 @@ function DesktopSidebar({ showManage }: { showManage: boolean }) {
                     {group.label}
                   </p>
                 )}
-                <div className="flex flex-col gap-1">
+                <div
+                  className={cn(
+                    "flex flex-col",
+                    collapsed ? "items-center gap-0.5" : "gap-1",
+                  )}
+                >
                   {items.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -347,7 +483,9 @@ function DesktopSidebar({ showManage }: { showManage: boolean }) {
                         collapsed={collapsed}
                       >
                         <Icon
-                          className="h-[1.15rem] w-[1.15rem]"
+                          className={
+                            collapsed ? "h-4 w-4" : "h-[1.15rem] w-[1.15rem]"
+                          }
                           strokeWidth={1.75}
                         />
                       </NavLink>
@@ -358,17 +496,34 @@ function DesktopSidebar({ showManage }: { showManage: boolean }) {
             );
           })}
         </nav>
-
-        <div
-          className={cn(
-            "mt-3 border-t border-slate-200/70 pt-3",
-            collapsed ? "px-0" : "px-0.5",
-          )}
-        >
-          <SidebarProfile collapsed={collapsed} />
-        </div>
       </div>
     </aside>
+  );
+}
+
+function resolvePageTitle(pathname: string) {
+  if (pathname.startsWith("/dashboard")) return "Dashboard";
+  if (pathname.startsWith("/projects/manage")) return "จัดการโปรเจกต์";
+  if (pathname.startsWith("/projects")) return "โปรเจกต์ทั้งหมด";
+  if (pathname.startsWith("/tasks")) return "Tasks";
+  if (pathname.startsWith("/timeline")) return "สรุป Timeline";
+  if (pathname.startsWith("/history")) return "ประวัติ Task";
+  return "TIM TaskManage";
+}
+
+function DesktopTopBar({
+  collapsed,
+  pageTitle,
+}: {
+  collapsed: boolean;
+  pageTitle: string;
+}) {
+  return (
+    <ShellPageHeader
+      collapsed={collapsed}
+      fallbackTitle={pageTitle}
+      profile={<SidebarProfile placement="topbar" />}
+    />
   );
 }
 
@@ -454,6 +609,9 @@ function MobileDock({ showManage }: { showManage: boolean }) {
 
 function ShellChrome({ children }: { children: React.ReactNode }) {
   const showManage = useShowManage();
+  const { collapsed, toggle } = useSidebarCollapsed();
+  const pathname = usePathname();
+  const pageTitle = resolvePageTitle(pathname);
 
   return (
     <div className="relative flex h-svh overflow-hidden bg-[linear-gradient(165deg,#e8f1ff_0%,#f5f8fc_42%,#eef8f1_100%)]">
@@ -470,17 +628,29 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-10 left-1/3 h-64 w-64 rounded-full bg-[color-mix(in_srgb,#bbf7d0_22%,transparent)] blur-3xl" />
       </div>
 
-      <Suspense fallback={null}>
-        <DesktopSidebar showManage={showManage} />
-      </Suspense>
-
       <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <MobileTopBar />
 
-        <div className="flex min-h-0 flex-1 flex-col px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-0 lg:p-3">
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/85 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-              {children}
+        <div className="flex min-h-0 flex-1 flex-col px-2 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-0 lg:p-2">
+          <div className="hidden shrink-0 gap-2 lg:flex">
+            <ShellPageHeaderIcon
+              collapsed={collapsed}
+              fallbackTitle={pageTitle}
+            />
+            <DesktopTopBar collapsed={collapsed} pageTitle={pageTitle} />
+          </div>
+          <div className="flex min-h-0 flex-1 gap-2">
+            <Suspense fallback={null}>
+              <DesktopSidebar
+                showManage={showManage}
+                collapsed={collapsed}
+                onToggleCollapsed={toggle}
+              />
+            </Suspense>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-white/70 bg-white/85 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:rounded-[1.35rem]">
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
+                {children}
+              </div>
             </div>
           </div>
         </div>
@@ -496,7 +666,9 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
-      <ShellChrome>{children}</ShellChrome>
+      <ShellHeaderProvider>
+        <ShellChrome>{children}</ShellChrome>
+      </ShellHeaderProvider>
     </AuthGate>
   );
 }
