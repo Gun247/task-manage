@@ -125,6 +125,7 @@ interface TaskCalendarViewProps {
   taskTypes?: TaskTypeOption[];
   onEditTask: (task: Task) => void;
   onViewModeChange?: (mode: "list" | "kanban" | "calendar") => void;
+  onScrollOffset?: (scrollTop: number) => void;
 }
 
 function isDateOnDay(value: string | null | undefined, day: Date) {
@@ -291,6 +292,7 @@ export function TaskCalendarView({
   taskTypes = [],
   onEditTask,
   onViewModeChange,
+  onScrollOffset,
 }: TaskCalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -615,7 +617,14 @@ export function TaskCalendarView({
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+        <div
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4"
+          onScroll={
+            onScrollOffset
+              ? (event) => onScrollOffset(event.currentTarget.scrollTop)
+              : undefined
+          }
+        >
           <div className="rounded-2xl bg-slate-50/90 p-3 ring-1 ring-slate-200/70">
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-caption font-semibold tracking-wide text-slate-500 uppercase">

@@ -49,6 +49,10 @@ interface TaskListViewProps {
   onTaskUpdated: (task: Task) => void;
   onSaved: () => void;
   focusCreateTrigger?: number;
+  onScrollOffset?: (scrollTop: number) => void;
+  /** When true, list grows with content and parent owns vertical scrolling. */
+  embedInParentScroll?: boolean;
+  stickyHeaderOffset?: number;
 }
 
 type TimelineDraft = {
@@ -81,7 +85,6 @@ const emptyTimelineDraft = (): TimelineDraft => ({
   clearPrd: false,
 });
 
-const stickyHead = "sticky top-0 z-30 bg-slate-50";
 /** Fixed widths so sticky `left` offsets stay aligned (checkbox 2.5rem + priority 4rem). */
 const stickyCheckbox = "sticky left-0 z-10 w-10 min-w-10 max-w-10";
 const stickyPriority = "sticky left-10 z-10 w-16 min-w-16 max-w-16";
@@ -99,7 +102,11 @@ export function TaskListView({
   onTaskUpdated,
   onSaved,
   focusCreateTrigger = 0,
+  onScrollOffset,
+  embedInParentScroll = false,
+  stickyHeaderOffset = 0,
 }: TaskListViewProps) {
+  const stickyHead = "sticky top-[var(--list-sticky-top,0px)] z-30 bg-slate-50";
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paintDelays, setPaintDelays] = useState<Map<string, number>>(
     () => new Map(),
@@ -425,7 +432,21 @@ export function TaskListView({
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div
+      className={cn(
+        "relative flex flex-col rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        embedInParentScroll
+          ? "overflow-visible"
+          : "h-full min-h-0 overflow-hidden",
+      )}
+      style={
+        {
+          ["--list-sticky-top" as string]: embedInParentScroll
+            ? `${stickyHeaderOffset}px`
+            : "0px",
+        } as CSSProperties
+      }
+    >
       {busy ? (
         <LoadingOverlay
           label={busyLabel}
@@ -447,9 +468,18 @@ export function TaskListView({
 
       <div
         className={cn(
-          "min-h-0 flex-1 overflow-auto overscroll-contain",
+          // overflow-y-clip keeps horizontal scroll without creating a new
+          // vertical scrollport (overflow-x-auto + visible would compute to auto).
+          embedInParentScroll
+            ? "overflow-x-auto overflow-y-clip"
+            : "min-h-0 flex-1 overflow-auto overscroll-contain",
           selectedCount > 0 && "pb-24",
         )}
+        onScroll={
+          !embedInParentScroll && onScrollOffset
+            ? (event) => onScrollOffset(event.currentTarget.scrollTop)
+            : undefined
+        }
       >
         {tasks.length === 0 ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center p-10 text-center">

@@ -11,6 +11,7 @@ import {
   History,
   LayoutDashboard,
   LayoutGrid,
+  ListTodo,
   Plus,
   Settings2,
 } from "lucide-react";
@@ -511,6 +512,29 @@ function resolvePageTitle(pathname: string) {
   return "TIM TaskManage";
 }
 
+function resolvePageIcon(pathname: string) {
+  const className = "h-4 w-4";
+  if (pathname.startsWith("/dashboard")) {
+    return <LayoutDashboard className={className} />;
+  }
+  if (pathname.startsWith("/projects/manage")) {
+    return <Settings2 className={className} />;
+  }
+  if (pathname.startsWith("/projects")) {
+    return <FolderKanban className={className} />;
+  }
+  if (pathname.startsWith("/tasks")) {
+    return <ListTodo className={className} />;
+  }
+  if (pathname.startsWith("/timeline")) {
+    return <CalendarRange className={className} />;
+  }
+  if (pathname.startsWith("/history")) {
+    return <History className={className} />;
+  }
+  return <FolderKanban className={className} />;
+}
+
 function DesktopTopBar({
   collapsed,
   pageTitle,
@@ -636,6 +660,7 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
             <ShellPageHeaderIcon
               collapsed={collapsed}
               fallbackTitle={pageTitle}
+              fallbackIcon={resolvePageIcon(pathname)}
             />
             <DesktopTopBar collapsed={collapsed} pageTitle={pageTitle} />
           </div>

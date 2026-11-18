@@ -172,13 +172,15 @@ export function PageHeader({
 export function ShellPageHeaderIcon({
   collapsed,
   fallbackTitle,
+  fallbackIcon,
 }: {
   collapsed: boolean;
   fallbackTitle: string;
+  fallbackIcon?: ReactNode;
 }) {
   const shellHeader = useShellHeaderContent();
   const content = shellHeader?.content;
-  const icon = content?.icon;
+  const icon = content?.icon ?? fallbackIcon;
   const title = content?.title ?? fallbackTitle;
   const description = content?.description;
 

@@ -5,6 +5,7 @@ import {
   useEffect,
   useEffectEvent,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -34,7 +35,7 @@ import { ProjectFormDialog } from "@/components/project-form-dialog";
 import { PostReleaseReasonDialog } from "@/components/post-release-reason-dialog";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { LoadingCard, LoadingOverlay } from "@/components/ui/loading";
-import { pageInsetX, pageInsetYHeader, pageInsetYMain } from "@/components/page-layout";
+import { pageInsetX } from "@/components/page-layout";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import { readMemberSession } from "@/lib/current-member";
 import {
@@ -79,6 +80,44 @@ const views: { id: ViewMode; label: string }[] = [
   { id: "kanban", label: "Kanban" },
   { id: "calendar", label: "ปฏิทิน" },
 ];
+
+/** Scroll distance (px) over which the chrome shrinks from expanded → compact. */
+const CHROME_SHRINK_DISTANCE = 96;
+/** How quickly displayed progress catches the scroll target (0–1 per frame). */
+const CHROME_SMOOTHING = 0.22;
+
+const CHROME_PAD = {
+  yExpanded: 0.75,
+  yCompact: 0.5,
+  gapExpanded: 0.75,
+  gapCompact: 0.5,
+  filterMtExpanded: 1,
+  filterMtCompact: 0.5,
+  filterPadExpanded: 0.875,
+  filterPadCompact: 0.5,
+  filterRadiusExpanded: 1,
+  filterRadiusCompact: 0.75,
+  filterRowMtExpanded: 0.5,
+  filterRowMtCompact: 0,
+  mainYExpanded: 1,
+  mainYCompact: 0.625,
+} as const;
+
+function clamp01(value: number) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function lerp(from: number, to: number, t: number) {
+  return from + (to - from) * t;
+}
+
+function easeOutCubic(t: number) {
+  return 1 - (1 - t) ** 3;
+}
+
+function rem(value: number) {
+  return `${value}rem`;
+}
 
 export function TasksPageContent() {
   const router = useRouter();
@@ -133,6 +172,90 @@ export function TasksPageContent() {
   } | null>(null);
   const [postReleaseSaving, setPostReleaseSaving] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [shrinkProgress, setShrinkProgress] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const shrinkRafRef = useRef<number | null>(null);
+  const shrinkTargetRef = useRef(0);
+  const shrinkDisplayRef = useRef(0);
+  const filtersOpenRef = useRef(filtersOpen);
+  const reduceMotionRef = useRef(false);
+  const pageRootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    filtersOpenRef.current = filtersOpen;
+  }, [filtersOpen]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      reduceMotionRef.current = media.matches;
+      setReduceMotion(media.matches);
+    };
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  const runChromeSmoothFrame = useCallback(() => {
+    const target = filtersOpenRef.current ? 0 : shrinkTargetRef.current;
+    const current = shrinkDisplayRef.current;
+    const smoothing = reduceMotionRef.current ? 1 : CHROME_SMOOTHING;
+    const next = current + (target - current) * smoothing;
+
+    if (Math.abs(target - next) < 0.0015) {
+      shrinkDisplayRef.current = target;
+      setShrinkProgress(target);
+      shrinkRafRef.current = null;
+      return;
+    }
+
+    shrinkDisplayRef.current = next;
+    setShrinkProgress(next);
+    shrinkRafRef.current = window.requestAnimationFrame(runChromeSmoothFrame);
+  }, []);
+
+  const enqueueChromeSmooth = useCallback(() => {
+    if (shrinkRafRef.current !== null) return;
+    shrinkRafRef.current = window.requestAnimationFrame(runChromeSmoothFrame);
+  }, [runChromeSmoothFrame]);
+
+  const applyScrollOffset = useCallback(
+    (scrollTop: number) => {
+      if (scrollTop > 12 && filtersOpenRef.current) {
+        filtersOpenRef.current = false;
+        setFiltersOpen(false);
+      }
+      const next = clamp01(scrollTop / CHROME_SHRINK_DISTANCE);
+      shrinkTargetRef.current = next;
+      // Snap quickly in both directions so shrink/expand tracks scroll.
+      if (Math.abs(next - shrinkDisplayRef.current) > 0.2) {
+        shrinkDisplayRef.current = next;
+        setShrinkProgress(next);
+      }
+      enqueueChromeSmooth();
+    },
+    [enqueueChromeSmooth],
+  );
+
+  const handleContentScrollOffset = applyScrollOffset;
+
+  useEffect(() => {
+    enqueueChromeSmooth();
+  }, [filtersOpen, enqueueChromeSmooth]);
+
+  useEffect(() => {
+    shrinkTargetRef.current = 0;
+    shrinkDisplayRef.current = 0;
+    setShrinkProgress(0);
+  }, [view, selectedProjectId]);
+
+  useEffect(() => {
+    return () => {
+      if (shrinkRafRef.current !== null) {
+        window.cancelAnimationFrame(shrinkRafRef.current);
+      }
+    };
+  }, []);
 
   const loadTasks = useCallback(async (projectId: string) => {
     if (!projectId) {
@@ -546,17 +669,71 @@ export function TasksPageContent() {
     );
   }
 
+  // Display progress is already smoothed toward the scroll target.
+  const motionProgress = reduceMotion
+    ? shrinkProgress >= 0.5
+      ? 1
+      : 0
+    : easeOutCubic(shrinkProgress);
+  const chromePadY = rem(
+    lerp(CHROME_PAD.yExpanded, CHROME_PAD.yCompact, motionProgress),
+  );
+  const topRowGap = rem(
+    lerp(CHROME_PAD.gapExpanded, CHROME_PAD.gapCompact, motionProgress),
+  );
+  const filterPanelMt = rem(
+    lerp(CHROME_PAD.filterMtExpanded, CHROME_PAD.filterMtCompact, motionProgress),
+  );
+  const filterPanelPad = rem(
+    lerp(
+      CHROME_PAD.filterPadExpanded,
+      CHROME_PAD.filterPadCompact,
+      motionProgress,
+    ),
+  );
+  const filterPanelRadius = rem(
+    lerp(
+      CHROME_PAD.filterRadiusExpanded,
+      CHROME_PAD.filterRadiusCompact,
+      motionProgress,
+    ),
+  );
+  const filterRowMt = rem(
+    lerp(
+      CHROME_PAD.filterRowMtExpanded,
+      CHROME_PAD.filterRowMtCompact,
+      motionProgress,
+    ),
+  );
+  const filterRowMaxHeight = rem((1 - motionProgress) * 8.5);
+  const toolbarExtraOpacity = 1 - motionProgress;
+  const dashboardMaxHeight = rem((1 - motionProgress) * 9);
+  const mainPadY = rem(
+    lerp(CHROME_PAD.mainYExpanded, CHROME_PAD.mainYCompact, motionProgress),
+  );
+  const fillViewport =
+    view === "kanban" || view === "list" || view === "calendar";
+
   return (
     <AppShell>
       <div
+        ref={pageRootRef}
         className={cn(
-          (view === "kanban" || view === "list" || view === "calendar") &&
-            "flex h-full min-h-0 flex-col overflow-hidden",
+          fillViewport && "flex h-0 min-h-0 flex-1 flex-col overflow-hidden",
         )}
       >
-      <div className="shrink-0 border-b border-slate-200/70 bg-white">
-        <div className={cn("w-full", pageInsetX, pageInsetYHeader)}>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="z-20 shrink-0 border-b border-slate-200/70 bg-white">
+        <div
+          className={cn("w-full", pageInsetX)}
+          style={{
+            paddingTop: chromePadY,
+            paddingBottom: chromePadY,
+          }}
+        >
+          <div
+            className="flex flex-col lg:flex-row lg:items-center lg:justify-between"
+            style={{ gap: topRowGap }}
+          >
             <div className="flex min-w-0 items-center gap-2">
               <Link
                 href="/projects"
@@ -564,7 +741,15 @@ export function TasksPageContent() {
                 title="กลับไปโปรเจกต์ทั้งหมด"
               >
                 <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">โปรเจกต์</span>
+                <span
+                  className="hidden overflow-hidden whitespace-nowrap sm:inline"
+                  style={{
+                    opacity: motionProgress > 0.7 ? 0 : 1,
+                    maxWidth: motionProgress > 0.7 ? 0 : "4.5rem",
+                  }}
+                >
+                  โปรเจกต์
+                </span>
               </Link>
               <div className="min-w-0 lg:hidden">
                 <ProjectSwitcher
@@ -599,7 +784,16 @@ export function TasksPageContent() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div
+                className="flex items-center gap-1 overflow-hidden"
+                style={{
+                  opacity:
+                    motionProgress > 0.92
+                      ? 0
+                      : Math.max(0.45, toolbarExtraOpacity),
+                  maxWidth: motionProgress > 0.92 ? 0 : "20rem",
+                }}
+              >
                 {canCreateOrEditTasks(sessionRole) ? (
                   <Button
                     type="button"
@@ -638,13 +832,28 @@ export function TasksPageContent() {
                   disabled={!selectedProjectId}
                 >
                   <Plus className="h-4 w-4" />
-                  New Task
+                  <span
+                    className="overflow-hidden whitespace-nowrap"
+                    style={{
+                      opacity: motionProgress > 0.72 ? 0 : 1,
+                      maxWidth: motionProgress > 0.72 ? 0 : "6rem",
+                    }}
+                  >
+                    New Task
+                  </span>
                 </Button>
               ) : null}
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-slate-200/70 bg-slate-50/90 p-3 shadow-[0_8px_24px_rgba(15,23,42,0.04)] sm:p-3.5">
+          <div
+            className="border border-slate-200/70 bg-slate-50/90 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+            style={{
+              marginTop: filterPanelMt,
+              padding: filterPanelPad,
+              borderRadius: filterPanelRadius,
+            }}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-0 flex-1 sm:min-w-[14rem] lg:max-w-sm">
                 <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
@@ -665,8 +874,9 @@ export function TasksPageContent() {
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "h-9 shrink-0 rounded-full border-0 bg-white shadow-sm ring-1 ring-slate-200/80 md:hidden",
+                  "h-9 shrink-0 rounded-full border-0 bg-white shadow-sm ring-1 ring-slate-200/80",
                   filtersOpen && "ring-orange-300/70 text-orange-700",
+                  motionProgress < 0.45 && "md:hidden",
                 )}
                 onClick={() => setFiltersOpen((open) => !open)}
                 aria-expanded={filtersOpen}
@@ -680,9 +890,21 @@ export function TasksPageContent() {
             <div
               id="task-filters"
               className={cn(
-                "mt-2 flex w-full flex-wrap items-center gap-2",
+                "flex w-full flex-wrap items-center gap-2 overflow-hidden",
                 filtersOpen ? "flex" : "hidden md:flex",
               )}
+              style={{
+                marginTop: filtersOpen
+                  ? rem(CHROME_PAD.filterRowMtExpanded)
+                  : filterRowMt,
+                maxHeight: filtersOpen ? "40rem" : filterRowMaxHeight,
+                opacity: filtersOpen
+                  ? 1
+                  : Math.max(0, 1 - motionProgress * 1.05),
+                pointerEvents:
+                  filtersOpen || motionProgress < 0.88 ? "auto" : "none",
+              }}
+              aria-hidden={!filtersOpen && motionProgress > 0.9}
             >
               <Select
                 className="h-9 w-[calc(50%-0.25rem)] rounded-full border-0 bg-white py-0 text-sm leading-9 shadow-sm ring-1 ring-slate-200/80 sm:w-36"
@@ -870,10 +1092,12 @@ export function TasksPageContent() {
         className={cn(
           "relative w-full",
           pageInsetX,
-          pageInsetYMain,
-          (view === "kanban" || view === "list" || view === "calendar") &&
-            "flex min-h-0 flex-1 flex-col overflow-hidden",
+          fillViewport && "flex min-h-0 flex-1 flex-col overflow-hidden",
         )}
+        style={{
+          paddingTop: mainPadY,
+          paddingBottom: mainPadY,
+        }}
       >
         {importMessage ? (
           <div
@@ -922,36 +1146,41 @@ export function TasksPageContent() {
           <div
             className={cn(
               "relative min-h-[280px] space-y-4",
-              (view === "kanban" || view === "list" || view === "calendar") &&
-                "flex min-h-0 flex-1 flex-col",
+              fillViewport && "flex min-h-0 flex-1 flex-col",
             )}
           >
             {view !== "calendar" ? (
-              <TaskDashboardBar
-                tasks={tasks}
-                statuses={statuses}
-                overdueActive={filters.overdue === "overdue"}
-                onOverdueClick={() =>
-                  setFilters((current) => ({
-                    ...current,
-                    overdue:
-                      current.overdue === "overdue" ? "" : "overdue",
-                  }))
-                }
-                activeStatusId={filters.statusId}
-                onStatusClick={(statusId) =>
-                  setFilters((current) => ({
-                    ...current,
-                    statusId:
-                      current.statusId === statusId ? "" : statusId,
-                  }))
-                }
-                className={
-                  view === "kanban" || view === "list"
-                    ? "shrink-0"
-                    : undefined
-                }
-              />
+              <div
+                className="shrink-0 overflow-hidden"
+                style={{
+                  maxHeight: dashboardMaxHeight,
+                  opacity: Math.max(0, 1 - motionProgress * 1.05),
+                  marginBottom: rem(Math.max(0, 1 - motionProgress) * 0.75),
+                  pointerEvents: motionProgress > 0.88 ? "none" : "auto",
+                }}
+                aria-hidden={motionProgress > 0.9}
+              >
+                <TaskDashboardBar
+                  tasks={tasks}
+                  statuses={statuses}
+                  overdueActive={filters.overdue === "overdue"}
+                  onOverdueClick={() =>
+                    setFilters((current) => ({
+                      ...current,
+                      overdue:
+                        current.overdue === "overdue" ? "" : "overdue",
+                    }))
+                  }
+                  activeStatusId={filters.statusId}
+                  onStatusClick={(statusId) =>
+                    setFilters((current) => ({
+                      ...current,
+                      statusId:
+                        current.statusId === statusId ? "" : statusId,
+                    }))
+                  }
+                />
+              </div>
             ) : null}
             {tasksLoading ? (
               <LoadingOverlay label="กำลังโหลด task..." />
@@ -970,6 +1199,7 @@ export function TasksPageContent() {
                   onTaskUpdated={handleTaskUpdated}
                   onSaved={handleSaved}
                   focusCreateTrigger={focusCreateTrigger}
+                  onScrollOffset={handleContentScrollOffset}
                 />
               </div>
             ) : view === "kanban" ? (
@@ -981,6 +1211,7 @@ export function TasksPageContent() {
                   onStatusChange={handleStatusChange}
                   onEditTask={openEditTask}
                   onStartCreate={openCreateTask}
+                  onScrollOffset={handleContentScrollOffset}
                 />
               </div>
             ) : (
@@ -990,6 +1221,7 @@ export function TasksPageContent() {
                   taskTypes={taskTypes}
                   onEditTask={openEditTask}
                   onViewModeChange={setView}
+                  onScrollOffset={handleContentScrollOffset}
                 />
               </div>
             )}

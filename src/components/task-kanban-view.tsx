@@ -32,6 +32,7 @@ interface TaskKanbanViewProps {
   onStatusChange: (taskId: string, statusId: string) => void;
   onEditTask: (task: Task) => void;
   onStartCreate?: (statusId: string) => void;
+  onScrollOffset?: (scrollTop: number) => void;
 }
 
 function withAlpha(hex: string, alpha: string) {
@@ -153,6 +154,7 @@ function KanbanColumn({
   onEditTask,
   doneView,
   onDoneViewChange,
+  onScrollOffset,
 }: {
   status: Status;
   tasks: Task[];
@@ -161,6 +163,7 @@ function KanbanColumn({
   onEditTask: (task: Task) => void;
   doneView: DoneViewMode;
   onDoneViewChange: (mode: DoneViewMode) => void;
+  onScrollOffset?: (scrollTop: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id });
   const showDateSummary = isDoneStatus(status) && doneView === "dates";
@@ -246,7 +249,14 @@ function KanbanColumn({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain">
+      <div
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain"
+        onScroll={
+          onScrollOffset
+            ? (event) => onScrollOffset(event.currentTarget.scrollTop)
+            : undefined
+        }
+      >
         {showDateSummary
           ? dateGroups.map(([dateKey, groupTasks]) => (
               <div key={dateKey} className="space-y-1.5">
@@ -289,6 +299,7 @@ export function TaskKanbanView({
   onStatusChange,
   onEditTask,
   onStartCreate,
+  onScrollOffset,
 }: TaskKanbanViewProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [doneView, setDoneView] = useState<DoneViewMode>("dates");
@@ -380,6 +391,7 @@ export function TaskKanbanView({
                 onEditTask={onEditTask}
                 doneView={doneView}
                 onDoneViewChange={handleDoneViewChange}
+                onScrollOffset={onScrollOffset}
               />
             ))}
           </div>
