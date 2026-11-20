@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import {
+  readSelectedProjectId,
+  SELECTED_PROJECT_EVENT,
+} from "@/lib/selected-project";
+import {
   DEFAULT_THEME_ID,
   applyTheme,
   resolveProjectTheme,
@@ -12,11 +16,13 @@ import {
 } from "@/lib/themes";
 import type { ColorTheme, Project } from "@/lib/types";
 
-function isProjectScopedPath(pathname: string) {
+function isPickerPath(pathname: string) {
   return (
-    pathname.startsWith("/tasks") ||
-    pathname.startsWith("/history") ||
-    pathname.startsWith("/timeline")
+    pathname === "/projects" ||
+    pathname.startsWith("/projects/manage") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signin")
   );
 }
 
@@ -35,15 +41,27 @@ function toCustomRecords(themes: ColorTheme[]): CustomThemeRecord[] {
 }
 
 /**
- * Aggregate pages stay on clean white. When a project is in the URL
- * (tasks / history / timeline), apply that project's theme.
+ * Project picker / aggregate pages stay on clean white.
+ * After a project is selected, apply that project's theme across the workspace.
  */
 export function ProjectThemeSync() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const projectId = searchParams.get("project");
+  const urlProjectId = searchParams.get("project");
+  const [storedProjectId, setStoredProjectId] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomThemeRecord[]>([]);
+
+  useEffect(() => {
+    const syncStored = () => setStoredProjectId(readSelectedProjectId());
+    syncStored();
+    window.addEventListener(SELECTED_PROJECT_EVENT, syncStored);
+    window.addEventListener("storage", syncStored);
+    return () => {
+      window.removeEventListener(SELECTED_PROJECT_EVENT, syncStored);
+      window.removeEventListener("storage", syncStored);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +108,15 @@ export function ProjectThemeSync() {
   }, []);
 
   useEffect(() => {
-    if (!isProjectScopedPath(pathname) || !projectId) {
+    const projectId = (urlProjectId?.trim() || storedProjectId.trim()) || "";
+
+    // Picker / overview pages stay neutral until a project workspace is open.
+    if (isPickerPath(pathname) && !urlProjectId) {
+      applyTheme(DEFAULT_THEME_ID, { customThemes });
+      return;
+    }
+
+    if (!projectId) {
       applyTheme(DEFAULT_THEME_ID, { customThemes });
       return;
     }
@@ -101,7 +127,7 @@ export function ProjectThemeSync() {
     applyTheme(resolveProjectTheme(project.theme, customThemes), {
       customThemes,
     });
-  }, [pathname, projectId, projects, customThemes]);
+  }, [pathname, urlProjectId, storedProjectId, projects, customThemes]);
 
   return null;
 }

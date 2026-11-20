@@ -18,6 +18,7 @@ import {
 import { AuthGate } from "@/components/auth-gate";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { ProjectThemeSync } from "@/components/project-theme-sync";
+import { ProjectWorkspaceGate } from "@/components/project-workspace-gate";
 import {
   ShellHeaderProvider,
   ShellPageHeader,
@@ -27,6 +28,11 @@ import { SessionControls, SidebarProfile } from "@/components/session-controls";
 import { fetchJsonArray } from "@/lib/fetch-json";
 import { readMemberSession } from "@/lib/current-member";
 import { canManageProjects } from "@/lib/roles";
+import {
+  readSelectedProjectId,
+  SELECTED_PROJECT_EVENT,
+  writeSelectedProjectId,
+} from "@/lib/selected-project";
 import { themeAccentColor, themeSwatches } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -42,7 +48,13 @@ function projectIconGradient(project?: Project | null) {
 
 const SIDEBAR_COLLAPSED_KEY = "fwf-sidebar-collapsed";
 
-type NavItemId = "dashboard" | "projects" | "timeline" | "history" | "manage";
+type NavItemId =
+  | "dashboard"
+  | "projects"
+  | "tasks"
+  | "timeline"
+  | "history"
+  | "manage";
 
 const navItems: Array<{
   id: NavItemId;
@@ -61,8 +73,13 @@ const navItems: Array<{
     id: "projects",
     label: "โปรเจกต์",
     icon: LayoutGrid,
-    match: (pathname) =>
-      pathname === "/projects" || pathname.startsWith("/tasks"),
+    match: (pathname) => pathname === "/projects",
+  },
+  {
+    id: "tasks",
+    label: "รายการ",
+    icon: ListTodo,
+    match: (pathname) => pathname.startsWith("/tasks"),
   },
   {
     id: "timeline",
@@ -93,7 +110,7 @@ const navGroups: Array<{
   {
     id: "general",
     label: "ทั่วไป",
-    itemIds: ["dashboard", "projects"],
+    itemIds: ["dashboard", "projects", "tasks"],
   },
   {
     id: "track",
@@ -107,24 +124,35 @@ const navGroups: Array<{
   },
 ];
 
-function resolveHref(
-  id: NavItemId,
-  pathname: string,
-  projectId: string | null,
-) {
+function resolveHref(id: NavItemId, projectId: string | null) {
   if (id === "dashboard") return "/dashboard";
   if (id === "manage") return "/projects/manage";
-  if (id === "projects") {
-    if (pathname.startsWith("/tasks") && projectId) {
-      return `/tasks?project=${projectId}`;
-    }
-    if (pathname.startsWith("/tasks")) return "/tasks";
-    return "/projects";
+  // Always open the project picker so users can switch projects anytime.
+  if (id === "projects") return "/projects";
+  if (id === "tasks") {
+    return projectId ? `/tasks?project=${projectId}` : "/projects";
   }
   if (id === "history") {
-    return projectId ? `/history?project=${projectId}` : "/history";
+    return projectId ? `/history?project=${projectId}` : "/projects";
   }
-  return projectId ? `/timeline?project=${projectId}` : "/timeline";
+  return projectId ? `/timeline?project=${projectId}` : "/projects";
+}
+
+function useWorkspaceProjectId(urlProjectId: string | null) {
+  const [storedId, setStoredId] = useState("");
+
+  useEffect(() => {
+    const sync = () => setStoredId(readSelectedProjectId());
+    sync();
+    window.addEventListener(SELECTED_PROJECT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(SELECTED_PROJECT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  return urlProjectId?.trim() || storedId.trim() || null;
 }
 
 function useShowManage() {
@@ -151,7 +179,7 @@ function useCreateAction(showManage: boolean) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const projectId = searchParams.get("project");
+  const projectId = useWorkspaceProjectId(searchParams.get("project"));
 
   return () => {
     if (pathname.startsWith("/tasks") && projectId) {
@@ -286,7 +314,7 @@ function SidebarBrand({
   if (collapsed) {
     return (
       <Link
-        href={projectId ? `/tasks?project=${projectId}` : "/dashboard"}
+        href={projectId ? `/tasks?project=${projectId}` : "/projects"}
         className="flex justify-center"
         title={selectedProject?.name ?? "TIM TaskManage"}
       >
@@ -306,45 +334,35 @@ function SidebarBrand({
     );
   }
 
-  if (selectedProject) {
-    return (
-      <div className="flex min-w-0 flex-1 items-start gap-2 px-0.5">
-        <span
-          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]"
-          style={{ backgroundImage: iconGradient }}
-        >
-          <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
-        </span>
+  return (
+    <div className="flex min-w-0 flex-1 items-start gap-2 px-0.5">
+      <Link
+        href={selectedProject ? `/tasks?project=${selectedProject.id}` : "/projects"}
+        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]"
+        style={{ backgroundImage: iconGradient }}
+        title={selectedProject?.name ?? "เลือกโปรเจกต์"}
+      >
+        <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
+      </Link>
+      {projects.length > 0 ? (
         <ProjectSwitcher
           variant="sidebar"
           className="min-w-0 flex-1"
           projects={projects}
-          selectedProjectId={selectedProject.id}
+          selectedProjectId={selectedProject?.id ?? ""}
           onSelect={onSelectProject}
         />
-      </div>
-    );
-  }
-
-  return (
-    <Link
-      href="/dashboard"
-      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-1.5 py-0.5"
-      title="TIM TaskManage"
-    >
-      <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-[0_8px_20px_rgba(15,23,42,0.2)]"
-        style={{ backgroundImage: projectIconGradient(null) }}
-      >
-        <FolderKanban className="h-[1.125rem] w-[1.125rem]" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
-          TIM TaskManage
-        </span>
-        <span className="block text-[11px] text-slate-500">Workspace</span>
-      </span>
-    </Link>
+      ) : (
+        <Link href="/projects" className="min-w-0 flex-1 px-1.5 py-0.5">
+          <span className="block truncate text-sm font-bold tracking-tight text-slate-900">
+            เลือกโปรเจกต์
+          </span>
+          <span className="block text-[11px] text-slate-500">
+            เพื่อเริ่มใช้งาน
+          </span>
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -360,21 +378,26 @@ function DesktopSidebar({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const projectId = searchParams.get("project");
+  const projectId = useWorkspaceProjectId(searchParams.get("project"));
   const toggle = onToggleCollapsed;
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    fetchJsonArray<Project>("/api/projects")
-      .then((data) => {
-        if (!cancelled) setProjects(data);
-      })
-      .catch(() => {
-        if (!cancelled) setProjects([]);
-      });
+    function loadProjects() {
+      fetchJsonArray<Project>("/api/projects")
+        .then((data) => {
+          if (!cancelled) setProjects(data);
+        })
+        .catch(() => {
+          if (!cancelled) setProjects([]);
+        });
+    }
+    loadProjects();
+    window.addEventListener("fwf-projects-changed", loadProjects);
     return () => {
       cancelled = true;
+      window.removeEventListener("fwf-projects-changed", loadProjects);
     };
   }, []);
 
@@ -408,6 +431,7 @@ function DesktopSidebar({
             projects={projects}
             projectId={projectId}
             onSelectProject={(id) => {
+              writeSelectedProjectId(id);
               if (pathname.startsWith("/timeline")) {
                 router.push(`/timeline?project=${id}`);
               } else if (pathname.startsWith("/history")) {
@@ -477,7 +501,7 @@ function DesktopSidebar({
                     return (
                       <NavLink
                         key={item.id}
-                        href={resolveHref(item.id, pathname, projectId)}
+                        href={resolveHref(item.id, projectId)}
                         label={item.label}
                         active={item.match(pathname)}
                         orientation="side"
@@ -505,8 +529,8 @@ function DesktopSidebar({
 function resolvePageTitle(pathname: string) {
   if (pathname.startsWith("/dashboard")) return "Dashboard";
   if (pathname.startsWith("/projects/manage")) return "จัดการโปรเจกต์";
-  if (pathname.startsWith("/projects")) return "โปรเจกต์ทั้งหมด";
-  if (pathname.startsWith("/tasks")) return "Tasks";
+  if (pathname.startsWith("/projects")) return "เลือกโปรเจกต์";
+  if (pathname.startsWith("/tasks")) return "รายการ";
   if (pathname.startsWith("/timeline")) return "สรุป Timeline";
   if (pathname.startsWith("/history")) return "ประวัติ Task";
   return "TIM TaskManage";
@@ -570,7 +594,7 @@ function MobileTopBar() {
 function MobileDock({ showManage }: { showManage: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const projectId = searchParams.get("project");
+  const projectId = useWorkspaceProjectId(searchParams.get("project"));
   const handleCreate = useCreateAction(showManage);
   const dockItems = navItems.filter(
     (item) => item.id !== "manage" || showManage,
@@ -589,7 +613,7 @@ function MobileDock({ showManage }: { showManage: boolean }) {
           return (
             <NavLink
               key={item.id}
-              href={resolveHref(item.id, pathname, projectId)}
+              href={resolveHref(item.id, projectId)}
               label={item.label}
               active={item.match(pathname)}
               orientation="dock"
@@ -617,7 +641,7 @@ function MobileDock({ showManage }: { showManage: boolean }) {
           return (
             <NavLink
               key={item.id}
-              href={resolveHref(item.id, pathname, projectId)}
+              href={resolveHref(item.id, projectId)}
               label={item.label}
               active={item.match(pathname)}
               orientation="dock"
@@ -691,9 +715,11 @@ function ShellChrome({ children }: { children: React.ReactNode }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthGate>
-      <ShellHeaderProvider>
-        <ShellChrome>{children}</ShellChrome>
-      </ShellHeaderProvider>
+      <ProjectWorkspaceGate>
+        <ShellHeaderProvider>
+          <ShellChrome>{children}</ShellChrome>
+        </ShellHeaderProvider>
+      </ProjectWorkspaceGate>
     </AuthGate>
   );
 }

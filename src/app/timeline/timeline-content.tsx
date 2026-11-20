@@ -25,6 +25,7 @@ import type {
   TaskTypeOption,
   TeamMember,
 } from "@/lib/types";
+import { writeSelectedProjectId } from "@/lib/selected-project";
 import { useAfterPaint } from "@/lib/use-after-paint";
 import { cn } from "@/lib/utils";
 
@@ -177,11 +178,15 @@ export default function TimelinePageContent() {
 
   function handleProjectFilterChange(value: string) {
     setProjectFilter(value);
+    if (!value) {
+      writeSelectedProjectId(null);
+      router.replace("/projects");
+      return;
+    }
+    writeSelectedProjectId(value);
     const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set("project", value);
-    else params.delete("project");
-    const query = params.toString();
-    router.replace(query ? `/timeline?${query}` : "/timeline");
+    params.set("project", value);
+    router.replace(`/timeline?${params.toString()}`);
   }
 
   const scopedTasks = useMemo(() => {

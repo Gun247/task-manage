@@ -9,6 +9,7 @@ import {
   writeMemberSession,
   type MemberSession,
 } from "@/lib/current-member";
+import { writeSelectedProjectId } from "@/lib/selected-project";
 import { ROLE_LABELS } from "@/lib/roles";
 import type { AppNotification } from "@/lib/types";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -65,6 +66,7 @@ function useSessionNotifications() {
 
   function handleLogout() {
     writeMemberSession(null);
+    writeSelectedProjectId(null);
     setNotifyOpen(false);
     setMenuOpen(false);
     router.push("/login");

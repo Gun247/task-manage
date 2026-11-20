@@ -12,7 +12,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const session = readMemberSession();
     if (!session) {
-      const next = encodeURIComponent(pathname || "/dashboard");
+      const next = encodeURIComponent(pathname || "/projects");
       router.replace(`/signin?next=${next}`);
       return;
     }

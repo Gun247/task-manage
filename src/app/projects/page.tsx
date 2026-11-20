@@ -49,8 +49,8 @@ export default function ProjectsPage() {
     <AppShell>
       <PageHeader
         icon={<FolderKanban className="h-4 w-4" />}
-        title="โปรเจกต์ทั้งหมด"
-        description="เลือกโปรเจกต์เพื่อดูและจัดการ task"
+        title="เลือกโปรเจกต์"
+        description="ล็อกอินแล้วเลือกโปรเจกต์ก่อนใช้งาน — ธีมและการตั้งค่าจะตามโปรเจกต์ที่เลือก"
         actions={
           <Button
             type="button"

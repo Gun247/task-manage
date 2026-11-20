@@ -29,6 +29,8 @@ import { Input, Label } from "@/components/ui/input";
 import { LoadingButtonContent } from "@/components/ui/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeManager } from "@/components/theme-manager";
+import { ProjectThemeField } from "@/components/theme-picker";
+import { DEFAULT_THEME_ID, themeAccentColor } from "@/lib/themes";
 import type {
   Priority,
   Project,
@@ -254,6 +256,8 @@ export function SettingsDialog({
   const [wipModify, setWipModify] = useState("");
   const [wipHold, setWipHold] = useState("");
   const [savingWip, setSavingWip] = useState(false);
+  const [projectTheme, setProjectTheme] = useState(DEFAULT_THEME_ID);
+  const [savingTheme, setSavingTheme] = useState(false);
 
   useEffect(() => {
     setOrderedStatuses(statuses);
@@ -287,6 +291,7 @@ export function SettingsDialog({
     setWipHold(
       limits[HOLD_STATUS_NAME] ? String(limits[HOLD_STATUS_NAME]) : "",
     );
+    setProjectTheme(project?.theme || DEFAULT_THEME_ID);
   }, [open, project]);
 
   const sensors = useSensors(
@@ -560,13 +565,45 @@ export function SettingsDialog({
     }
   }
 
+  async function saveProjectTheme(themeId: string) {
+    if (!project || savingTheme) return;
+    setProjectTheme(themeId);
+    setSavingTheme(true);
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          theme: themeId,
+          color: themeAccentColor(themeId),
+        }),
+      });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        window.alert(data?.error ?? "บันทึกธีมโปรเจกต์ไม่สำเร็จ");
+        setProjectTheme(project.theme || DEFAULT_THEME_ID);
+        return;
+      }
+      onChanged();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("fwf-projects-changed"));
+      }
+    } finally {
+      setSavingTheme(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[min(92dvh,720px)] max-w-2xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="mb-0 shrink-0 border-b border-slate-100 px-4 py-4 pr-12 sm:px-6">
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            จัดการสถานะ ทีม Task Type priority ธีมสี และ WIP
+            {project
+              ? `ตั้งค่าโปรเจกต์ ${project.name} — ธีมและ WIP ตามโปรเจกต์นี้`
+              : "จัดการสถานะ ทีม Task Type priority ธีมสี และ WIP"}
           </DialogDescription>
         </DialogHeader>
 
@@ -1073,7 +1110,45 @@ export function SettingsDialog({
             value="themes"
             className="mt-0 min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 data-[state=active]:block"
           >
-            {activeTab === "themes" ? <ThemeManager key="theme-manager" /> : null}
+            {activeTab === "themes" ? (
+              <div className="space-y-6">
+                {project ? (
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">
+                        ธีมของโปรเจกต์ · {project.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        เลือกแล้วจะใช้ทันทีในหน้า tasks / timeline / history
+                        ของโปรเจกต์นี้
+                      </p>
+                    </div>
+                    <ProjectThemeField
+                      value={projectTheme}
+                      onChange={(themeId) => void saveProjectTheme(themeId)}
+                    />
+                    {savingTheme ? (
+                      <p className="text-xs text-slate-500">กำลังบันทึกธีม...</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+                    <p className="text-sm font-medium text-slate-700">
+                      ยังไม่ได้เลือกโปรเจกต์
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      เปิด Settings จากโปรเจกต์เพื่อเลือกธีมของโปรเจกต์นั้น
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="mb-3 text-sm font-medium text-slate-800">
+                    คลังธีมสี (ใช้ร่วมทั้งระบบ)
+                  </p>
+                  <ThemeManager key="theme-manager" />
+                </div>
+              </div>
+            ) : null}
           </TabsContent>
 
           <TabsContent

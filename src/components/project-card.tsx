@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, ClipboardList } from "lucide-react";
 import { ThemeSwatches } from "@/components/theme-picker";
 import { displayProjectDescription } from "@/lib/project-display";
+import { writeSelectedProjectId } from "@/lib/selected-project";
 import { themeLabel, themeSwatches } from "@/lib/themes";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -65,6 +68,7 @@ export function ProjectCard({
             ) : null}
             <Link
               href={`/tasks?project=${project.id}`}
+              onClick={() => writeSelectedProjectId(project.id)}
               className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:brightness-110"
               style={{ backgroundColor: accent }}
             >

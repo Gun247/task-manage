@@ -71,6 +71,10 @@ import type {
   ViewMode,
 } from "@/lib/types";
 import { displayProjectDescription } from "@/lib/project-display";
+import {
+  readSelectedProjectId,
+  writeSelectedProjectId,
+} from "@/lib/selected-project";
 import { cn, isTaskOverdue, taskMatchesDateFilter } from "@/lib/utils";
 
 type FilterScope = "" | "postRelease" | "rework";
@@ -326,19 +330,33 @@ export function TasksPageContent() {
 
   useEffect(() => {
     loadData().then((projectsData) => {
-      if (projectsData.length === 0) return;
+      if (projectsData.length === 0) {
+        setSelectedProjectId("");
+        return;
+      }
 
+      const storedId = readSelectedProjectId();
       const urlProjectExists = projectsData.some(
         (project) => project.id === projectFromUrl,
+      );
+      const storedExists = projectsData.some(
+        (project) => project.id === storedId,
       );
 
       if (urlProjectExists && projectFromUrl) {
         setSelectedProjectId(projectFromUrl);
-      } else {
-        setSelectedProjectId(projectsData[0].id);
+        writeSelectedProjectId(projectFromUrl);
+        return;
       }
+
+      if (storedExists) {
+        setSelectedProjectId(storedId);
+        return;
+      }
+
+      router.replace("/projects");
     });
-  }, [loadData, projectFromUrl]);
+  }, [loadData, projectFromUrl, router]);
 
   const loadSavedFilters = useCallback(async (projectId: string) => {
     if (!projectId) {
@@ -360,11 +378,11 @@ export function TasksPageContent() {
   }, []);
 
   useEffect(() => {
-    if (selectedProjectId) {
-      loadTasks(selectedProjectId);
-      void loadSavedFilters(selectedProjectId);
-      router.replace(`/tasks?project=${selectedProjectId}`, { scroll: false });
-    }
+    if (!selectedProjectId) return;
+    writeSelectedProjectId(selectedProjectId);
+    loadTasks(selectedProjectId);
+    void loadSavedFilters(selectedProjectId);
+    router.replace(`/tasks?project=${selectedProjectId}`, { scroll: false });
   }, [selectedProjectId, loadTasks, loadSavedFilters, router]);
 
   const selectedProject = useMemo(

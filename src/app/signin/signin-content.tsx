@@ -16,7 +16,7 @@ import {
 export function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/dashboard";
+  const nextPath = searchParams.get("next") || "/projects";
   const [employeeId, setEmployeeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,7 @@ export function SignInPageContent() {
   useEffect(() => {
     const session = readMemberSession();
     if (session) {
-      router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard");
+      router.replace(nextPath.startsWith("/") ? nextPath : "/projects");
       return;
     }
     setChecking(false);
@@ -58,7 +58,7 @@ export function SignInPageContent() {
         role: data.role,
         color: data.color,
       });
-      router.replace(nextPath.startsWith("/") ? nextPath : "/dashboard");
+      router.replace(nextPath.startsWith("/") ? nextPath : "/projects");
     } finally {
       setLoading(false);
     }
